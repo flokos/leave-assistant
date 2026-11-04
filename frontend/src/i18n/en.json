@@ -1,0 +1,14 @@
+{
+  "app": { "title": "Leave Assistant", "language": "Language" },
+  "system": {
+    "title": "System status",
+    "liveness": "API liveness",
+    "readiness": "Readiness checks",
+    "ok": "OK",
+    "failed": "Failed",
+    "loading": "Checking…",
+    "unreachable": "The API is not reachable.",
+    "version": "Version",
+    "environment": "Environment"
+  }
+}

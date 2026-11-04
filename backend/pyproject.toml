@@ -1,0 +1,157 @@
+[project]
+name = "leave-assistant"
+version = "0.1.0"
+description = "Enterprise Leave Management AI Assistant — backend (API, LangGraph agent, worker)"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  # web / API
+  "fastapi",
+  "uvicorn[standard]",
+  "sse-starlette",
+  "pydantic>=2",
+  "pydantic-settings",
+  # data
+  "sqlalchemy[asyncio,postgresql-psycopg]>=2.1",
+  "alembic",
+  "psycopg[binary,pool]",
+  "pgvector",
+  # infrastructure clients
+  "pyjwt[crypto]",
+  "httpx",
+  "boto3",
+  "cryptography",
+  "structlog",
+  "tenacity",
+  "google-api-python-client",
+  "google-auth",
+  "google-auth-oauthlib",
+  # agent
+  "langgraph>=1.2",
+  "langgraph-checkpoint-postgres",
+  "langchain-core>=1",
+  "langchain-google-genai>=4.4",   # explicit lower bound: unconstrained resolution settles on 3.x (doc 02 §9)
+  "langchain-groq",
+  "langfuse",
+  # ML (transformers<4.58 ceiling comes from docling-ibm-models / optimum-onnx — doc 02 §9)
+  "sentence-transformers",
+  "torch",
+  "torchvision",                    # direct dependency so tool.uv.sources applies (CPU index) — doc 02 §9
+  "docling",
+  "spacy",
+  "presidio-analyzer>=2.2.366",     # explicit lower bound (numpy<2.5 window) — doc 02 §9
+  "presidio-anonymizer",
+  "lingua-language-detector",
+  "el-core-news-md",
+  "en-core-web-lg",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "hypothesis",
+  "respx",
+  "freezegun",
+  "import-linter",
+  "ruff",
+  "mypy",
+  "pip-audit",
+]
+chroma = ["chromadb"]                     # eval profile client (ADR-0011)
+onnx = ["sentence-transformers[onnx]"]    # optional int8 reranker export (ADR-0014)
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+el-core-news-md = { url = "https://github.com/explosion/spacy-models/releases/download/el_core_news_md-3.8.0/el_core_news_md-3.8.0-py3-none-any.whl" }
+en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "leave_assistant"
+module-root = "src"
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "T20"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+
+[tool.mypy]
+python_version = "3.14"
+packages = ["leave_assistant"]
+mypy_path = "src"
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["leave_assistant.domain.*", "leave_assistant.application.*"]
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --cov=leave_assistant --cov-report=term-missing"
+filterwarnings = ["error::DeprecationWarning:leave_assistant.*"]
+
+[tool.coverage.run]
+source = ["leave_assistant"]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+
+# --- import-linter: the layering rules of doc 03 §4.2 (ADR-0002) ---
+[tool.importlinter]
+root_package = "leave_assistant"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: api -> application -> domain"
+type = "layers"
+layers = ["leave_assistant.api", "leave_assistant.application", "leave_assistant.domain"]
+
+[[tool.importlinter.contracts]]
+name = "domain is pure Python"
+type = "forbidden"
+source_modules = ["leave_assistant.domain"]
+forbidden_modules = [
+  "leave_assistant.application", "leave_assistant.infrastructure", "leave_assistant.api",
+  "leave_assistant.agent", "leave_assistant.worker",
+  "fastapi", "starlette", "sqlalchemy", "psycopg", "boto3", "httpx", "langgraph", "langchain_core",
+]
+
+[[tool.importlinter.contracts]]
+name = "application depends on domain and ports only"
+type = "forbidden"
+source_modules = ["leave_assistant.application"]
+forbidden_modules = [
+  "leave_assistant.infrastructure", "leave_assistant.api", "leave_assistant.agent", "leave_assistant.worker",
+  "fastapi", "starlette", "sqlalchemy", "psycopg", "boto3", "langgraph", "langchain_core",
+]
+
+[[tool.importlinter.contracts]]
+name = "api never imports infrastructure adapters directly"
+type = "forbidden"
+source_modules = ["leave_assistant.api"]
+forbidden_modules = ["leave_assistant.infrastructure", "leave_assistant.agent", "leave_assistant.worker"]

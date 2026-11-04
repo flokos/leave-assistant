@@ -43,6 +43,14 @@ Deliverable 18 (documentation structure) is this file plus the
 - Nothing here claims that any code, test or measurement exists yet. Sections that must be
   filled with real results during implementation are marked **[to be filled during Mx]**.
 
+## Live documents (implementation phase)
+
+| Document | Purpose |
+|----------|---------|
+| [operations/installation.md](operations/installation.md) | Prerequisites, first start, profiles, low-memory start-up, troubleshooting |
+| [development/process.md](development/process.md) | Methodology, AI-assisted process, definition of done, conventions |
+| [development/worklog/](development/worklog/) | One entry per milestone: what was built, measurements, problems, changes versus the plan |
+
 ## Documentation plan for the implementation phase
 
 The brief (§13) requires documentation to remain a first-class deliverable. The structure below

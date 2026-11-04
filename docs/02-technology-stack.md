@@ -182,6 +182,18 @@ one-line change if Gemini quotas prove unusable (decided Q-04 — no paid tier).
 | clickhouse | 1–2 GB practical (official guidance higher) | 2.5 GB | |
 | valkey | 30–80 MB | 256 MB | |
 
+### 10.1a Measured at M0 (core profile, idle, no ML models loaded yet — 2026-11-04, reference machine)
+| Container | Measured RSS | Note |
+|-----------|--------------|------|
+| postgres | 19–61 MiB | 61 MiB right after init, ~28 MiB idle |
+| keycloak | 210–499 MiB | 499 MiB during start-up (109 s to healthy), 210–304 MiB settled |
+| seaweedfs | 11–34 MiB | |
+| mailpit | 5–8 MiB | |
+| api (embedded worker, no models) | 89 MiB | healthy 29 s after start; 8 s after a restart |
+| worker (separate container, idle) | 32 MiB | |
+| frontend (nginx) | 5 MiB | |
+| **core total (idle)** | **≈ 0.4 GB** | the estimates above apply once embedding/reranker/Docling models are resident (M4–M6) |
+
 ### 10.2 Totals and host recommendations
 | Profiles | Estimated RAM | Host |
 |----------|---------------|------|

@@ -29,7 +29,7 @@ flowchart LR
 
 ## 2. Milestones
 
-### M0 — Foundation (S)
+### M0 — Foundation (S) — **done 2026-11-04** (worklog: `docs/development/worklog/M0.md`)
 Goal: a reproducible skeleton that builds, lints and runs the core infrastructure.
 - Repo layout (doc 03 §4.1), `backend/pyproject.toml` with the cross-validated pins (doc 02 §9) and `uv.lock`;
   Python 3.14 base image; `frontend/` Vite + TS + Ant Design scaffold; `deploy/compose.yaml` with profiles and

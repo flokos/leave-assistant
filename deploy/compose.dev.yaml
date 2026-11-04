@@ -1,0 +1,11 @@
+# Development overrides: docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml --profile core up
+services:
+  api:
+    command: ["uvicorn", "leave_assistant.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+    volumes:
+      - ../backend/src:/app/src:ro
+    ports:
+      - "${API_PORT:-8000}:8000"
+  worker:
+    volumes:
+      - ../backend/src:/app/src:ro
