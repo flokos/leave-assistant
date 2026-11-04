@@ -37,7 +37,9 @@ class Settings(BaseSettings):
     worker_mode: Literal["separate", "embedded"] = "separate"
     worker_poll_interval_seconds: float = 5.0
     worker_heartbeat_path: str = "/tmp/leave-assistant-worker.heartbeat"  # noqa: S108 - container-local file
-    readiness_timeout_seconds: float = 5.0  # per dependency check; Keycloak's first response after start can be slow
+    readiness_timeout_seconds: float = (
+        5.0  # per dependency check; Keycloak's first response after start can be slow
+    )
 
     # Feature flags — doc 03 §7
     retrieval_backend: Literal["pgvector", "chroma"] = "pgvector"
