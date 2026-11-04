@@ -1,0 +1,28 @@
+# environment / secrets
+.env
+deploy/.env
+*.pem
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+# node
+node_modules/
+frontend/dist/
+# data / models
+models/
+data/
+# tooling artefacts
+.playwright-mcp/
+.idea/
+.vscode/
+*.swp
+.DS_Store
