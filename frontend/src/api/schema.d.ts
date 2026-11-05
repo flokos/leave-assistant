@@ -546,6 +546,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chat/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Conversations */
+        get: operations["list_conversations_api_v1_chat_conversations_get"];
+        put?: never;
+        /** Create Conversation */
+        post: operations["create_conversation_api_v1_chat_conversations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Conversation */
+        get: operations["get_conversation_api_v1_chat_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        /** Archive Conversation */
+        delete: operations["archive_conversation_api_v1_chat_conversations__conversation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/conversations/{conversation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Messages */
+        get: operations["list_messages_api_v1_chat_conversations__conversation_id__messages_get"];
+        put?: never;
+        /** Send Message */
+        post: operations["send_message_api_v1_chat_conversations__conversation_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents": {
         parameters: {
             query?: never;
@@ -1471,6 +1525,34 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** CitationItem */
+        CitationItem: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Heading Path */
+            heading_path: string[];
+            /** N */
+            n: number;
+            /** Page */
+            page: number | null;
+            /** Title */
+            title: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+            /** Version No */
+            version_no: number;
+        };
         /** CitationOut */
         CitationOut: {
             /** Category */
@@ -1506,6 +1588,26 @@ export interface components {
             version_id: string;
             /** Version No */
             version_no: number;
+        };
+        /** ConversationOut */
+        ConversationOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Activity At
+             * Format: date-time
+             */
+            last_activity_at: string;
+            /** Title */
+            title: string;
         };
         /** DecisionIn */
         DecisionIn: {
@@ -2198,6 +2300,27 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** MessageOut */
+        MessageOut: {
+            /** Citations */
+            citations: components["schemas"]["CitationItem"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Outcome */
+            outcome: string | null;
+            /** Role */
+            role: string;
+            /** Text */
+            text: string;
+        };
         /** ModifyRequestIn */
         ModifyRequestIn: {
             /**
@@ -2244,6 +2367,13 @@ export interface components {
         PageOut_AuditEntryOut_: {
             /** Items */
             items: components["schemas"]["AuditEntryOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** PageOut[ConversationOut] */
+        PageOut_ConversationOut_: {
+            /** Items */
+            items: components["schemas"]["ConversationOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
         };
@@ -2815,6 +2945,11 @@ export interface components {
             risk_medium_max?: number | null;
             /** User Input Block Threshold */
             user_input_block_threshold?: number | null;
+        };
+        /** SendMessageIn */
+        SendMessageIn: {
+            /** Text */
+            text: string;
         };
         /** SimulateIn */
         SimulateIn: {
@@ -4756,6 +4891,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaveRequestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_v1_chat_conversations_get: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageOut_ConversationOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_conversation_api_v1_chat_conversations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationOut"];
+                };
+            };
+        };
+    };
+    get_conversation_api_v1_chat_conversations__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_conversation_api_v1_chat_conversations__conversation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_chat_conversations__conversation_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_api_v1_chat_conversations__conversation_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageIn"];
+            };
+        };
+        responses: {
+            /** @description SSE stream (doc 09 §3) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example event: token
+                     *     data: {"text": "Κάθε εργαζόμενος δικαιούται"}
+                     */
+                    "text/event-stream": string;
                 };
             };
             /** @description Validation Error */

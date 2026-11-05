@@ -130,6 +130,8 @@ Node 24 LTS (host Node 22.22 also satisfies Vite) · Vite 8.3.x · React 19.2.x 
 - Tool use (official page): `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `openai/gpt-oss-120b/20b`, `qwen/qwen3.8-27b`,
   `minimaxai/minimax-m2.7`, `meta-models/muse-spark-open`; JSON mode on all; parallel tool calls not on gpt-oss.
 - Proposed defaults: `GROQ_MODEL=llama-3.3-70b-versatile`, `GROQ_MODEL_FALLBACK=openai/gpt-oss-120b`.
+  M6 implemented two roles instead: `GROQ_MODEL_FAST=llama-3.1-8b-instant` (classify, condense, summarise) and
+  `GROQ_MODEL=llama-3.3-70b-versatile` (answers); `openai/gpt-oss-120b` stays a configuration option (worklog M6).
 - Consequence of 8–12K TPM caps: hard 3,500-token input budget per call (doc 04 §8).
 
 ### 7.3 Provider policy

@@ -1,0 +1,200 @@
+import { DeleteOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons'
+import { Alert, Button, Card, Empty, Input, List, Popconfirm, Space, Tag, Typography } from 'antd'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
+import { describeError } from '../../shared/errors'
+import { PageHeader } from '../../shared/PageHeader'
+import { ProblemAlert } from '../../shared/ProblemAlert'
+import { type CitationItem, type MessageOut, useArchiveConversation, useConversations, useCreateConversation, useMessages } from './api'
+import { CitationDrawer } from './CitationDrawer'
+import { streamMessage } from './sse'
+
+interface Pending {
+  user: string
+  text: string
+  stage: string | null
+  citations: CitationItem[]
+  outcome: string | null
+  error: string | null
+}
+
+const OUTCOME_COLORS: Record<string, string> = { insufficient_evidence: 'gold', blocked: 'red', clarify: 'blue', scope: 'default' }
+
+/** Answer text with [n] markers turned into buttons that open the cited chunk. */
+function AnswerText({ text, citations, onCite }: { text: string; citations: CitationItem[]; onCite: (chunkId: string) => void }) {
+  const parts: ReactNode[] = []
+  let last = 0
+  for (const match of text.matchAll(/\[(\d{1,2})\]/g)) {
+    const n = Number(match[1])
+    const citation = citations.find((c) => c.n === n)
+    parts.push(text.slice(last, match.index))
+    parts.push(
+      citation ? (
+        <a key={`${match.index}-${n}`} onClick={() => onCite(citation.chunk_id)} data-testid={`cite-${n}`}>
+          <sup>[{n}]</sup>
+        </a>
+      ) : (
+        match[0]
+      ),
+    )
+    last = (match.index ?? 0) + match[0].length
+  }
+  parts.push(text.slice(last))
+  return <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>{parts}</Typography.Paragraph>
+}
+
+function Sources({ citations, onCite }: { citations: CitationItem[]; onCite: (chunkId: string) => void }) {
+  const { t } = useTranslation()
+  if (!citations.length) return null
+  return (
+    <Space wrap size={4} data-testid="sources">
+      <Typography.Text type="secondary">{t('chat.sources')}:</Typography.Text>
+      {citations.map((c) => (
+        <Tag key={c.n} style={{ cursor: 'pointer' }} onClick={() => onCite(c.chunk_id)}>
+          [{c.n}] {c.title}
+          {c.heading_path.length > 1 ? ` › ${c.heading_path[c.heading_path.length - 1]}` : ''}
+          {c.page ? ` · ${t('documents.page', { page: c.page })}` : ''}
+        </Tag>
+      ))}
+    </Space>
+  )
+}
+
+function Bubble({ role, children }: { role: string; children: ReactNode }) {
+  const mine = role === 'user'
+  return (
+    <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', margin: '8px 0' }} data-testid={`message-${role}`}>
+      <div style={{ maxWidth: '78%', padding: '8px 12px', borderRadius: 10, background: mine ? '#e6f4ff' : '#fafafa', border: '1px solid #f0f0f0' }}>{children}</div>
+    </div>
+  )
+}
+
+export default function ChatPage() {
+  const { t } = useTranslation()
+  const client = useQueryClient()
+  const conversations = useConversations()
+  const create = useCreateConversation()
+  const archive = useArchiveConversation()
+  const [selected, setSelected] = useState<string | null>(null)
+  const messages = useMessages(selected)
+  const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [citation, setCitation] = useState<string | null>(null)
+  const bottom = useRef<HTMLDivElement>(null)
+  const busy = pending !== null && pending.outcome === null && pending.error === null
+
+  useEffect(() => {
+    if (!selected && conversations.data?.items.length) setSelected(conversations.data.items[0].id)
+  }, [conversations.data, selected])
+  useEffect(() => {
+    // a block body on purpose: newer browsers return a Promise from scrollIntoView, which React would call as cleanup
+    void bottom.current?.scrollIntoView?.({ block: 'end' })
+  }, [messages.data, pending])
+
+  const send = async () => {
+    const text = draft.trim()
+    if (!text || busy) return
+    let conversationId = selected
+    if (!conversationId) {
+      conversationId = (await create.mutateAsync()).id
+      setSelected(conversationId)
+    }
+    setDraft('')
+    setPending({ user: text, text: '', stage: null, citations: [], outcome: null, error: null })
+    const update = (change: (current: Pending) => Partial<Pending>) =>
+      setPending((current) => (current ? { ...current, ...change(current) } : current))
+    try {
+      await streamMessage(conversationId, text, (event) => {
+        if (event.event === 'status') update(() => ({ stage: String(event.data.stage) }))
+        else if (event.event === 'token') update((current) => ({ text: current.text + String(event.data.text) }))
+        else if (event.event === 'citations') update(() => ({ citations: event.data.items as CitationItem[] }))
+        else if (event.event === 'done') update(() => ({ outcome: String(event.data.outcome) }))
+        else if (event.event === 'error')
+          update(() => ({ error: t(`problems.${String(event.data.type)}`, { defaultValue: String(event.data.title) }) }))
+      })
+    } catch (error) {
+      update(() => ({ error: describeError(error, t) }))
+      return
+    }
+    await client.invalidateQueries({ queryKey: ['chat'] })
+    setPending((current) => (current?.error ? current : null))
+  }
+
+  const history: MessageOut[] = messages.data ?? []
+  return (
+    <PageHeader title={t('chat.title')}>
+      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
+        <Card
+          size="small"
+          title={t('chat.conversations')}
+          extra={<Button size="small" icon={<PlusOutlined />} onClick={() => { setSelected(null); setPending(null) }} data-testid="new-conversation">{t('chat.new')}</Button>}
+        >
+          {conversations.error ? <ProblemAlert error={conversations.error} /> : null}
+          <List
+            size="small"
+            loading={conversations.isPending}
+            dataSource={conversations.data?.items ?? []}
+            locale={{ emptyText: t('chat.noConversations') }}
+            renderItem={(c) => (
+              <List.Item
+                onClick={() => { setSelected(c.id); setPending(null) }}
+                style={{ cursor: 'pointer', background: c.id === selected ? '#f0f5ff' : undefined, paddingInline: 8 }}
+                actions={[
+                  <Popconfirm key="del" title={t('chat.deleteConfirm')} onConfirm={() => { archive.mutate(c.id); if (c.id === selected) setSelected(null) }}>
+                    <DeleteOutlined onClick={(e) => e.stopPropagation()} />
+                  </Popconfirm>,
+                ]}
+                data-testid="conversation-item"
+              >
+                <Typography.Text ellipsis style={{ maxWidth: 170 }}>{c.title || t('chat.untitled')}</Typography.Text>
+              </List.Item>
+            )}
+          />
+        </Card>
+        <Card size="small" data-testid="chat-pane">
+          <div style={{ minHeight: 360, maxHeight: '62vh', overflowY: 'auto', paddingRight: 4 }}>
+            {messages.error ? <ProblemAlert error={messages.error} /> : null}
+            {!history.length && !pending && <Empty description={t('chat.intro')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {history.map((m) => (
+              <Bubble key={m.id} role={m.role}>
+                {m.role === 'assistant' ? <AnswerText text={m.text} citations={m.citations} onCite={setCitation} /> : <Typography.Text style={{ whiteSpace: 'pre-wrap' }}>{m.text}</Typography.Text>}
+                {m.role === 'assistant' && <Sources citations={m.citations} onCite={setCitation} />}
+                {m.outcome && OUTCOME_COLORS[m.outcome] && <Tag color={OUTCOME_COLORS[m.outcome]} data-testid={`outcome-${m.outcome}`}>{t(`chat.outcomes.${m.outcome}`)}</Tag>}
+              </Bubble>
+            ))}
+            {pending && (
+              <>
+                <Bubble role="user"><Typography.Text style={{ whiteSpace: 'pre-wrap' }}>{pending.user}</Typography.Text></Bubble>
+                <Bubble role="assistant">
+                  {pending.text ? <AnswerText text={pending.text} citations={pending.citations} onCite={setCitation} /> : null}
+                  <Sources citations={pending.citations} onCite={setCitation} />
+                  {busy && <Typography.Text type="secondary" data-testid="chat-status">{t(`chat.stages.${pending.stage ?? 'thinking'}`, { defaultValue: t('chat.stages.thinking') })}…</Typography.Text>}
+                  {pending.error && <Alert type="error" showIcon message={pending.error} data-testid="chat-error" />}
+                </Bubble>
+              </>
+            )}
+            <div ref={bottom} />
+          </div>
+          <Space.Compact style={{ width: '100%', marginTop: 12 }}>
+            <Input.TextArea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); void send() } }}
+              autoSize={{ minRows: 1, maxRows: 5 }}
+              maxLength={2000}
+              placeholder={t('chat.placeholder')}
+              disabled={busy}
+              data-testid="chat-input"
+            />
+            <Button type="primary" icon={<SendOutlined />} onClick={() => void send()} loading={busy} disabled={!draft.trim()} data-testid="chat-send">
+              {t('chat.send')}
+            </Button>
+          </Space.Compact>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t('chat.disclaimer')}</Typography.Text>
+        </Card>
+      </div>
+      <CitationDrawer chunkId={citation} onClose={() => setCitation(null)} />
+    </PageHeader>
+  )
+}

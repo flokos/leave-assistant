@@ -18,6 +18,13 @@ from typing import Self
 from uuid import UUID
 
 from leave_assistant.application.audit.entry import AuditEntry
+from leave_assistant.application.chat.models import (
+    AgentRun,
+    Conversation,
+    ConversationMessage,
+    ConversationStatus,
+    ProviderEventRecord,
+)
 from leave_assistant.application.errors import ConflictError
 from leave_assistant.application.idempotency import IdempotencyRecord
 from leave_assistant.application.jobs.models import Job, JobStatus
@@ -25,12 +32,14 @@ from leave_assistant.application.leave.errors import VersionConflict
 from leave_assistant.application.notifications.models import IntegrationEvent, Notification
 from leave_assistant.application.ports import (
     AclRepository,
+    AgentRunRepository,
     ApprovalRuleRepository,
     ApprovalStepRepository,
     AuditFilter,
     AuditRepository,
     BalanceRow,
     ChunkRepository,
+    ConversationRepository,
     DepartmentRepository,
     DocumentFilter,
     DocumentRepository,
@@ -51,7 +60,9 @@ from leave_assistant.application.ports import (
     LeaveRequestRepository,
     LeaveTypeRepository,
     LedgerRepository,
+    MessageRepository,
     NotificationRepository,
+    ProviderEventRepository,
     RequestEventRepository,
     RequestFilter,
     RetentionPolicy,
@@ -127,6 +138,10 @@ class MemoryStore:
     download_tokens: dict[str, DownloadToken] = field(default_factory=dict)
     retention_policies: dict[UUID, RetentionPolicy] = field(default_factory=dict)
     retention_items: dict[UUID, RetentionReviewItem] = field(default_factory=dict)
+    conversations: dict[UUID, Conversation] = field(default_factory=dict)
+    messages: list[ConversationMessage] = field(default_factory=list)
+    agent_runs: list[AgentRun] = field(default_factory=list)
+    provider_events: list[ProviderEventRecord] = field(default_factory=list)
 
     def tables(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -1188,6 +1203,112 @@ class _RetentionItems:
             self._store.retention_items[item.id] = item
 
 
+class _Conversations:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[Conversation]:
+        return [c for c in self._store.conversations.values() if c.tenant_id == self._tenant]
+
+    async def get(self, conversation_id: UUID) -> Conversation | None:
+        return next((c for c in self._rows() if c.id == conversation_id), None)
+
+    async def list_for_employee(
+        self, employee_id: UUID, *, limit: int, after: tuple[datetime, UUID] | None
+    ) -> list[Conversation]:
+        rows = [
+            c for c in self._rows() if c.employee_id == employee_id and c.status is ConversationStatus.OPEN
+        ]
+        rows.sort(key=lambda c: (c.last_activity_at, c.id), reverse=True)
+        if after is not None:
+            rows = [c for c in rows if (c.last_activity_at, c.id) < after]
+        return rows[:limit]
+
+    async def add(self, conversation: Conversation) -> None:
+        if conversation.employee_id not in self._store.employees:
+            raise ConflictError("unknown employee")
+        self._store.conversations[conversation.id] = conversation
+
+    async def update(self, conversation: Conversation) -> None:
+        if conversation.id in self._store.conversations:
+            self._store.conversations[conversation.id] = conversation
+
+    async def try_lock(self, conversation_id: UUID, *, until: datetime, now: datetime) -> bool:
+        conversation = await self.get(conversation_id)
+        if conversation is None or (
+            conversation.run_lock_until is not None and conversation.run_lock_until >= now
+        ):
+            return False
+        conversation.run_lock_until = until
+        return True
+
+    async def unlock(self, conversation_id: UUID) -> None:
+        conversation = await self.get(conversation_id)
+        if conversation is not None:
+            conversation.run_lock_until = None
+
+    async def expired(self, *, inactive_before: datetime) -> list[Conversation]:
+        return [
+            c
+            for c in self._rows()
+            if c.last_activity_at < inactive_before or c.status is ConversationStatus.ARCHIVED
+        ]
+
+    async def delete(self, conversation_id: UUID) -> None:
+        if await self.get(conversation_id) is None:
+            return
+        self._store.conversations.pop(conversation_id, None)
+        self._store.messages = [m for m in self._store.messages if m.conversation_id != conversation_id]
+        self._store.agent_runs = [r for r in self._store.agent_runs if r.conversation_id != conversation_id]
+
+
+class _Messages:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def add(self, message: ConversationMessage) -> None:
+        if message.conversation_id not in self._store.conversations:
+            raise ConflictError("unknown conversation")
+        self._store.messages.append(message)
+
+    async def list_for_conversation(self, conversation_id: UUID) -> list[ConversationMessage]:
+        rows = [
+            m
+            for m in self._store.messages
+            if m.tenant_id == self._tenant and m.conversation_id == conversation_id
+        ]
+        return sorted(rows, key=lambda m: (m.created_at, m.id))
+
+
+class _AgentRuns:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def add(self, run: AgentRun) -> None:
+        self._store.agent_runs.append(run)
+
+    async def count_for_conversation(self, conversation_id: UUID) -> int:
+        return len(
+            [
+                r
+                for r in self._store.agent_runs
+                if r.tenant_id == self._tenant and r.conversation_id == conversation_id
+            ]
+        )
+
+
+class _ProviderEvents:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def add_many(self, events: Sequence[ProviderEventRecord]) -> None:
+        self._store.provider_events.extend(events)
+
+
 class MemoryUnitOfWork:
     leave_types: LeaveTypeRepository
     leave_policies: LeavePolicyRepository
@@ -1220,6 +1341,10 @@ class MemoryUnitOfWork:
     download_tokens: DownloadTokenRepository
     retention_policies: RetentionPolicyRepository
     retention_items: RetentionReviewItemRepository
+    conversations: ConversationRepository
+    messages: MessageRepository
+    agent_runs: AgentRunRepository
+    provider_events: ProviderEventRepository
 
     def __init__(self, store: MemoryStore, context: TenantContext | None) -> None:
         self._shared = store
@@ -1261,6 +1386,10 @@ class MemoryUnitOfWork:
         self.download_tokens = _DownloadTokens(self._work)
         self.retention_policies = _RetentionPolicies(self._work, tenant)
         self.retention_items = _RetentionItems(self._work, tenant)
+        self.conversations = _Conversations(self._work, tenant)
+        self.messages = _Messages(self._work, tenant)
+        self.agent_runs = _AgentRuns(self._work, tenant)
+        self.provider_events = _ProviderEvents(self._work, tenant)
         return self
 
     async def __aexit__(

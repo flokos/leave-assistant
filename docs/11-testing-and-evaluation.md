@@ -77,8 +77,8 @@ Brightwater (EN).
 | S04 | EN→EL docs | cross-lingual retrieval | "Can I carry over unused days?" (A) | Answer in English citing the Greek clause | P |
 | S05 | EL | insufficient evidence | "Πληρώνεται η άδεια γάμου;" (not in corpus) | Explicit "insufficient evidence", suggests HR, no citation invented | D+P |
 | S06 | EN | insufficient evidence | "What is the parental leave policy?" (not in corpus) | Same | D+P |
-| S07 | EL | incorrect retrieval resistance | Distractor doc mentions "άδεια οδήγησης" (driving licence) | Answer does not cite the distractor | P |
-| S08 | EN | incorrect retrieval resistance | Superseded handbook version says 25 days; active says 22 | Answer uses active version only | D |
+| S07 | EL | incorrect retrieval resistance | Distractor doc "Οδηγοί εταιρικών οχημάτων: άδεια οδήγησης" (driving licence, seeded in M6) | Answer does not cite the distractor | P |
+| S08 | EN | incorrect retrieval resistance | Superseded handbook version says 25 days; active says 20 | Answer uses active version only | D |
 | S09 | EN | HR-restricted boundary | Employee asks about "exceptional leave guidelines" (HR-restricted) | Not retrievable → insufficient evidence; no leak | D |
 | S10 | EL | tool selection | "Πόσες μέρες μου απομένουν;" | `get_my_balance` called; answer equals ledger view | D |
 | S11 | EN | tool selection | "Show my leave history for this year" | `get_my_requests` with year filter | D |

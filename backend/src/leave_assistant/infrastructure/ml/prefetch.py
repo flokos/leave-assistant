@@ -10,6 +10,8 @@ from leave_assistant.config import get_settings
 from leave_assistant.infrastructure.ml.embedder import E5Embedder
 from leave_assistant.infrastructure.ml.tokenizer import E5Tokenizer
 
+RERANKERS = ("BAAI/bge-reranker-v2-m3", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+
 
 def main() -> int:
     settings = get_settings()
@@ -19,6 +21,11 @@ def main() -> int:
     embedder = E5Embedder(settings.embedding_model, settings.embedding_model_revision)
     vector = embedder.embed_query("warm-up")
     sys.stdout.write(f"embedding model {embedder.model_id}: {len(vector)}-d\n")
+    from leave_assistant.infrastructure.ml.reranker import CrossEncoderReranker
+
+    for model in dict.fromkeys([settings.reranker_model, *RERANKERS]):  # both ADR-0014 candidates (M6)
+        score = CrossEncoderReranker(model).score("άδεια", ["κανονική άδεια", "printer toner"])
+        sys.stdout.write(f"reranker {model}: {score}\n")
     artifacts = settings.docling_artifacts_dir
     if artifacts is not None:
         from docling.utils.model_downloader import download_models

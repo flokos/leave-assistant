@@ -13,7 +13,7 @@ from leave_assistant.domain.tenancy import Employee, Principal, Role
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
 from leave_assistant.infrastructure.ml.language import ScriptLanguageDetector
 from leave_assistant.main import create_app
-from tests.fakes.documents import FakeEmbedder, FakeParser, MemoryDocumentStorage, WordTokenizer
+from tests.fakes.documents import FakeEmbedder, FakeParser, FakeReranker, MemoryDocumentStorage, WordTokenizer
 from tests.fakes.identity import FakeIdentityAdmin
 from tests.fakes.leave_world import seed_leave_catalogue
 from tests.fakes.memory import MemoryStore, MemoryUnitOfWorkFactory
@@ -119,6 +119,7 @@ def fake_document_adapters(dimension: int = 32, *, keys_configured: bool = True)
         vault_cipher=fake_vault_cipher(configured=keys_configured),
         file_cipher=fake_file_cipher(configured=keys_configured),
         classifier=FakeClassifier(),
+        reranker=FakeReranker(),
     )
 
 

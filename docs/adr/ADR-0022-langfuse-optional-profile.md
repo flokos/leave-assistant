@@ -39,3 +39,6 @@ Four extra containers in the profile; ClickHouse disk growth is bounded by reten
 
 ## Consequences
 RAGAS runs use Langfuse datasets/experiments (ADR-0023); provider health digests do not depend on Langfuse.
+
+## Implementation note (M6, 2026-11-05)
+M6: the backend side is implemented (`agent/tracing.py`: LangChain `CallbackHandler`, `mask` = the log scrubber, session = thread id, opaque user hash, tenant tag) behind `LANGFUSE_ENABLED`; the compose `observability` profile and a live trace arrive in M9.

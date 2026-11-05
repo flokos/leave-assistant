@@ -75,6 +75,6 @@ async def test_seed_runs_idempotently(
     identity.calls.clear()
     second = await run_seed(services, "dev-password")
     assert (
-        second.changed == 0 and len(second.unchanged) == 108
+        second.changed == 0 and len(second.unchanged) == 109
     )  # 98 (M4) + 4 adversarial documents + 4 retention policies + 2 supporting documents
     assert not any(name in {"create_user", "set_realm_roles", "update_user"} for name, _ in identity.calls)

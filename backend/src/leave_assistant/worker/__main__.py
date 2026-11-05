@@ -27,6 +27,8 @@ async def _main(drain: bool, once: bool, wait_seconds: float) -> int:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
     runtime = build_runtime(settings, role="worker")
+    if not drain:
+        await runtime.start_agent()  # conversation cleanup deletes checkpoints
     try:
         runner = JobRunner(
             runtime.services.jobs,

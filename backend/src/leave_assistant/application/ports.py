@@ -13,6 +13,12 @@ from typing import Any, Protocol, Self
 from uuid import UUID
 
 from leave_assistant.application.audit.entry import AuditEntry
+from leave_assistant.application.chat.models import (
+    AgentRun,
+    Conversation,
+    ConversationMessage,
+    ProviderEventRecord,
+)
 from leave_assistant.application.idempotency import IdempotencyRecord
 from leave_assistant.application.jobs.models import Job, JobStatus
 from leave_assistant.application.notifications.models import IntegrationEvent, Notification
@@ -260,6 +266,14 @@ class EmbeddingModel(Protocol):
 
 class LanguageDetector(Protocol):
     def detect(self, text: str) -> str | None: ...  # "el" | "en" | None
+
+
+class Reranker(Protocol):
+    """Cross-encoder relevance scores in [0, 1] for (query, passage) pairs (ADR-0014; blocking — call in a thread)."""
+
+    @property
+    def model_id(self) -> str: ...
+    def score(self, query: str, passages: Sequence[str]) -> list[float]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -656,6 +670,10 @@ class UnitOfWork(Protocol):
     download_tokens: DownloadTokenRepository
     retention_policies: RetentionPolicyRepository
     retention_items: RetentionReviewItemRepository
+    conversations: ConversationRepository
+    messages: MessageRepository
+    agent_runs: AgentRunRepository
+    provider_events: ProviderEventRepository
 
     async def __aenter__(self) -> Self: ...
     async def __aexit__(
@@ -705,3 +723,33 @@ class IdentityAdmin(Protocol):
     async def set_realm_roles(self, sub: str, roles: frozenset[str], *, managed: frozenset[str]) -> None: ...
     async def reset_password(self, sub: str, password: str, *, temporary: bool) -> None: ...
     async def delete_user(self, sub: str) -> None: ...
+
+
+# --- conversations (M6, doc 07 §4.6) ---------------------------------------------------------------------------
+
+
+class ConversationRepository(Protocol):
+    async def get(self, conversation_id: UUID) -> Conversation | None: ...
+    async def list_for_employee(
+        self, employee_id: UUID, *, limit: int, after: tuple[datetime, UUID] | None
+    ) -> builtins.list[Conversation]: ...
+    async def add(self, conversation: Conversation) -> None: ...
+    async def update(self, conversation: Conversation) -> None: ...
+    async def try_lock(self, conversation_id: UUID, *, until: datetime, now: datetime) -> bool: ...
+    async def unlock(self, conversation_id: UUID) -> None: ...
+    async def expired(self, *, inactive_before: datetime) -> builtins.list[Conversation]: ...
+    async def delete(self, conversation_id: UUID) -> None: ...
+
+
+class MessageRepository(Protocol):
+    async def add(self, message: ConversationMessage) -> None: ...
+    async def list_for_conversation(self, conversation_id: UUID) -> builtins.list[ConversationMessage]: ...
+
+
+class AgentRunRepository(Protocol):
+    async def add(self, run: AgentRun) -> None: ...
+    async def count_for_conversation(self, conversation_id: UUID) -> int: ...
+
+
+class ProviderEventRepository(Protocol):
+    async def add_many(self, events: Sequence[ProviderEventRecord]) -> None: ...

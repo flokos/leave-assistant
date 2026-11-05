@@ -39,3 +39,6 @@ One extra role; `setup()` run during migrations; a cleanup job.
 
 ## Consequences
 Run history exposed to users is a redacted projection stored in `agent_runs`, not raw checkpoints.
+
+## Implementation note (M6, 2026-11-05)
+M6: implemented as decided — own psycopg pool as `langgraph_rw` with `search_path=langgraph`, schema created by migration `0005`, `setup()` in `make migrate`, ownership checked on `app.conversations` before every run, checkpoint leak test and restart test in the suites, retention deletes threads with `adelete_thread`.

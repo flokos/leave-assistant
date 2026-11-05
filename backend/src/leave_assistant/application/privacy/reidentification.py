@@ -33,6 +33,7 @@ class ReidentificationService:
         *,
         readable_sources: frozenset[str] = frozenset(),
         hr_data_sources: frozenset[str] = frozenset(),
+        authored_sources: frozenset[str] = frozenset(),
     ) -> str:
         """`readable_sources` / `hr_data_sources` carry the source ids the caller has already authorised."""
         if principal.tenant_id is None:
@@ -66,6 +67,7 @@ class ReidentificationService:
                     if source_kind == "document_version"
                     else True,
                     hr_data=source_id in hr_data_sources,
+                    authored_by_viewer=source_kind == "user_message" and source_id in authored_sources,
                 ),
             )
         return reidentify(text, viewer, resolved.get, locale=principal.locale.value)

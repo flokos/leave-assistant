@@ -5,7 +5,7 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit test-integration test-e2e test-ocr contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover models ingest jobs reindex rescan retention-scan security-check token precommit clean
+.PHONY: help setup env lint test-unit test-integration test-e2e test-ocr contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover models ingest jobs reindex rescan chat-smoke chat-perf retention-scan security-check token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -27,7 +27,7 @@ test-unit: ## backend pytest (with coverage) and frontend vitest
 	cd frontend && $(NPM) run test
 
 test-integration: ## integration + ml + security suites against the running stack (postgres 127.0.0.1:5432, keycloak :8081, api via :8080)
-	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak or ml" --no-cov
+	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak or ml or scenario" --no-cov
 
 test-ocr: ## parse the scanned Greek fixture with Docling + Tesseract inside the api container
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.parse_check /app/src/leave_assistant/seed/corpus/files/aegean/diadikasia-anarrotikis.pdf
@@ -63,8 +63,9 @@ ps: ## service status
 logs: ## follow logs (SERVICE=api to filter)
 	$(COMPOSE) --profile core logs -f $(SERVICE)
 
-migrate: ## apply database migrations (inside the api container, as app_owner)
+migrate: ## apply database migrations (inside the api container, as app_owner), then the LangGraph checkpoint tables (as langgraph_rw)
 	$(COMPOSE) --profile core exec -T api alembic upgrade head
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.agent.checkpoint
 
 seed: ## seed the two fictional companies into Keycloak and the database (idempotent)
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.seed
@@ -92,6 +93,12 @@ reindex: ## enqueue document.reindex jobs for active versions with a stale index
 rescan: ## upgrade back-fill: pseudonymise and risk-score every indexed version the M5 pipeline has not scanned, then drain
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.reindex --rescan
 	$(MAKE) --no-print-directory ingest
+
+chat-smoke: ## live LLM smoke inside the api container (needs GEMINI_API_KEY / GROQ_API_KEY): ARGS="--order groq" or "--gemini-timeout 0.01"
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.agent.smoke $(ARGS)
+
+chat-perf: ## NFR-PERF-01: 20 chat turns excluding LLM latency inside the api container (ARGS="--reranker BAAI/bge-reranker-v2-m3")
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.agent.perf $(ARGS)
 
 retention-scan: ## run the retention scan for every tenant now (creates HR review items), then drain deletion jobs
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.retention.scan

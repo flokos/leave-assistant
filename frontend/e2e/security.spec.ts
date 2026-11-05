@@ -45,6 +45,7 @@ test('employee attaches a supporting document; HR downloads it with a reason; th
   test.setTimeout(180_000)
   // --- employee: new sick request + attachment ------------------------------------------------------------
   await signIn(page, USERS.employee)
+  await page.goto('/leave') // the tenant home is the assistant (M6)
   await page.getByTestId('new-request').click()
   const wizard = page.getByTestId('request-wizard')
   await wizard.getByTestId('leave-type').click()
@@ -98,6 +99,7 @@ test('employee attaches a supporting document; HR downloads it with a reason; th
 
   // --- employee: cancel the request so the seed stays reusable ---------------------------------------------
   await signIn(page, USERS.employee)
+  await page.goto('/leave')
   await (await findRow(page, 'requests-table', requestNumber as string)).click()
   await page.getByTestId('cancel-request').click()
   await page.getByRole('button', { name: /^(ok|yes|ναι)$/i }).click()

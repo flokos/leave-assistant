@@ -116,12 +116,13 @@ strict = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "-q -m 'not integration and not keycloak and not ml' --cov=leave_assistant --cov-report=term-missing"
+addopts = "-q -m 'not integration and not keycloak and not ml and not scenario' --cov=leave_assistant --cov-report=term-missing"
 markers = [
   "integration: needs PostgreSQL on 127.0.0.1 (run with `make test-integration`)",
   "keycloak: needs the running stack — Keycloak realm and api (run with `make test-integration`)",
   "ml: needs the local models (e5 tokenizer/embedder, Docling) — downloaded on first run (run with `make test-integration`)",
   "security: Presidio-backed PII suite (spaCy models are venv packages; runs on every commit)",
+  "scenario: S01–S09 against the seeded dev database with real retrieval and the fake LLM (make test-integration)",
 ]
 filterwarnings = ["error::DeprecationWarning:leave_assistant.*"]
 

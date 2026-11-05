@@ -59,6 +59,13 @@ Roles: E = employee, M = manager, H = HR admin, C = company admin, P = platform 
 | GET | `/chat/conversations/{id}/runs` | * (owner), H (audit) | Redacted run history (nodes, tool trace, provider, timings) |
 | GET | `/documents/citations/{chunk_id}` | * (must be allowed to read the document) | Chunk text + document/version/heading/page for the citation drawer (see §2.5; M4) |
 
+M6 notes (2026-11-05): implemented — conversations CRUD (`DELETE` archives; retention deletes), messages history,
+and the SSE `POST …/messages`. `resume` and `runs` arrive with M7. `POST …/messages` takes **no `Idempotency-Key`**
+(a stream cannot be replayed from a stored response); duplicate turns are prevented by one run per conversation
+(`409 chat/run-in-progress`). Problem types: `chat/run-in-progress` (409), `chat/provider-unavailable` (503 before
+the stream; `error` event during it). SSE `token` events are emitted after citation verification (doc 04 §4.1);
+the `replace` correction event is therefore never needed in M6.
+
 ### 2.3 Leave (self-service)
 | Method | Path | Roles | Purpose |
 |--------|------|-------|---------|

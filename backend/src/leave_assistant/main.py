@@ -13,6 +13,7 @@ from leave_assistant.api.errors import register_error_handlers
 from leave_assistant.api.middleware import RequestIdMiddleware
 from leave_assistant.api.routers import (
     approvals,
+    chat,
     documents,
     health,
     leave,
@@ -67,6 +68,7 @@ ROUTERS = (
     admin_retention.router,
     admin_security.router,
     platform_security.router,
+    chat.router,
 )
 
 
@@ -89,6 +91,10 @@ def create_app(
         runtime: Runtime | None = None
         if bootstrap_infrastructure:
             runtime = build_runtime(settings, role="api")
+            if await runtime.start_agent() and settings.app_env != "test":
+                app.state.warm_up = asyncio.create_task(
+                    asyncio.to_thread(runtime.warm_up)
+                )  # keep a reference
             s3 = make_s3_client(settings, timeout=settings.readiness_timeout_seconds)
             try:
                 created = await asyncio.to_thread(ensure_bucket, s3, settings.s3_bucket_documents)

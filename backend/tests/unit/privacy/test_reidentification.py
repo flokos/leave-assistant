@@ -100,3 +100,19 @@ def test_reidentify_restores_neutralises_and_marks_unknown() -> None:
         reidentify(text, HR, vault.get)
         == f"Ελένη Δημητρίου και Κώστας Μιχαηλίδης ([e-mail withheld], {UNAVAILABLE}) είναι σε άδεια."
     )
+
+
+def test_values_the_viewer_typed_are_restored_for_them_only() -> None:
+    from uuid import UUID
+
+    from leave_assistant.domain.privacy.reidentification import Decision, PlaceholderContext, Viewer, decide
+    from leave_assistant.domain.privacy.types import EntityType
+    from leave_assistant.domain.tenancy import Role
+
+    viewer = Viewer(UUID(int=1), UUID(int=10), frozenset({Role.EMPLOYEE}), frozenset())
+    typed = PlaceholderContext(
+        EntityType.EMAIL, "user_message", UUID(int=2), UUID(int=20), authored_by_viewer=True
+    )
+    assert decide(viewer, typed) is Decision.RESTORE
+    other = PlaceholderContext(EntityType.EMAIL, "user_message", UUID(int=2), UUID(int=20))
+    assert decide(viewer, other) is Decision.NEUTRAL

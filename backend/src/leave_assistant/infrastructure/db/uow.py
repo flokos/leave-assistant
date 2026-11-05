@@ -11,10 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from leave_assistant.application.errors import ConflictError
 from leave_assistant.application.ports import (
     AclRepository,
+    AgentRunRepository,
     ApprovalRuleRepository,
     ApprovalStepRepository,
     AuditRepository,
     ChunkRepository,
+    ConversationRepository,
     DepartmentRepository,
     DocumentRepository,
     DocumentVersionRepository,
@@ -30,7 +32,9 @@ from leave_assistant.application.ports import (
     LeaveRequestRepository,
     LeaveTypeRepository,
     LedgerRepository,
+    MessageRepository,
     NotificationRepository,
+    ProviderEventRepository,
     RequestEventRepository,
     RetentionPolicyRepository,
     RetentionReviewItemRepository,
@@ -45,6 +49,12 @@ from leave_assistant.application.ports import (
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.infrastructure.db.repositories.audit import SqlAuditRepository
 from leave_assistant.infrastructure.db.repositories.chunks import SqlChunkRepository
+from leave_assistant.infrastructure.db.repositories.conversations import (
+    SqlAgentRunRepository,
+    SqlConversationRepository,
+    SqlMessageRepository,
+    SqlProviderEventRepository,
+)
 from leave_assistant.infrastructure.db.repositories.departments import SqlDepartmentRepository
 from leave_assistant.infrastructure.db.repositories.documents import (
     SqlAclRepository,
@@ -123,6 +133,10 @@ class SqlAlchemyUnitOfWork:
     download_tokens: DownloadTokenRepository
     retention_policies: RetentionPolicyRepository
     retention_items: RetentionReviewItemRepository
+    conversations: ConversationRepository
+    messages: MessageRepository
+    agent_runs: AgentRunRepository
+    provider_events: ProviderEventRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -173,6 +187,10 @@ class SqlAlchemyUnitOfWork:
         self.download_tokens = SqlDownloadTokenRepository(session)
         self.retention_policies = SqlRetentionPolicyRepository(session, tenant_id)
         self.retention_items = SqlRetentionReviewItemRepository(session, tenant_id)
+        self.conversations = SqlConversationRepository(session, tenant_id)
+        self.messages = SqlMessageRepository(session, tenant_id)
+        self.agent_runs = SqlAgentRunRepository(session, tenant_id)
+        self.provider_events = SqlProviderEventRepository(session, tenant_id)
         return self
 
     async def __aexit__(

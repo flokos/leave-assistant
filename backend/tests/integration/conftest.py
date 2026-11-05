@@ -40,6 +40,10 @@ OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PAS
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
     "platform.jobs",
+    "app.provider_events",
+    "app.agent_runs",
+    "app.conversation_messages",
+    "app.conversations",
     "platform.supporting_download_tokens",
     "app.retention_review_items",
     "app.retention_policies",
@@ -98,8 +102,8 @@ def migrated_database() -> Iterator[str]:
             conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension}")
         conn.execute("GRANT ALL ON SCHEMA public TO app_owner")
         conn.execute("GRANT USAGE ON SCHEMA public TO app_rls")
-        conn.execute(f'GRANT CONNECT ON DATABASE "{TEST_DB}" TO app_rls')
-        conn.execute("DROP SCHEMA IF EXISTS audit, app, platform CASCADE")
+        conn.execute(f'GRANT CONNECT ON DATABASE "{TEST_DB}" TO app_rls, langgraph_rw')
+        conn.execute("DROP SCHEMA IF EXISTS audit, app, platform, langgraph CASCADE")
         conn.execute("DROP TABLE IF EXISTS public.alembic_version")
     upgrade_to_head(OWNER_URL)
     yield RLS_URL

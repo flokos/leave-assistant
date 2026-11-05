@@ -432,7 +432,9 @@ def test_document_platform_end_to_end(http: httpx.Client) -> None:
         assert version["status"] == "ACTIVE", version
         assert version["language"] == "el" and version["pages"] is None  # Markdown: no pagination
         # hybrid search in both languages, through the real e5 model and PostgreSQL FTS
-        greek = http.get(f"{API}/documents/search", params={"q": "άδεια εξετάσεων"}, headers=employee)
+        greek = http.get(  # the first search may load e5 while an ingestion child is busy
+            f"{API}/documents/search", params={"q": "άδεια εξετάσεων"}, headers=employee, timeout=90.0
+        )
         assert greek.status_code == 200 and greek.json()["language"] == "el"
         assert any(h["document_id"] == document_id for h in greek.json()["hits"][:3]), greek.json()
         english = http.get(

@@ -7,6 +7,7 @@ const END = '2026-12-01'
 test('employee submits, manager approves, employee sees the approval and cancels', async ({ page }) => {
   // --- employee: wizard validate → submit --------------------------------------------------------------
   await signIn(page, USERS.employee)
+  await page.goto('/leave') // the tenant home is the assistant (M6)
   await page.getByTestId('new-request').click()
   const wizard = page.getByTestId('request-wizard')
   await wizard.getByTestId('dates').locator('input').first().fill(START)
@@ -41,6 +42,7 @@ test('employee submits, manager approves, employee sees the approval and cancels
 
   // --- employee: sees APPROVED, cancels (keeps the seed data repeatable) -------------------------------
   await signIn(page, USERS.employee)
+  await page.goto('/leave')
   const myRow = await findRow(page, 'requests-table', requestNumber as string)
   await expect(myRow.getByTestId('status-APPROVED')).toBeVisible()
   await myRow.click()

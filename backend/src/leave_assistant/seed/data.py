@@ -406,6 +406,15 @@ AEGEAN = SeedCompany(
             language_hint="el",
         ),
         SeedDocument("faq", "Συχνές ερωτήσεις / FAQ", Category.POLICY_GENERAL, "md", "AEG-001"),
+        # S07 distractor (doc 11 §6): "άδεια οδήγησης" (driving licence) is not leave
+        SeedDocument(
+            "odigoi-oximaton",
+            "Οδηγοί εταιρικών οχημάτων: άδεια οδήγησης",
+            Category.POLICY_GENERAL,
+            "md",
+            "AEG-001",
+            language_hint="el",
+        ),
         # M5 adversarial pair (doc 11 §5 S22/S23): the English override is quarantined, the Greek footnote goes to review
         SeedDocument(
             "adversarial-appendix-en",

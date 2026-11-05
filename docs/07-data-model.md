@@ -155,8 +155,15 @@ for additions); statuses and retention days also carry CHECK constraints; `pii_v
 | `conversations` | `employee_id →`, `title`, `status (open\|archived)`, `last_activity_at`, `locale` | `id` = LangGraph `thread_id` |
 | `conversation_messages` | `conversation_id →`, `role (user\|assistant\|system_note)`, `content_pseudonymised text`, `citations jsonb?`, `interrupt_card jsonb?`, `run_id →?`, `created_at` | Display history; re-identified at read time for the owner |
 | `agent_runs` | `conversation_id →`, `turn int`, `intent`, `language`, `route`, `provider_used`, `model_used`, `failovers int`, `input_tokens`, `output_tokens`, `latency_ms`, `tool_trace jsonb`, `outcome (answered\|insufficient_evidence\|interrupted\|executed\|blocked\|error)`, `langfuse_trace_id` | Evaluation and history; no prompt bodies |
-| `pending_interrupts` | `conversation_id →`, `proposal_id →`, `expires_at` | Mirror of the graph interrupt for UI and cleanup |
+| `pending_interrupts` | `conversation_id →`, `proposal_id →`, `expires_at` | Mirror of the graph interrupt for UI and cleanup — **M7** (needs `action_proposals`) |
 | `provider_events` | `provider`, `model`, `event (selected\|failover\|circuit_open\|circuit_close\|error)`, `reason`, `latency_ms`, `occurred_at` | Tenant-scoped; aggregated for health endpoints |
+
+M6 note (migration `0005_conversations`): `conversations` also stores `user_id` (the Keycloak sub) and
+`run_lock_until` (one run per conversation; a crashed run's lock expires); `conversation_messages` gains
+`provenance jsonb` (placeholder → `{kind, id}`) because re-identification at read time needs the source of every
+placeholder, and `outcome`; `agent_runs` gains `details jsonb` (retrieval scores, input-risk score, stages, error);
+`provider_events` carries `run_id`. Schema `langgraph` is created by the migration (owner `app_owner`, `USAGE,
+CREATE` for `langgraph_rw`); the saver's `setup()` runs in `make migrate` as `langgraph_rw`.
 
 ### 4.7 Integrations, jobs, notifications, retention (`app`)
 | Table | Columns | Notes |

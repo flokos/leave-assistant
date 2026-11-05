@@ -64,6 +64,7 @@ class PlaceholderContext:
     subject_department_id: UUID | None = None
     source_readable: bool = True  # the principal may read the source document / sees that tool data
     hr_data: bool = False  # tool results that expose HR data (HR-only views)
+    authored_by_viewer: bool = False  # the viewer typed this value in their own conversation (M6)
     extra: dict[str, str] = field(default_factory=dict)
 
 
@@ -71,6 +72,8 @@ def decide(viewer: Viewer, ctx: PlaceholderContext) -> Decision:
     roles = viewer.roles
     if viewer.employee_id is not None and ctx.subject_employee_id == viewer.employee_id:
         return Decision.RESTORE  # the principal themself, any entity type
+    if ctx.authored_by_viewer:
+        return Decision.RESTORE  # the viewer's own words in their own conversation disclose nothing new
     if ctx.source_kind == "document_version":
         return (
             Decision.RESTORE if ctx.source_readable else Decision.NEUTRAL
