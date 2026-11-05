@@ -4,7 +4,7 @@ A multilingual (Greek/English), multi-tenant leave-management assistant that let
 and request leave in natural language, while deterministic backend services own identity, tenancy, business rules,
 approvals, execution and audit. The LLM coordinates; the backend decides.
 
-**Project status: implementation phase — M0 (foundation) and M1 (identity, tenancy, audit, seed) done; next M2 (leave domain).** The architecture package in
+**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed) and M2 (leave domain) done; next M3 (frontend foundation).** The architecture package in
 [`docs/`](docs/README.md) was completed first, as the project brief requires; code is added milestone by milestone
 (roadmap in [docs/12](docs/12-implementation-roadmap.md)).
 

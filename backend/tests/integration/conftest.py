@@ -35,6 +35,17 @@ ADMIN_URL = os.environ.get("TEST_DATABASE_ADMIN_URL") or (
 OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PASSWORD', 'app-owner-dev')}@{HOST}:{PORT}/{TEST_DB}"
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
+    "app.integration_events",
+    "app.notifications",
+    "app.leave_ledger_entries",
+    "app.approval_steps",
+    "app.leave_request_events",
+    "app.leave_requests",
+    "app.request_counters",
+    "app.approval_rules",
+    "app.public_holidays",
+    "app.leave_policies",
+    "app.leave_types",
     "app.employee_roles",
     "app.employees",
     "app.departments",
@@ -63,7 +74,7 @@ def migrated_database() -> Iterator[str]:
         if not exists:
             admin.execute(f'CREATE DATABASE "{TEST_DB}" OWNER app_owner')
     with psycopg.connect(ADMIN_URL.rsplit("/", 1)[0] + f"/{TEST_DB}", autocommit=True) as conn:
-        for extension in ("vector", "unaccent", "pgcrypto"):
+        for extension in ("vector", "unaccent", "pgcrypto", "btree_gist"):
             conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension}")
         conn.execute("GRANT ALL ON SCHEMA public TO app_owner")
         conn.execute("GRANT USAGE ON SCHEMA public TO app_rls")

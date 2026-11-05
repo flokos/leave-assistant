@@ -13,6 +13,7 @@ from leave_assistant.domain.tenancy import Employee, Principal, Role
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
 from leave_assistant.main import create_app
 from tests.fakes.identity import FakeIdentityAdmin
+from tests.fakes.leave_world import seed_leave_catalogue
 from tests.fakes.memory import MemoryStore, MemoryUnitOfWorkFactory
 from tests.fakes.system import FixedClock, SequentialIds
 from tests.fakes.tokens import AUDIENCE, ISSUER, TestKeys, claims_for
@@ -93,6 +94,13 @@ def services(
 @pytest.fixture
 def world(store: MemoryStore, clock: FixedClock, ids: SequentialIds) -> World:
     return build_world(store, clock, ids)
+
+
+@pytest.fixture
+def leave_world(store: MemoryStore, world: World, clock: FixedClock, ids: SequentialIds) -> World:
+    """The two-tenant world plus leave types, 2026/2027 policies, holidays, rules and 2026 grants."""
+    world.leave_types = seed_leave_catalogue(store, world, clock, ids)  # type: ignore[attr-defined]
+    return world
 
 
 @pytest.fixture

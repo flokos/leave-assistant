@@ -234,6 +234,10 @@ brief's principles (doc 14 §4, ADR-0028). They are seed configuration per tenan
 | Sick | yes (annual cap) | 10 working days per year | yes, up to 30 days back | optional; required above 3 working days | auto-acknowledged (≤ 3 days, no document, within cap); otherwise HR review; **never a manager step** |
 | Unpaid | no | — | no | no | manager (≤ 5); manager → HR (> 5) |
 
+*M2 note:* the seed sick-leave policy sets `allow_negative = true` so that a sick request beyond the remaining
+cap is routed to HR review (Q-02) instead of being rejected by the balance check; annual leave keeps the hard check.
+Supporting-document requirements are advisory (warning + HR review) until uploads arrive in M4.
+
 ### 6.2 Entitlements and ledger (Q-01, decided)
 - Entitlement is granted **up-front on 1 January** (`grant_mode = upfront`); hires during the year receive a pro-rated
   grant (remaining full months / 12 × entitlement, rounded to 0.5 day).

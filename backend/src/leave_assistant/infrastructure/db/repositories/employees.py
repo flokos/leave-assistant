@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+import builtins
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -72,7 +73,7 @@ class SqlEmployeeRepository:
 
     async def list(
         self, *, filters: EmployeeFilter, limit: int, after: tuple[datetime, UUID] | None
-    ) -> list[Employee]:
+    ) -> builtins.list[Employee]:
         if self._tenant is None:
             return []
         stmt = self._base().order_by(EmployeeRow.created_at, EmployeeRow.id).limit(limit)
@@ -91,6 +92,38 @@ class SqlEmployeeRepository:
             )
         if after is not None:
             stmt = stmt.where(tuple_(EmployeeRow.created_at, EmployeeRow.id) > after)
+        rows = list((await self._s.execute(stmt)).scalars())
+        roles = await self._roles_for([r.id for r in rows])
+        return [_to_domain(r, roles.get(r.id, [])) for r in rows]
+
+    async def get_many(self, employee_ids: Sequence[UUID]) -> dict[UUID, Employee]:
+        ids = list(dict.fromkeys(employee_ids))
+        if self._tenant is None or not ids:
+            return {}
+        rows = list((await self._s.execute(self._base().where(EmployeeRow.id.in_(ids)))).scalars())
+        roles = await self._roles_for([r.id for r in rows])
+        return {r.id: _to_domain(r, roles.get(r.id, [])) for r in rows}
+
+    async def list_active(
+        self, *, department_id: UUID | None = None, role: Role | None = None
+    ) -> builtins.list[Employee]:
+        if self._tenant is None:
+            return []
+        stmt = (
+            self._base()
+            .where(EmployeeRow.status == "active")
+            .order_by(EmployeeRow.created_at, EmployeeRow.id)
+        )
+        if department_id is not None:
+            stmt = stmt.where(EmployeeRow.department_id == department_id)
+        if role is not None:
+            stmt = stmt.where(
+                EmployeeRow.id.in_(
+                    select(EmployeeRoleRow.employee_id).where(
+                        EmployeeRoleRow.role == role.value, EmployeeRoleRow.tenant_id == self._tenant
+                    )
+                )
+            )
         rows = list((await self._s.execute(stmt)).scalars())
         roles = await self._roles_for([r.id for r in rows])
         return [_to_domain(r, roles.get(r.id, [])) for r in rows]

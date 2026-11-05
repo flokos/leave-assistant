@@ -1,6 +1,127 @@
 {
   "components": {
     "schemas": {
+      "AbsenceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "department_id": {
+            "format": "uuid",
+            "title": "Department Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_id",
+          "display_name",
+          "department_id",
+          "start_date",
+          "end_date",
+          "status",
+          "leave_type"
+        ],
+        "title": "AbsenceOut",
+        "type": "object"
+      },
+      "AdjustmentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "leave_type": {
+            "maxLength": 32,
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "period_year": {
+            "anyOf": [
+              {
+                "maximum": 2100.0,
+                "minimum": 2000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Year"
+          },
+          "quantity_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Signed; multiples of 0.5",
+            "title": "Quantity Days"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_id",
+          "leave_type",
+          "quantity_days",
+          "reason"
+        ],
+        "title": "AdjustmentIn",
+        "type": "object"
+      },
       "AuditEntryOut": {
         "additionalProperties": false,
         "properties": {
@@ -98,6 +219,69 @@
         "title": "AuditEntryOut",
         "type": "object"
       },
+      "BalanceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "available_days": {
+            "title": "Available Days",
+            "type": "number"
+          },
+          "balance_days": {
+            "title": "Balance Days",
+            "type": "number"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "pending_days": {
+            "title": "Pending Days",
+            "type": "number"
+          },
+          "period_year": {
+            "title": "Period Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "leave_type",
+          "period_year",
+          "balance_days",
+          "pending_days",
+          "available_days"
+        ],
+        "title": "BalanceOut",
+        "type": "object"
+      },
+      "BalanceSnapshotOut": {
+        "additionalProperties": false,
+        "properties": {
+          "after_days": {
+            "title": "After Days",
+            "type": "number"
+          },
+          "available_days": {
+            "title": "Available Days",
+            "type": "number"
+          },
+          "balance_days": {
+            "title": "Balance Days",
+            "type": "number"
+          },
+          "pending_days": {
+            "title": "Pending Days",
+            "type": "number"
+          }
+        },
+        "required": [
+          "balance_days",
+          "pending_days",
+          "available_days",
+          "after_days"
+        ],
+        "title": "BalanceSnapshotOut",
+        "type": "object"
+      },
       "BootstrapAdminRequest": {
         "additionalProperties": false,
         "properties": {
@@ -181,6 +365,61 @@
           "temporary_password"
         ],
         "title": "BootstrapAdminResponse",
+        "type": "object"
+      },
+      "CancelRequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "CancelRequestIn",
+        "type": "object"
+      },
+      "DecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "version": {
+            "description": "The step version you read (409 version-conflict when stale)",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "DecisionIn",
         "type": "object"
       },
       "DepartmentCreate": {
@@ -728,6 +967,105 @@
         "title": "EmployeeUpdate",
         "type": "object"
       },
+      "EventOut": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Employee Id"
+          },
+          "actor_kind": {
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "from_status",
+          "to_status",
+          "actor_employee_id",
+          "actor_kind",
+          "occurred_at",
+          "payload"
+        ],
+        "title": "EventOut",
+        "type": "object"
+      },
+      "ExcludedDateOut": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "reason",
+          "name"
+        ],
+        "title": "ExcludedDateOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -739,6 +1077,698 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HolidayCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "holiday_date": {
+            "format": "date",
+            "title": "Holiday Date",
+            "type": "string"
+          },
+          "name_el": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name El",
+            "type": "string"
+          },
+          "name_en": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name En",
+            "type": "string"
+          },
+          "recurring": {
+            "default": false,
+            "title": "Recurring",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "holiday_date",
+          "name_el",
+          "name_en"
+        ],
+        "title": "HolidayCreate",
+        "type": "object"
+      },
+      "HolidayImportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "csv": {
+            "description": "Columns: date (YYYY-MM-DD), name_el, name_en[, recurring]",
+            "maxLength": 200000,
+            "title": "Csv",
+            "type": "string"
+          }
+        },
+        "required": [
+          "csv"
+        ],
+        "title": "HolidayImportIn",
+        "type": "object"
+      },
+      "HolidayOut": {
+        "additionalProperties": false,
+        "properties": {
+          "holiday_date": {
+            "format": "date",
+            "title": "Holiday Date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name_el": {
+            "title": "Name El",
+            "type": "string"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "recurring": {
+            "title": "Recurring",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "holiday_date",
+          "name_el",
+          "name_en",
+          "recurring"
+        ],
+        "title": "HolidayOut",
+        "type": "object"
+      },
+      "HolidayUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "holiday_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holiday Date"
+          },
+          "name_el": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name El"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "recurring": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurring"
+          }
+        },
+        "title": "HolidayUpdate",
+        "type": "object"
+      },
+      "LeaveRequestOut": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the viewer may only see the absence (company administrators)",
+            "title": "Leave Type"
+          },
+          "modification_of_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modification Of Request Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request_number": {
+            "title": "Request Number",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "request_number",
+          "employee_id",
+          "leave_type",
+          "start_date",
+          "end_date",
+          "working_days",
+          "status",
+          "submitted_at",
+          "decided_at",
+          "cancelled_at",
+          "modification_of_request_id",
+          "version",
+          "created_at",
+          "updated_at",
+          "reason",
+          "steps",
+          "events"
+        ],
+        "title": "LeaveRequestOut",
+        "type": "object"
+      },
+      "LeaveRequestSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the viewer may only see the absence (company administrators)",
+            "title": "Leave Type"
+          },
+          "modification_of_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modification Of Request Id"
+          },
+          "request_number": {
+            "title": "Request Number",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "request_number",
+          "employee_id",
+          "leave_type",
+          "start_date",
+          "end_date",
+          "working_days",
+          "status",
+          "submitted_at",
+          "decided_at",
+          "cancelled_at",
+          "modification_of_request_id",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LeaveRequestSummary",
+        "type": "object"
+      },
+      "LeaveTypeCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_retroactive_days": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Allow Retroactive Days",
+            "type": "integer"
+          },
+          "balance_bearing": {
+            "title": "Balance Bearing",
+            "type": "boolean"
+          },
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "name_el": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name El",
+            "type": "string"
+          },
+          "name_en": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name En",
+            "type": "string"
+          },
+          "requires_document_above_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Document Above Days"
+          }
+        },
+        "required": [
+          "code",
+          "name_el",
+          "name_en",
+          "balance_bearing"
+        ],
+        "title": "LeaveTypeCreate",
+        "type": "object"
+      },
+      "LeaveTypeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "allow_retroactive_days": {
+            "title": "Allow Retroactive Days",
+            "type": "integer"
+          },
+          "balance_bearing": {
+            "title": "Balance Bearing",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name_el": {
+            "title": "Name El",
+            "type": "string"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "requires_document_above_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Document Above Days"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name_el",
+          "name_en",
+          "balance_bearing",
+          "allow_retroactive_days",
+          "requires_document_above_days",
+          "active"
+        ],
+        "title": "LeaveTypeOut",
+        "type": "object"
+      },
+      "LeaveTypeUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "allow_retroactive_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Retroactive Days"
+          },
+          "balance_bearing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Bearing"
+          },
+          "name_el": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name El"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "requires_document_above_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Document Above Days"
+          }
+        },
+        "title": "LeaveTypeUpdate",
+        "type": "object"
+      },
+      "LedgerEntryOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effective_date": {
+            "format": "date",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "entry_type": {
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "leave_type_id": {
+            "format": "uuid",
+            "title": "Leave Type Id",
+            "type": "string"
+          },
+          "period_year": {
+            "title": "Period Year",
+            "type": "integer"
+          },
+          "quantity_days": {
+            "title": "Quantity Days",
+            "type": "number"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "required": [
+          "id",
+          "leave_type_id",
+          "period_year",
+          "entry_type",
+          "quantity_days",
+          "effective_date",
+          "request_id",
+          "reason",
+          "created_at"
+        ],
+        "title": "LedgerEntryOut",
         "type": "object"
       },
       "MeResponse": {
@@ -825,6 +1855,103 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "ModifyRequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date",
+          "version"
+        ],
+        "title": "ModifyRequestIn",
+        "type": "object"
+      },
+      "NotificationOut": {
+        "additionalProperties": false,
+        "properties": {
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email_status": {
+            "title": "Email Status",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "params",
+          "channels",
+          "created_at",
+          "read_at",
+          "email_status"
+        ],
+        "title": "NotificationOut",
+        "type": "object"
+      },
       "PageOut_AuditEntryOut_": {
         "properties": {
           "items": {
@@ -879,6 +2006,87 @@
         "title": "PageOut[EmployeeOut]",
         "type": "object"
       },
+      "PageOut_LeaveRequestSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[LeaveRequestSummary]",
+        "type": "object"
+      },
+      "PageOut_NotificationOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[NotificationOut]",
+        "type": "object"
+      },
+      "PageOut_TeamRequestOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamRequestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[TeamRequestOut]",
+        "type": "object"
+      },
       "PageOut_TenantOut_": {
         "properties": {
           "items": {
@@ -904,6 +2112,948 @@
           "items"
         ],
         "title": "PageOut[TenantOut]",
+        "type": "object"
+      },
+      "PendingItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "fallback": {
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request": {
+            "$ref": "#/components/schemas/LeaveRequestSummary"
+          },
+          "requester": {
+            "$ref": "#/components/schemas/RequesterOut"
+          },
+          "step": {
+            "$ref": "#/components/schemas/StepOut"
+          }
+        },
+        "required": [
+          "step",
+          "request",
+          "requester",
+          "reason",
+          "fallback"
+        ],
+        "title": "PendingItemOut",
+        "type": "object"
+      },
+      "PeriodOut": {
+        "additionalProperties": false,
+        "properties": {
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "start_date",
+          "end_date",
+          "working_days"
+        ],
+        "title": "PeriodOut",
+        "type": "object"
+      },
+      "PolicyCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_negative": {
+            "default": false,
+            "title": "Allow Negative",
+            "type": "boolean"
+          },
+          "carryover_expires_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carryover Expires On"
+          },
+          "carryover_max_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Carryover Max Days"
+          },
+          "entitlement_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Entitlement Days"
+          },
+          "leave_type": {
+            "maxLength": 32,
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "max_consecutive_days": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Consecutive Days"
+          },
+          "min_notice_days": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Min Notice Days",
+            "type": "integer"
+          },
+          "prorate_on_hire": {
+            "default": true,
+            "title": "Prorate On Hire",
+            "type": "boolean"
+          },
+          "year": {
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "leave_type",
+          "year",
+          "entitlement_days"
+        ],
+        "title": "PolicyCreate",
+        "type": "object"
+      },
+      "PolicyOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_negative": {
+            "title": "Allow Negative",
+            "type": "boolean"
+          },
+          "carryover_expires_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carryover Expires On"
+          },
+          "carryover_max_days": {
+            "title": "Carryover Max Days",
+            "type": "number"
+          },
+          "entitlement_days": {
+            "title": "Entitlement Days",
+            "type": "number"
+          },
+          "grant_mode": {
+            "title": "Grant Mode",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "leave_type_id": {
+            "format": "uuid",
+            "title": "Leave Type Id",
+            "type": "string"
+          },
+          "max_consecutive_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Consecutive Days"
+          },
+          "min_notice_days": {
+            "title": "Min Notice Days",
+            "type": "integer"
+          },
+          "prorate_on_hire": {
+            "title": "Prorate On Hire",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "leave_type_id",
+          "year",
+          "entitlement_days",
+          "carryover_max_days",
+          "carryover_expires_on",
+          "allow_negative",
+          "min_notice_days",
+          "max_consecutive_days",
+          "prorate_on_hire",
+          "grant_mode"
+        ],
+        "title": "PolicyOut",
+        "type": "object"
+      },
+      "PolicyUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_negative": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Negative"
+          },
+          "carryover_expires_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carryover Expires On"
+          },
+          "carryover_max_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carryover Max Days"
+          },
+          "entitlement_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Days"
+          },
+          "max_consecutive_days": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Consecutive Days"
+          },
+          "min_notice_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Notice Days"
+          },
+          "prorate_on_hire": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prorate On Hire"
+          }
+        },
+        "title": "PolicyUpdate",
+        "type": "object"
+      },
+      "ReadAllOut": {
+        "additionalProperties": false,
+        "properties": {
+          "marked": {
+            "title": "Marked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "marked"
+        ],
+        "title": "ReadAllOut",
+        "type": "object"
+      },
+      "RequestStatus": {
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "PENDING_MANAGER",
+          "PENDING_HR",
+          "APPROVED",
+          "ACTIVE",
+          "COMPLETED",
+          "REJECTED",
+          "CANCELLED",
+          "WITHDRAWN",
+          "MODIFICATION_PENDING"
+        ],
+        "title": "RequestStatus",
+        "type": "string"
+      },
+      "RequesterOut": {
+        "additionalProperties": false,
+        "properties": {
+          "department_id": {
+            "format": "uuid",
+            "title": "Department Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "employee_number": {
+            "title": "Employee Number",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "employee_number",
+          "department_id"
+        ],
+        "title": "RequesterOut",
+        "type": "object"
+      },
+      "RuleCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_acknowledge": {
+            "default": false,
+            "title": "Auto Acknowledge",
+            "type": "boolean"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "max_working_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Working Days"
+          },
+          "min_working_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Min Working Days"
+          },
+          "priority": {
+            "default": 100,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "requires_document": {
+            "default": false,
+            "title": "Requires Document",
+            "type": "boolean"
+          },
+          "steps": {
+            "items": {
+              "enum": [
+                "manager",
+                "hr"
+              ],
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "title": "RuleCreate",
+        "type": "object"
+      },
+      "RuleOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "auto_acknowledge": {
+            "title": "Auto Acknowledge",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "leave_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type Id"
+          },
+          "max_working_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Working Days"
+          },
+          "min_working_days": {
+            "title": "Min Working Days",
+            "type": "number"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "requires_document": {
+            "title": "Requires Document",
+            "type": "boolean"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "leave_type_id",
+          "min_working_days",
+          "max_working_days",
+          "requires_document",
+          "steps",
+          "auto_acknowledge",
+          "priority",
+          "active"
+        ],
+        "title": "RuleOut",
+        "type": "object"
+      },
+      "RuleUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "auto_acknowledge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Acknowledge"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "max_working_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Working Days"
+          },
+          "min_working_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Working Days"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "requires_document": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Document"
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "manager",
+                    "hr"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          }
+        },
+        "title": "RuleUpdate",
+        "type": "object"
+      },
+      "SimulateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "leave_type": {
+            "maxLength": 32,
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leave_type",
+          "start_date",
+          "end_date",
+          "employee_id"
+        ],
+        "title": "SimulateIn",
+        "type": "object"
+      },
+      "StepOut": {
+        "additionalProperties": false,
+        "properties": {
+          "approver_role": {
+            "title": "Approver Role",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by_employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Employee Id"
+          },
+          "designated_employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designated Employee Id"
+          },
+          "fallback": {
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "step_no": {
+            "title": "Step No",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          }
+        },
+        "required": [
+          "id",
+          "step_no",
+          "approver_role",
+          "designated_employee_id",
+          "status",
+          "decided_by_employee_id",
+          "decided_at",
+          "comment",
+          "via",
+          "fallback",
+          "version"
+        ],
+        "title": "StepOut",
+        "type": "object"
+      },
+      "SubmitRequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "leave_type": {
+            "examples": [
+              "annual"
+            ],
+            "maxLength": 32,
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leave_type",
+          "start_date",
+          "end_date"
+        ],
+        "title": "SubmitRequestIn",
+        "type": "object"
+      },
+      "TeamEmployeeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "department_id": {
+            "format": "uuid",
+            "title": "Department Id",
+            "type": "string"
+          },
+          "employee_number": {
+            "title": "Employee Number",
+            "type": "string"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employee_number",
+          "first_name",
+          "last_name",
+          "department_id"
+        ],
+        "title": "TeamEmployeeOut",
+        "type": "object"
+      },
+      "TeamRequestOut": {
+        "additionalProperties": false,
+        "properties": {
+          "employee_display_name": {
+            "title": "Employee Display Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request": {
+            "$ref": "#/components/schemas/LeaveRequestSummary"
+          }
+        },
+        "required": [
+          "request",
+          "employee_display_name",
+          "reason"
+        ],
+        "title": "TeamRequestOut",
+        "type": "object"
+      },
+      "TenantBalanceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "available_days": {
+            "title": "Available Days",
+            "type": "number"
+          },
+          "balance_days": {
+            "title": "Balance Days",
+            "type": "number"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "leave_type_id": {
+            "format": "uuid",
+            "title": "Leave Type Id",
+            "type": "string"
+          },
+          "pending_days": {
+            "title": "Pending Days",
+            "type": "number"
+          },
+          "period_year": {
+            "title": "Period Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "employee_id",
+          "leave_type_id",
+          "period_year",
+          "balance_days",
+          "pending_days",
+          "available_days"
+        ],
+        "title": "TenantBalanceOut",
         "type": "object"
       },
       "TenantCreate": {
@@ -1205,6 +3355,128 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "ValidationReportOut": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_chain": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Approval Chain",
+            "type": "array"
+          },
+          "auto_acknowledged": {
+            "title": "Auto Acknowledged",
+            "type": "boolean"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BalanceSnapshotOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "excluded_dates": {
+            "items": {
+              "$ref": "#/components/schemas/ExcludedDateOut"
+            },
+            "title": "Excluded Dates",
+            "type": "array"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOut"
+            },
+            "title": "Periods",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "violations": {
+            "items": {
+              "$ref": "#/components/schemas/ViolationOut"
+            },
+            "title": "Violations",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ViolationOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "valid",
+          "working_days",
+          "excluded_dates",
+          "periods",
+          "balance",
+          "approval_chain",
+          "auto_acknowledged",
+          "violations",
+          "warnings"
+        ],
+        "title": "ValidationReportOut",
+        "type": "object"
+      },
+      "ViolationOut": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "detail",
+          "params"
+        ],
+        "title": "ViolationOut",
+        "type": "object"
+      },
+      "WorkingDaysOut": {
+        "additionalProperties": false,
+        "properties": {
+          "excluded_dates": {
+            "items": {
+              "$ref": "#/components/schemas/ExcludedDateOut"
+            },
+            "title": "Excluded Dates",
+            "type": "array"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "working_days",
+          "excluded_dates"
+        ],
+        "title": "WorkingDaysOut",
+        "type": "object"
       }
     }
   },
@@ -1214,6 +3486,221 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/approval-rules": {
+      "get": {
+        "operationId": "list_rules_api_v1_admin_approval_rules_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleOut"
+                  },
+                  "title": "Response List Rules Api V1 Admin Approval Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Rules",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_rule_api_v1_admin_approval_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/approval-rules/simulate": {
+      "post": {
+        "operationId": "simulate_api_v1_admin_approval_rules_simulate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate",
+        "tags": [
+          "admin"
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/admin/approval-rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_rule_api_v1_admin_approval_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Rule",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "update_rule_api_v1_admin_approval_rules__rule_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/audit": {
       "get": {
         "operationId": "tenant_audit_api_v1_admin_audit_get",
@@ -1327,6 +3814,61 @@
           }
         },
         "summary": "Tenant Audit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/balances": {
+      "get": {
+        "operationId": "tenant_balances_api_v1_admin_balances_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TenantBalanceOut"
+                  },
+                  "title": "Response Tenant Balances Api V1 Admin Balances Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Balances",
         "tags": [
           "admin"
         ]
@@ -1924,6 +4466,767 @@
         ]
       }
     },
+    "/api/v1/admin/holidays": {
+      "get": {
+        "operationId": "list_holidays_api_v1_admin_holidays_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HolidayOut"
+                  },
+                  "title": "Response List Holidays Api V1 Admin Holidays Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Holidays",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_holiday_api_v1_admin_holidays_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HolidayCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolidayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Holiday",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/holidays/import": {
+      "post": {
+        "operationId": "import_holidays_api_v1_admin_holidays_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HolidayImportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HolidayOut"
+                  },
+                  "title": "Response Import Holidays Api V1 Admin Holidays Import Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Holidays",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/holidays/{holiday_id}": {
+      "delete": {
+        "operationId": "delete_holiday_api_v1_admin_holidays__holiday_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "holiday_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Holiday Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Holiday",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "update_holiday_api_v1_admin_holidays__holiday_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "holiday_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Holiday Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HolidayUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolidayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Holiday",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/leave-policies": {
+      "get": {
+        "operationId": "list_policies_api_v1_admin_leave_policies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PolicyOut"
+                  },
+                  "title": "Response List Policies Api V1 Admin Leave Policies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Policies",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_policy_api_v1_admin_leave_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/leave-policies/{policy_id}": {
+      "delete": {
+        "operationId": "delete_policy_api_v1_admin_leave_policies__policy_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Policy",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "update_policy_api_v1_admin_leave_policies__policy_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/leave-types": {
+      "get": {
+        "operationId": "list_leave_types_api_v1_admin_leave_types_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LeaveTypeOut"
+                  },
+                  "title": "Response List Leave Types Api V1 Admin Leave Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Leave Types",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_leave_type_api_v1_admin_leave_types_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveTypeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveTypeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Leave Type",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/leave-types/{leave_type_id}": {
+      "patch": {
+        "operationId": "update_leave_type_api_v1_admin_leave_types__leave_type_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "leave_type_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Leave Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveTypeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveTypeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Leave Type",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/ledger/adjustments": {
+      "post": {
+        "operationId": "post_adjustment_api_v1_admin_ledger_adjustments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerEntryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Adjustment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/approvals/pending": {
+      "get": {
+        "operationId": "pending_api_v1_approvals_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PendingItemOut"
+                  },
+                  "title": "Response Pending Api V1 Approvals Pending Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pending",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{step_id}": {
+      "get": {
+        "operationId": "get_step_api_v1_approvals__step_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "step_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Step Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Step",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{step_id}/approve": {
+      "post": {
+        "operationId": "approve_api_v1_approvals__step_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "step_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Step Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{step_id}/reject": {
+      "post": {
+        "operationId": "reject_api_v1_approvals__step_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "step_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Step Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/api/v1/healthz": {
       "get": {
         "operationId": "healthz_api_v1_healthz_get",
@@ -1949,6 +5252,561 @@
         ]
       }
     },
+    "/api/v1/leave/balances": {
+      "get": {
+        "operationId": "balances_api_v1_leave_balances_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceOut"
+                  },
+                  "title": "Response Balances Api V1 Leave Balances Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Balances",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/ledger": {
+      "get": {
+        "operationId": "ledger_api_v1_leave_ledger_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LedgerEntryOut"
+                  },
+                  "title": "Response Ledger Api V1 Leave Ledger Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ledger",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests": {
+      "get": {
+        "operationId": "list_requests_api_v1_leave_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/RequestStatus"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_LeaveRequestSummary_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "operationId": "submit_request_api_v1_leave_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Request",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/validate": {
+      "post": {
+        "operationId": "validate_request_api_v1_leave_requests_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Request",
+        "tags": [
+          "leave"
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/leave/requests/{request_id}": {
+      "get": {
+        "operationId": "get_request_api_v1_leave_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Request",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/{request_id}/cancel": {
+      "post": {
+        "operationId": "cancel_request_api_v1_leave_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Request",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/{request_id}/modify": {
+      "post": {
+        "operationId": "modify_request_api_v1_leave_requests__request_id__modify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifyRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Modify Request",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/types": {
+      "get": {
+        "operationId": "list_types_api_v1_leave_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LeaveTypeOut"
+                  },
+                  "title": "Response List Types Api V1 Leave Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Types",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/working-days": {
+      "get": {
+        "operationId": "working_days_api_v1_leave_working_days_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingDaysOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Working Days",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "operationId": "get_me_api_v1_me_get",
@@ -1967,6 +5825,147 @@
         "summary": "Current principal, tenant, employee and feature flags",
         "tags": [
           "identity"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unread",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unread",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_NotificationOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Notifications",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "operationId": "read_all_api_v1_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadAllOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notification_id}/read": {
+      "post": {
+        "operationId": "mark_read_api_v1_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Read",
+        "tags": [
+          "notifications"
         ]
       }
     },
@@ -2443,6 +6442,174 @@
         "summary": "Readyz",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/team/availability": {
+      "get": {
+        "operationId": "availability_api_v1_team_availability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbsenceOut"
+                  },
+                  "title": "Response Availability Api V1 Team Availability Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Availability",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/team/employees": {
+      "get": {
+        "operationId": "employees_api_v1_team_employees_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamEmployeeOut"
+                  },
+                  "title": "Response Employees Api V1 Team Employees Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Employees",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/team/requests": {
+      "get": {
+        "operationId": "requests_api_v1_team_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/RequestStatus"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_TeamRequestOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Requests",
+        "tags": [
+          "team"
         ]
       }
     }

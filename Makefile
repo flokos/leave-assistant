@@ -5,7 +5,7 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit test-integration contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap token precommit clean
+.PHONY: help setup env lint test-unit test-integration contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -63,6 +63,9 @@ seed: ## seed the two fictional companies into Keycloak and the database (idempo
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.seed
 
 bootstrap: migrate seed ## first start: migrate, then seed
+
+rollover: ## run the leave rollover now (statuses, year grants, carry-over, expiry) for all tenants
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.leave.rollover
 
 token: ## print an access token for EMAIL=<seed user e-mail> (dev realm, direct grant)
 	@set -a && . ./deploy/.env && set +a && curl -fsS -d "grant_type=password&client_id=frontend-spa&username=$(EMAIL)&password=$${SEED_USER_PASSWORD}" \

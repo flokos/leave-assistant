@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
 
+from leave_assistant.domain.leave.types import StepRole
 from leave_assistant.domain.tenancy import Locale, Role
 
 
@@ -32,6 +34,50 @@ class SeedEmployee:
 
 
 @dataclass(frozen=True, slots=True)
+class SeedLeaveType:
+    code: str
+    name_el: str
+    name_en: str
+    balance_bearing: bool
+    entitlement_days: Decimal | None  # policy for the seed year; None = no policy
+    allow_retroactive_days: int = 0
+    requires_document_above_days: int | None = None
+    allow_negative: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SeedHoliday:
+    day: date
+    name_el: str
+    name_en: str
+    recurring: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SeedRule:
+    steps: tuple[StepRole, ...]
+    priority: int
+    leave_type_code: str | None = None
+    min_working_days: Decimal = Decimal("0")
+    max_working_days: Decimal | None = None
+    requires_document: bool = False
+    auto_acknowledge: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SeedRequest:
+    """A sample request submitted `as_of` a given day; outcome drives approvals (`approved` = all steps, `rejected`, `cancelled`, `pending`)."""
+
+    employee_number: str
+    leave_type_code: str
+    start: date
+    end: date
+    as_of: date
+    outcome: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SeedCompany:
     slug: str
     name: str
@@ -40,6 +86,66 @@ class SeedCompany:
     departments: tuple[SeedDepartment, ...]
     employees: tuple[SeedEmployee, ...]
     settings: dict[str, object] = field(default_factory=dict)
+    holidays: tuple[SeedHoliday, ...] = ()
+    requests: tuple[SeedRequest, ...] = ()
+
+
+SEED_YEAR = 2026
+# Doc 01 §6.1 seed values; sick leave allows a negative balance so that cap-exceeding requests reach HR review (Q-02)
+LEAVE_TYPES: tuple[SeedLeaveType, ...] = (
+    SeedLeaveType("annual", "Κανονική άδεια", "Annual leave", True, Decimal("20")),
+    SeedLeaveType(
+        "sick",
+        "Αναρρωτική άδεια",
+        "Sick leave",
+        True,
+        Decimal("10"),
+        allow_retroactive_days=30,
+        requires_document_above_days=3,
+        allow_negative=True,
+    ),
+    SeedLeaveType("unpaid", "Άδεια άνευ αποδοχών", "Unpaid leave", False, None),
+)
+# Doc 01 §6.4 routing table
+APPROVAL_RULES: tuple[SeedRule, ...] = (
+    SeedRule((), 10, "sick", max_working_days=Decimal("3"), auto_acknowledge=True),
+    SeedRule((StepRole.HR,), 20, "sick", min_working_days=Decimal("3.01"), requires_document=True),
+    SeedRule((StepRole.MANAGER,), 30, None, max_working_days=Decimal("5")),
+    SeedRule((StepRole.MANAGER, StepRole.HR), 40, None, min_working_days=Decimal("5.01")),
+)
+CARRYOVER_MAX_DAYS = Decimal("5")
+
+
+def _h(day: date, el: str, en: str, recurring: bool = False) -> SeedHoliday:
+    return SeedHoliday(day, el, en, recurring)
+
+
+GREEK_HOLIDAYS_2026 = (
+    _h(date(2026, 1, 1), "Πρωτοχρονιά", "New Year's Day", True),
+    _h(date(2026, 1, 6), "Θεοφάνεια", "Epiphany", True),
+    _h(date(2026, 2, 23), "Καθαρά Δευτέρα", "Clean Monday"),
+    _h(date(2026, 3, 25), "Εθνική εορτή 25ης Μαρτίου", "Independence Day", True),
+    _h(date(2026, 4, 10), "Μεγάλη Παρασκευή", "Orthodox Good Friday"),
+    _h(date(2026, 4, 13), "Δευτέρα του Πάσχα", "Orthodox Easter Monday"),
+    _h(date(2026, 5, 1), "Πρωτομαγιά", "Labour Day", True),
+    _h(date(2026, 6, 1), "Αγίου Πνεύματος", "Whit Monday"),
+    _h(date(2026, 8, 15), "Κοίμηση της Θεοτόκου", "Assumption of Mary", True),
+    _h(date(2026, 10, 28), "Εθνική εορτή 28ης Οκτωβρίου", "Ochi Day", True),
+    _h(date(2026, 12, 25), "Χριστούγεννα", "Christmas Day", True),
+    _h(date(2026, 12, 26), "Δεύτερη ημέρα Χριστουγέννων", "Second day of Christmas", True),
+)
+IRISH_HOLIDAYS_2026 = (
+    _h(date(2026, 1, 1), "Πρωτοχρονιά", "New Year's Day", True),
+    _h(date(2026, 2, 2), "Ημέρα Αγίας Βριγίτας", "St Brigid's Day"),
+    _h(date(2026, 3, 17), "Ημέρα Αγίου Πατρικίου", "St Patrick's Day", True),
+    _h(date(2026, 4, 6), "Δευτέρα του Πάσχα", "Easter Monday"),
+    _h(date(2026, 5, 4), "Αργία Μαΐου", "May Bank Holiday"),
+    _h(date(2026, 6, 1), "Αργία Ιουνίου", "June Bank Holiday"),
+    _h(date(2026, 8, 3), "Αργία Αυγούστου", "August Bank Holiday"),
+    _h(date(2026, 10, 26), "Αργία Οκτωβρίου", "October Bank Holiday"),
+    _h(date(2026, 12, 25), "Χριστούγεννα", "Christmas Day", True),
+    _h(date(2026, 12, 26), "Ημέρα Αγίου Στεφάνου", "St Stephen's Day", True),
+)
 
 
 E, M, H, C = Role.EMPLOYEE, Role.MANAGER, Role.HR_ADMIN, Role.COMPANY_ADMIN
@@ -162,6 +268,60 @@ AEGEAN = SeedCompany(
             Locale.EN,
         ),
     ),
+    holidays=GREEK_HOLIDAYS_2026,
+    requests=(
+        SeedRequest(
+            "AEG-004",
+            "annual",
+            date(2026, 9, 14),
+            date(2026, 9, 18),
+            date(2026, 9, 1),
+            "approved",
+            "Διακοπές",
+        ),  # → COMPLETED by rollover
+        SeedRequest(
+            "AEG-005",
+            "annual",
+            date(2026, 12, 14),
+            date(2026, 12, 18),
+            date(2026, 11, 2),
+            "approved",
+            "Χριστούγεννα",
+        ),
+        SeedRequest(
+            "AEG-007", "annual", date(2026, 12, 21), date(2026, 12, 23), date(2026, 11, 3), "pending"
+        ),  # PENDING_MANAGER
+        SeedRequest(
+            "AEG-009",
+            "annual",
+            date(2026, 11, 23),
+            date(2026, 12, 4),
+            date(2026, 11, 2),
+            "pending_hr",
+            "Ταξίδι",
+        ),  # > 5 days → HR pending
+        SeedRequest(
+            "AEG-010",
+            "unpaid",
+            date(2026, 12, 7),
+            date(2026, 12, 8),
+            date(2026, 11, 3),
+            "rejected",
+            "Personal",
+        ),
+        SeedRequest(
+            "AEG-004", "sick", date(2026, 11, 2), date(2026, 11, 3), date(2026, 11, 3), "approved", "Ίωση"
+        ),  # auto-acknowledged
+        SeedRequest(
+            "AEG-005",
+            "annual",
+            date(2026, 11, 9),
+            date(2026, 11, 10),
+            date(2026, 10, 20),
+            "cancelled",
+            "Αλλαγή σχεδίων",
+        ),
+    ),
 )
 
 BRIGHTWATER = SeedCompany(
@@ -199,6 +359,45 @@ BRIGHTWATER = SeedCompany(
             {E},
             date(2024, 10, 1),
             Locale.EL,
+        ),
+    ),
+    holidays=IRISH_HOLIDAYS_2026,
+    requests=(
+        SeedRequest(
+            "BWS-004", "annual", date(2026, 8, 10), date(2026, 8, 14), date(2026, 7, 20), "approved", "Summer"
+        ),  # → COMPLETED
+        SeedRequest(
+            "BWS-005",
+            "annual",
+            date(2026, 12, 21),
+            date(2026, 12, 24),
+            date(2026, 11, 2),
+            "approved",
+            "Christmas",
+        ),
+        SeedRequest(
+            "BWS-007", "annual", date(2026, 12, 14), date(2026, 12, 15), date(2026, 11, 3), "pending"
+        ),
+        SeedRequest(
+            "BWS-008",
+            "annual",
+            date(2026, 11, 30),
+            date(2026, 12, 11),
+            date(2026, 11, 2),
+            "pending_hr",
+            "Επίσκεψη στην Ελλάδα",
+        ),
+        SeedRequest(
+            "BWS-004", "sick", date(2026, 11, 3), date(2026, 11, 4), date(2026, 11, 4), "approved"
+        ),  # auto-acknowledged
+        SeedRequest(
+            "BWS-005",
+            "unpaid",
+            date(2026, 11, 16),
+            date(2026, 11, 17),
+            date(2026, 11, 2),
+            "rejected",
+            "Personal matters",
         ),
     ),
 )

@@ -10,6 +10,7 @@ Conventions and the endpoint catalogue are in [doc 09](../09-api-contracts.md). 
 |-----------|-----------|
 | M0 | `GET /healthz`, `GET /readyz` |
 | M1 | `GET /me`; `/platform/tenants` (list, create, get, patch, suspend, resume, bootstrap-admin); `GET /platform/audit`; `/admin/employees` (list, create, get, patch, deactivate, roles); `/admin/departments` (list, create, get, patch, delete, manager); `GET /admin/audit` |
+| M2 | `/leave/types`, `/leave/balances`, `/leave/ledger`, `/leave/working-days`, `/leave/requests` (validate, submit, list, get, modify, cancel); `/approvals/pending`, `/approvals/{step}` (get, approve, reject); `/team/employees|availability|requests`; `/notifications` (list, read, read-all); `/admin/leave-types`, `/admin/leave-policies`, `/admin/holidays` (+import), `/admin/approval-rules` (+simulate); `/admin/ledger/adjustments`, `/admin/balances` |
 
 State-changing routes under `/platform` and `/admin` require the `Idempotency-Key` header (replays return the stored
 response with `Idempotent-Replayed: true`; a different body under the same key is `409 idempotency-mismatch`).

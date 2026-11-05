@@ -10,10 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from leave_assistant.application.errors import ConflictError
 from leave_assistant.application.ports import (
+    ApprovalRuleRepository,
+    ApprovalStepRepository,
     AuditRepository,
     DepartmentRepository,
     EmployeeRepository,
+    HolidayRepository,
     IdempotencyRepository,
+    IntegrationEventRepository,
+    LeavePolicyRepository,
+    LeaveRequestRepository,
+    LeaveTypeRepository,
+    LedgerRepository,
+    NotificationRepository,
+    RequestEventRepository,
     TenantRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
@@ -21,6 +31,22 @@ from leave_assistant.infrastructure.db.repositories.audit import SqlAuditReposit
 from leave_assistant.infrastructure.db.repositories.departments import SqlDepartmentRepository
 from leave_assistant.infrastructure.db.repositories.employees import SqlEmployeeRepository
 from leave_assistant.infrastructure.db.repositories.idempotency import SqlIdempotencyRepository
+from leave_assistant.infrastructure.db.repositories.leave_catalog import (
+    SqlApprovalRuleRepository,
+    SqlHolidayRepository,
+    SqlLeavePolicyRepository,
+    SqlLeaveTypeRepository,
+)
+from leave_assistant.infrastructure.db.repositories.leave_requests import (
+    SqlApprovalStepRepository,
+    SqlLeaveRequestRepository,
+    SqlRequestEventRepository,
+)
+from leave_assistant.infrastructure.db.repositories.ledger import SqlLedgerRepository
+from leave_assistant.infrastructure.db.repositories.notifications import (
+    SqlIntegrationEventRepository,
+    SqlNotificationRepository,
+)
 from leave_assistant.infrastructure.db.repositories.tenants import SqlTenantRepository
 from leave_assistant.infrastructure.db.session import CONTEXT_KEY
 
@@ -31,6 +57,16 @@ class SqlAlchemyUnitOfWork:
     employees: EmployeeRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
+    leave_types: LeaveTypeRepository
+    leave_policies: LeavePolicyRepository
+    holidays: HolidayRepository
+    approval_rules: ApprovalRuleRepository
+    leave_requests: LeaveRequestRepository
+    approval_steps: ApprovalStepRepository
+    request_events: RequestEventRepository
+    ledger: LedgerRepository
+    notifications: NotificationRepository
+    integration_events: IntegrationEventRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -55,6 +91,16 @@ class SqlAlchemyUnitOfWork:
         self.employees = SqlEmployeeRepository(session, tenant_id)
         self.audit = SqlAuditRepository(session, self.context)
         self.idempotency = SqlIdempotencyRepository(session)
+        self.leave_types = SqlLeaveTypeRepository(session, tenant_id)
+        self.leave_policies = SqlLeavePolicyRepository(session, tenant_id)
+        self.holidays = SqlHolidayRepository(session, tenant_id)
+        self.approval_rules = SqlApprovalRuleRepository(session, tenant_id)
+        self.leave_requests = SqlLeaveRequestRepository(session, tenant_id)
+        self.approval_steps = SqlApprovalStepRepository(session, tenant_id)
+        self.request_events = SqlRequestEventRepository(session, tenant_id)
+        self.ledger = SqlLedgerRepository(session, tenant_id)
+        self.notifications = SqlNotificationRepository(session, tenant_id)
+        self.integration_events = SqlIntegrationEventRepository(session, tenant_id)
         return self
 
     async def __aexit__(

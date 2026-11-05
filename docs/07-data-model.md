@@ -190,9 +190,9 @@ stateDiagram-v2
     PENDING_HR --> REJECTED: HR rejected
     APPROVED --> ACTIVE: start_date reached (daily job)
     ACTIVE --> COMPLETED: end_date passed
-    APPROVED --> MODIFICATION_PENDING: owner modifies
-    MODIFICATION_PENDING --> APPROVED: re-approved (reversal + new deduction)
-    MODIFICATION_PENDING --> APPROVED: rejected modification restores original
+    APPROVED --> MODIFICATION_PENDING: owner modifies (a new request row carries the new dates)
+    MODIFICATION_PENDING --> CANCELLED: modification approved (REVERSAL on the original, DEDUCTION on the new row)
+    MODIFICATION_PENDING --> APPROVED: modification rejected or cancelled (original restored)
     PENDING_MANAGER --> CANCELLED: owner cancels
     PENDING_HR --> CANCELLED: owner cancels
     APPROVED --> CANCELLED: owner cancels before start (REVERSAL)
@@ -206,6 +206,16 @@ stateDiagram-v2
 Transitions are implemented in `domain/leave/state_machine.py` as a table `(from, event, guard) → to`; the
 service applies them under `SELECT … FOR UPDATE` and the `version` check, writes `leave_request_events`, and
 performs ledger postings in the same transaction.
+
+**M2 implementation notes (2026-11-05):** a modification of an approved request is a *new* request row
+(`modification_of_request_id` → original) that runs the normal approval chain while the original waits in
+`MODIFICATION_PENDING`; the exclusion constraint therefore ignores `MODIFICATION_PENDING` rows. Modifications of
+pending requests edit the same row (steps cancelled and re-materialised). Request numbers come from
+`app.request_counters(tenant_id, year, next_seq)` locked per tenant/year; ledger postings lock the employee row.
+`APPROVED → ACTIVE → COMPLETED` and the ledger calendar (grants, carry-over, expiry) run as a periodic task of the
+worker loop (every 15 minutes, per tenant in its timezone) and via `make rollover`; the generic `jobs` queue arrives
+in M4. `app.leave_balances` is a `security_invoker` view (RLS of the caller); `pending_days` counts
+`SUBMITTED/PENDING_*` requests in their start year. Supporting-document flags are advisory until M4 (uploads).
 
 ### 5.2 Ledger rules
 | Event | Entries |

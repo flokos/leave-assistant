@@ -130,6 +130,10 @@ is built per request; services receive it explicitly (no globals except the DB c
 | Create/manage tenants, platform settings | — | — | — | — | ✓ |
 | Read tenant business data or documents | — | — | — | — | **never** |
 | Chat with the assistant | ✓ | ✓ | ✓ | ✓ | — (no tenant context) |
+| Read the leave catalogue (types, policies, holidays, rules) — M2 | ✓ | ✓ | ✓ | ✓ | — |
+| Post ledger adjustments (audited, with reason) — M2 | — | — | ✓ | — | — |
+| Read tenant-wide balances — M2 | — | — | ✓ | ✓ | — |
+| Read/mark own notifications — M2 | ✓ (self) | ✓ (self) | ✓ (self) | ✓ (self) | — |
 
 - Implemented as `authorize(principal, action, resource) -> Decision` in `application/authz`; the same function
   backs REST endpoints and the tool gateway; deny-by-default; every denial is audited with `outcome=denied`.
@@ -137,6 +141,9 @@ is built per request; services receive it explicitly (no globals except the DB c
   principal is that department's manager), `tenant`, `platform`.
 - Role combinations: a user who is both `manager` and `hr_admin` cannot decide both steps of the same request
   (segregation of duties check); nobody can decide a step on their own request.
+- M2: the step *designation* is authoritative for manager steps (a manager override may sit in another department);
+  HR fallback on manager steps needs `allow_hr_fallback` and is recorded (`fallback = true`); company administrators
+  read requests as absence only (no leave type, no reason); managers see the reason only for non-sick leave.
 
 ## 6. Multi-tenant isolation (ADR-0003)
 

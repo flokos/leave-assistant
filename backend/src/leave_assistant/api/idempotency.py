@@ -25,6 +25,9 @@ from leave_assistant.application.tenancy.context import TenantContext
 HEADER = "Idempotency-Key"
 REPLAYED_HEADER = "Idempotent-Replayed"
 MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+NO_IDEMPOTENCY = {
+    "x-idempotency": "none"
+}  # openapi_extra marker for side-effect-free POSTs (validate, simulate)
 
 
 class IdempotentRoute(APIRoute):
@@ -32,8 +35,10 @@ class IdempotentRoute(APIRoute):
         original = super().get_route_handler()
         route_name = f"{next(iter(sorted(self.methods or {'POST'})))} {self.path_format}"
 
+        exempt = (self.openapi_extra or {}).get("x-idempotency") == "none"
+
         async def handler(request: Request) -> Response:
-            if request.method not in MUTATING_METHODS:
+            if request.method not in MUTATING_METHODS or exempt:
                 return await original(request)
             key = request.headers.get(HEADER, "").strip()
             if not key or len(key) > 128:

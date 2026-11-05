@@ -54,6 +54,11 @@ MATRIX: list[tuple[Action, dict[str, Scope]]] = [
     (Action.READ_AUDIT_TENANT, {H: TENANT, C: TENANT}),
     (Action.READ_AUDIT_PLATFORM, {P: PLAT}),
     (Action.READ_RUN_HISTORY, {E: SELF, M: SELF, H: TENANT, C: TENANT}),
+    # M2 additions (doc 08 §5.2 amendment)
+    (Action.READ_LEAVE_CATALOGUE, {E: TENANT, M: TENANT, H: TENANT, C: TENANT}),
+    (Action.ADJUST_LEDGER, {H: TENANT}),
+    (Action.READ_TENANT_BALANCES, {H: TENANT, C: TENANT}),
+    (Action.MANAGE_OWN_NOTIFICATIONS, {E: SELF, M: SELF, H: SELF, C: SELF}),
 ]
 
 

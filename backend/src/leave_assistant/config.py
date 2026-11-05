@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     worker_mode: Literal["separate", "embedded"] = "separate"
     worker_poll_interval_seconds: float = 5.0
     worker_heartbeat_path: str = "/tmp/leave-assistant-worker.heartbeat"  # noqa: S108 - container-local file
+    rollover_interval_seconds: float = 900.0  # leave status rollover + ledger calendar (M2 plan decision 4)
     readiness_timeout_seconds: float = (
         5.0  # per dependency check; Keycloak's first response after start can be slow
     )

@@ -53,6 +53,24 @@ curl -s -X POST localhost:8080/api/v1/platform/tenants/<id>/bootstrap-admin -H "
 ```
 The response contains the temporary password **once**; Keycloak forces a password change at the first login.
 
+### Leave data (M2)
+`make bootstrap` also seeds, per company, the leave types (annual 20 d, sick 10 d, unpaid), the 2026/2027 policies
+(carry-over 5 days until 31 March), the 2026 public-holiday calendar (Greek / Irish), the four approval rules of
+doc 01 §6.4, the 2026 entitlement grants and sample requests in every state (completed, approved, pending manager,
+pending HR, rejected, cancelled, auto-acknowledged sick leave). `make rollover` runs the status rollover and the
+ledger calendar (grants / carry-over / expiry) immediately; the worker does the same every 15 minutes.
+
+```bash
+TOKEN=$(make -s token EMAIL=eleni.dimitriou@aegean-logistics.example)
+curl -s "localhost:8080/api/v1/leave/balances?year=2026" -H "Authorization: Bearer $TOKEN"
+curl -s -X POST localhost:8080/api/v1/leave/requests/validate -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"leave_type":"annual","start_date":"2026-12-14","end_date":"2026-12-18"}'
+curl -s -X POST localhost:8080/api/v1/leave/requests -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
+  -H 'Content-Type: application/json' -d '{"leave_type":"annual","start_date":"2026-12-14","end_date":"2026-12-18","reason":"trip"}'
+MANAGER=$(make -s token EMAIL=nikos.papadakis@aegean-logistics.example)
+curl -s localhost:8080/api/v1/approvals/pending -H "Authorization: Bearer $MANAGER"
+```
+
 `make ps` shows service health; `make logs SERVICE=api` follows one service.
 
 ## Low-memory hosts (< 4 GB free)
@@ -77,6 +95,7 @@ make setup          # uv sync (backend) + npm ci (frontend)
 make lint           # ruff, ruff format, mypy, import-linter, eslint, tsc
 make test-unit      # pytest with coverage + vitest (no infrastructure needed)
 make test-integration  # DB integration + security suites against the running stack (creates database `leave_test`)
+make rollover       # leave status rollover + ledger calendar for all tenants now
 make contract       # regenerate docs/api/openapi.json + frontend/src/api/schema.d.ts and fail on drift
 make up-dev         # core profile with hot reload; api also published on http://localhost:8000
 ```

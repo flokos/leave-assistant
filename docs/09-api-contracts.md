@@ -72,8 +72,15 @@ Roles: E = employee, M = manager, H = HR admin, C = company admin, P = platform 
 | GET | `/leave/requests/{id}` | owner, approvers, H | Request with steps, events, documents metadata |
 | POST | `/leave/requests/{id}/modify` | owner (Idem) | New dates → re-validation, re-approval |
 | POST | `/leave/requests/{id}/cancel` | owner (Idem); H for ACTIVE | Cancel/withdraw |
-| POST | `/leave/requests/{id}/supporting-documents` | owner (Idem, multipart) | Upload sick-leave note |
-| GET | `/leave/requests/{id}/supporting-documents` | owner, H | Metadata only |
+| POST | `/leave/requests/{id}/supporting-documents` | owner (Idem, multipart) | Upload sick-leave note (M4) |
+| GET | `/leave/requests/{id}/supporting-documents` | owner, H | Metadata only (M4) |
+
+M2 notes: `modify`/`cancel` bodies carry the request `version`, approval decisions the step `version`
+(`409 version-conflict` when stale); `validate` and `/admin/approval-rules/simulate` are side-effect-free POSTs
+without `Idempotency-Key`; `leave_type` is `null` in responses for viewers who may only see the absence
+(company administrators); `/admin/holidays/import` takes `{"csv": "date,name_el,name_en[,recurring]…"}`;
+`GET /notifications`, `POST /notifications/{id}/read` and `/notifications/read-all` exist from M2 (rendering and
+e-mail delivery arrive in M8). Day quantities are JSON numbers (multiples of 0.5).
 
 ### 2.4 Approvals and team
 | Method | Path | Roles | Purpose |

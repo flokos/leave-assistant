@@ -48,6 +48,11 @@ class Action(StrEnum):
     READ_AUDIT_PLATFORM = "platform.read_audit"
     READ_TENANT_DATA = "platform.read_tenant_data"  # never granted (doc 08 §5.2 last rows)
     INTERNAL_CALL = "internal.call"
+    # M2 additions (doc 08 §5.2 amendment): catalogue reads, ledger adjustments, tenant balances, own notifications
+    READ_LEAVE_CATALOGUE = "leave.read_catalogue"
+    ADJUST_LEDGER = "ledger.adjust"
+    READ_TENANT_BALANCES = "ledger.read_tenant_balances"
+    MANAGE_OWN_NOTIFICATIONS = "notifications.manage_own"
 
 
 class Scope(StrEnum):
@@ -120,6 +125,10 @@ PERMISSIONS: Final[dict[Action, dict[Role, Scope]]] = {
     Action.READ_AUDIT_PLATFORM: {P: Scope.PLATFORM},
     Action.READ_TENANT_DATA: {},
     Action.INTERNAL_CALL: {A: Scope.AUTOMATION},
+    Action.READ_LEAVE_CATALOGUE: _ALL_TENANT,
+    Action.ADJUST_LEDGER: {H: Scope.TENANT},
+    Action.READ_TENANT_BALANCES: {H: Scope.TENANT, C: Scope.TENANT},
+    Action.MANAGE_OWN_NOTIFICATIONS: _ALL_SELF,
 }
 
 _DECISION_ACTIONS: Final = frozenset({Action.DECIDE_MANAGER_STEP, Action.DECIDE_HR_STEP})

@@ -11,10 +11,12 @@ from fastapi import FastAPI
 from leave_assistant import __version__
 from leave_assistant.api.errors import register_error_handlers
 from leave_assistant.api.middleware import RequestIdMiddleware
-from leave_assistant.api.routers import health, me
+from leave_assistant.api.routers import approvals, health, leave, me, notifications, team
 from leave_assistant.api.routers.admin import audit as admin_audit
 from leave_assistant.api.routers.admin import departments as admin_departments
 from leave_assistant.api.routers.admin import employees as admin_employees
+from leave_assistant.api.routers.admin import leave_catalog as admin_leave_catalog
+from leave_assistant.api.routers.admin import ledger as admin_ledger
 from leave_assistant.api.routers.platform import audit as platform_audit
 from leave_assistant.api.routers.platform import tenants as platform_tenants
 from leave_assistant.application.container import Services
@@ -37,6 +39,12 @@ ROUTERS = (
     admin_employees.router,
     admin_departments.router,
     admin_audit.router,
+    leave.router,
+    approvals.router,
+    team.router,
+    notifications.router,
+    admin_leave_catalog.router,
+    admin_ledger.router,
 )
 
 
@@ -71,7 +79,9 @@ def create_app(
                 readiness_checks or default_checks(settings, runtime.engine, s3, expected_head())
             )
             if settings.worker_mode == "embedded":
-                worker_task = asyncio.create_task(run_worker_loop(settings, stop))
+                worker_task = asyncio.create_task(
+                    run_worker_loop(settings, stop, periodic=runtime.services.rollover.run_due)
+                )
         else:
             app.state.services = services
             app.state.readiness_checks = list(readiness_checks or [])

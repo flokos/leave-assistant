@@ -310,3 +310,58 @@ def test_bootstrap_flow_end_to_end(http: httpx.Client, testco: dict[str, Any]) -
     ).json()["items"]
     assert any(e["details"].get("slug") == testco["slug"] for e in platform_audit)
     assert all(e["tenant_id"] is None for e in platform_audit)
+
+
+# --- M2: leave flow with real tokens through the proxy ---------------------------------------------------
+def test_leave_flow_submit_approve_cancel(http: httpx.Client) -> None:
+    """Employee submits → manager approves → balance drops → HR sees it → employee cancels → reversal (2026 balances)."""
+    employee = bearer_for(http, "kostas.michailidis@aegean-logistics.example")  # AEG-005, Operations
+    manager = bearer_for(http, SEED_USERS["manager"])  # Nikos Papadakis, manager of Operations
+    hr = bearer_for(http, SEED_USERS["hr_admin"])
+
+    def available(headers: dict[str, str]) -> float:
+        rows = http.get(f"{API}/leave/balances", params={"year": 2026}, headers=headers).json()
+        return next(r["available_days"] for r in rows if r["leave_type"] == "annual")
+
+    body = {
+        "leave_type": "annual",
+        "start_date": "2026-12-28",
+        "end_date": "2026-12-30",
+        "reason": "live test",
+    }
+    report = http.post(f"{API}/leave/requests/validate", json=body, headers=employee)
+    assert report.status_code == 200 and report.json()["valid"], report.text
+    assert report.json()["working_days"] == 3 and report.json()["approval_chain"] == ["manager"]
+    before = available(employee)
+    created = http.post(
+        f"{API}/leave/requests", json=body, headers={**employee, "Idempotency-Key": str(uuid4())}
+    )
+    assert created.status_code == 201, created.text
+    request = created.json()
+    assert request["status"] == "PENDING_MANAGER" and request["working_days"] == 3.0
+    try:
+        step = request["steps"][0]
+        pending = http.get(f"{API}/approvals/pending", headers=manager).json()
+        assert any(i["step"]["id"] == step["id"] for i in pending)
+        approved = http.post(
+            f"{API}/approvals/{step['id']}/approve",
+            json={"version": step["version"], "comment": "ok"},
+            headers={**manager, "Idempotency-Key": str(uuid4())},
+        )
+        assert approved.status_code == 200 and approved.json()["status"] == "APPROVED", approved.text
+        assert before - available(employee) == 3.0
+        team = http.get(f"{API}/team/requests", params={"status": ["APPROVED"]}, headers=hr).json()["items"]
+        assert any(r["request"]["id"] == request["id"] for r in team)
+        assert http.get(f"{API}/team/requests", headers=employee).status_code == 403
+    finally:
+        current = http.get(f"{API}/leave/requests/{request['id']}", headers=employee).json()
+        if current["status"] in {"PENDING_MANAGER", "PENDING_HR", "APPROVED"}:
+            cancelled = http.post(
+                f"{API}/leave/requests/{request['id']}/cancel",
+                json={"version": current["version"], "comment": "live test cleanup"},
+                headers={**employee, "Idempotency-Key": str(uuid4())},
+            )
+            assert cancelled.status_code == 200 and cancelled.json()["status"] == "CANCELLED", cancelled.text
+    assert available(employee) == before  # the reversal restored the balance
+    ledger = http.get(f"{API}/leave/ledger", params={"type": "annual", "year": 2026}, headers=employee).json()
+    assert [e["entry_type"] for e in ledger][-2:] == ["DEDUCTION", "REVERSAL"]

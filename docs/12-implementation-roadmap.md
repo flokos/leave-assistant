@@ -49,7 +49,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Exit: security suite for tenancy and authorization matrix green; seed runs idempotently; `/me` returns correct
   principals for all five roles; audit entries written for admin actions.
 
-### M2 — Leave domain (L) — TDD
+### M2 — Leave domain (L) — TDD — **done 2026-11-05** (worklog: `docs/development/worklog/M2.md`)
 - Domain: leave types/policies, holidays, working-day service, ledger, balance view, validation, approval rules
   engine (incl. sick-leave auto-acknowledgement and HR review routing, manager-own-request routing, HR fallback —
   decided Q-01–Q-03), state machine, request/modify/cancel services, approval services, idempotency keys, events.
