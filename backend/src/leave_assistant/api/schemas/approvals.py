@@ -22,6 +22,7 @@ class PendingItemOut(ApiModel):
     requester: RequesterOut
     reason: str | None
     fallback: bool
+    supporting_documents: int = 0
 
     @classmethod
     def from_view(cls, item: PendingItem) -> PendingItemOut:
@@ -36,6 +37,7 @@ class PendingItemOut(ApiModel):
             ),
             reason=item.request.reason if item.reason_visible else None,
             fallback=item.fallback,
+            supporting_documents=item.supporting_count,
         )
 
 

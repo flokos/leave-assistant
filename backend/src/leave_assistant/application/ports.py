@@ -17,11 +17,9 @@ from leave_assistant.application.idempotency import IdempotencyRecord
 from leave_assistant.application.jobs.models import Job, JobStatus
 from leave_assistant.application.notifications.models import IntegrationEvent, Notification
 from leave_assistant.application.tenancy.context import TenantContext
-from leave_assistant.domain.documents.chunking import ChunkDraft
 from leave_assistant.domain.documents.fusion import LegHit
 from leave_assistant.domain.documents.types import (
     AclEntry,
-    Block,
     Category,
     Chunk,
     Document,
@@ -37,6 +35,8 @@ from leave_assistant.domain.leave.ledger import LedgerEntry
 from leave_assistant.domain.leave.request import ApprovalStep, LeaveRequest, RequestEventRecord
 from leave_assistant.domain.leave.state_machine import RequestStatus
 from leave_assistant.domain.leave.types import ApprovalRule, LeavePolicy, LeaveType, PublicHoliday, StepRole
+from leave_assistant.domain.privacy.types import EntityType, Finding
+from leave_assistant.domain.retention.eligibility import DocumentClass, RetentionAction, ReviewStatus
 from leave_assistant.domain.tenancy import Department, Employee, Role, Tenant
 
 
@@ -268,25 +268,274 @@ class RiskAssessment:
     tier: RiskTier = RiskTier.LOW
     findings: tuple[dict[str, Any], ...] = ()
     chunk_flags: dict[int, tuple[str, ...]] = field(default_factory=dict)  # by chunk ordinal
+    heuristic_score: float = 0.0
+    classifier_score: float | None = None
+    structural_flags: tuple[str, ...] = ()
 
 
-class RiskScanner(Protocol):
-    """Injection inspection (doc 08 §8.2) — a no-op until M5; the pipeline already routes by tier."""
+class SimilarityClassifier(Protocol):
+    """Calibrated 0–1 injection likelihood per text from e5 similarity to curated exemplars (doc 08 §8.2)."""
 
-    def scan(self, blocks: Sequence[Block], drafts: Sequence[ChunkDraft]) -> RiskAssessment: ...
+    @property
+    def version(self) -> str: ...
+    def score_blocks(self, texts: Sequence[str]) -> builtins.list[float]: ...
+
+
+class LlmJudge(Protocol):
+    """Optional judge for the medium band (adapter arrives with the provider router in M6)."""
+
+    async def judge(self, excerpts: Sequence[str]) -> float | None: ...
+
+
+# --- privacy (doc 08 §7, ADR-0017) ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
-class PiiResult:
-    llm_safe_texts: tuple[str, ...]
-    has_pii: tuple[bool, ...]
-    summary: dict[str, Any] = field(default_factory=dict)
+class KnownEntity:
+    """A tenant employee as the known-entity recogniser sees it (the strongest detection layer)."""
+
+    employee_id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    department_id: UUID | None = None
 
 
-class PiiScanner(Protocol):
-    """Pseudonymisation of chunk text for the LLM (doc 08 §7) — identity until M5."""
+class PiiEngine(Protocol):
+    """Blocking detection (Presidio + Greek recognisers + known entities); runs in the worker child."""
 
-    def scan(self, drafts: Sequence[ChunkDraft]) -> PiiResult: ...
+    def detect(
+        self, text: str, *, language: str | None, known: Sequence[KnownEntity]
+    ) -> builtins.list[Finding]: ...
+
+
+class VaultCipher(Protocol):
+    """HMAC lookups and AES-256-GCM originals with keys from the environment; `configured` = keys present."""
+
+    @property
+    def configured(self) -> bool: ...
+    def hmac(self, tenant_id: UUID, key: str) -> bytes: ...
+    def encrypt(self, tenant_id: UUID, value: str) -> bytes: ...
+    def decrypt(self, tenant_id: UUID, data: bytes) -> str: ...
+
+
+@dataclass(slots=True)
+class VaultEntry:
+    id: UUID
+    tenant_id: UUID
+    entity_type: EntityType
+    value_hmac: bytes
+    value_encrypted: bytes
+    placeholder: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    source_kinds: tuple[str, ...] = ()
+    subject_employee_id: UUID | None = None
+
+
+class VaultRepository(Protocol):
+    async def get_by_hmac(self, value_hmac: bytes) -> VaultEntry | None: ...
+    async def get_by_placeholder(self, placeholder: str) -> VaultEntry | None: ...
+    async def next_sequence(self, entity_type: EntityType) -> int: ...
+    async def add(self, entry: VaultEntry) -> None: ...
+    async def update(self, entry: VaultEntry) -> None: ...
+    async def count(self) -> int: ...
+
+
+# --- security policies and findings (doc 07 §4.5) --------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class SecurityDefaults:
+    """`platform.security_policy_defaults`: tenant defaults plus the ranges tenants may configure within."""
+
+    risk_low_max: float = 0.3
+    risk_medium_max: float = 0.7
+    injection_llm_judge: bool = False
+    user_input_block_threshold: float = 0.85
+    max_upload_mb: int = 25
+    allowed_mime: tuple[str, ...] = (
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "text/markdown",
+    )
+    threshold_min: float = 0.05
+    threshold_max: float = 0.95
+    max_upload_mb_limit: int = 50
+    updated_by: str = "system"
+
+
+@dataclass(slots=True)
+class SecurityPolicy:
+    tenant_id: UUID
+    risk_low_max: float
+    risk_medium_max: float
+    injection_llm_judge: bool
+    user_input_block_threshold: float
+    max_upload_mb: int
+    allowed_mime: tuple[str, ...]
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SecurityDefaultsRepository(Protocol):
+    async def get(self) -> SecurityDefaults: ...
+    async def update(self, defaults: SecurityDefaults) -> None: ...
+
+
+class SecurityPolicyRepository(Protocol):
+    async def get(self) -> SecurityPolicy | None: ...
+    async def upsert(self, policy: SecurityPolicy) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class InjectionFinding:
+    id: UUID
+    tenant_id: UUID
+    subject_type: str  # document_version | user_message
+    subject_id: str
+    detector: str  # heuristic | classifier | llm_judge | structural
+    score: float
+    label: str
+    excerpt_hash: str
+    details: dict[str, Any]
+    created_at: datetime
+
+
+class InjectionFindingRepository(Protocol):
+    async def add_many(self, findings: Sequence[InjectionFinding]) -> None: ...
+    async def list_for_subject(
+        self, subject_type: str, subject_id: str
+    ) -> builtins.list[InjectionFinding]: ...
+
+
+# --- supporting documents (doc 08 §9, ADR-0016) -------------------------------------------------------------
+
+
+class FileCipher(Protocol):
+    """Envelope encryption: a fresh DEK per file (AES-256-GCM), wrapped by `APP_KEK` (AES key wrap)."""
+
+    @property
+    def configured(self) -> bool: ...
+    def encrypt(self, data: bytes, *, aad: bytes) -> tuple[bytes, bytes]: ...  # (ciphertext, wrapped_dek)
+    def decrypt(self, ciphertext: bytes, wrapped_dek: bytes, *, aad: bytes) -> bytes: ...
+
+
+@dataclass(slots=True)
+class SupportingDocument:
+    id: UUID
+    tenant_id: UUID
+    request_id: UUID
+    employee_id: UUID
+    object_key: str
+    original_filename: str
+    mime: str
+    size_bytes: int
+    sha256: str
+    encrypted_dek: bytes
+    status: str  # stored | retention_pending | deleted
+    uploaded_by_employee_id: UUID
+    created_at: datetime
+    retention_until: date | None = None
+    deleted_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SupportingAccessEvent:
+    id: UUID
+    tenant_id: UUID
+    supporting_document_id: UUID
+    actor_employee_id: UUID
+    action: str  # view | download | delete | download_token
+    occurred_at: datetime
+    reason: str | None = None
+    request_id: str | None = None  # HTTP correlation id
+
+
+@dataclass(slots=True)
+class DownloadToken:
+    token_hash: str
+    tenant_id: UUID
+    supporting_document_id: UUID
+    actor_employee_id: UUID
+    actor_user_id: str
+    actor_roles: tuple[str, ...]
+    expires_at: datetime
+    created_at: datetime
+    reason: str | None = None
+    used_at: datetime | None = None
+
+
+class SupportingDocumentRepository(Protocol):
+    async def get(self, document_id: UUID) -> SupportingDocument | None: ...
+    async def list_for_request(self, request_id: UUID) -> builtins.list[SupportingDocument]: ...
+    async def count_for_requests(self, request_ids: Sequence[UUID]) -> dict[UUID, int]: ...
+    async def list_by_status(self, status: str) -> builtins.list[SupportingDocument]: ...
+    async def add(self, document: SupportingDocument) -> None: ...
+    async def update(self, document: SupportingDocument) -> None: ...
+
+
+class SupportingAccessRepository(Protocol):
+    async def add(self, event: SupportingAccessEvent) -> None: ...
+    async def list_for_document(self, document_id: UUID) -> builtins.list[SupportingAccessEvent]: ...
+
+
+class DownloadTokenRepository(Protocol):
+    """`platform.supporting_download_tokens` (no tenant context when the token is presented)."""
+
+    async def add(self, token: DownloadToken) -> None: ...
+    async def consume(self, token_hash: str, now: datetime) -> DownloadToken | None: ...
+
+
+# --- retention (brief §5.7, Q-08) ----------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class RetentionPolicy:
+    id: UUID
+    tenant_id: UUID
+    document_class: DocumentClass
+    retention_days: int
+    action: RetentionAction
+    enabled: bool
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(slots=True)
+class RetentionReviewItem:
+    id: UUID
+    tenant_id: UUID
+    policy_id: UUID
+    subject_type: str  # supporting_document | document_version
+    subject_id: UUID
+    label: str
+    eligible_since: date
+    status: ReviewStatus
+    created_at: datetime
+    reviewer_employee_id: UUID | None = None
+    decided_at: datetime | None = None
+    comment: str | None = None
+
+
+class RetentionPolicyRepository(Protocol):
+    async def list(self) -> builtins.list[RetentionPolicy]: ...
+    async def get(self, policy_id: UUID) -> RetentionPolicy | None: ...
+    async def get_by_class(self, document_class: DocumentClass) -> RetentionPolicy | None: ...
+    async def add(self, policy: RetentionPolicy) -> None: ...
+    async def update(self, policy: RetentionPolicy) -> None: ...
+    async def delete(self, policy_id: UUID) -> None: ...
+
+
+class RetentionReviewItemRepository(Protocol):
+    async def list(self, *, status: ReviewStatus | None) -> builtins.list[RetentionReviewItem]: ...
+    async def get(self, item_id: UUID) -> RetentionReviewItem | None: ...
+    async def latest_for(self, subject_type: str, subject_id: UUID) -> RetentionReviewItem | None: ...
+    async def add(self, item: RetentionReviewItem) -> None: ...
+    async def update(self, item: RetentionReviewItem) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,6 +647,15 @@ class UnitOfWork(Protocol):
     review_events: ReviewEventRepository
     index_generations: IndexGenerationRepository
     jobs: JobRepository
+    pii_vault: VaultRepository
+    security_defaults: SecurityDefaultsRepository
+    security_policies: SecurityPolicyRepository
+    injection_findings: InjectionFindingRepository
+    supporting_documents: SupportingDocumentRepository
+    supporting_access: SupportingAccessRepository
+    download_tokens: DownloadTokenRepository
+    retention_policies: RetentionPolicyRepository
+    retention_items: RetentionReviewItemRepository
 
     async def __aenter__(self) -> Self: ...
     async def __aexit__(

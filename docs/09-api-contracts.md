@@ -127,6 +127,18 @@ multipart boundary differs on every retry). `DELETE /documents/{id}` takes `?ver
 | GET | `/supporting-documents/download/{token}` | token bearer | Streams decrypted file; audited |
 | DELETE | `/supporting-documents/{id}` | H (Idem) | Delete with reason (audited) |
 
+M5 notes (2026-11-05): all four routes plus the two under §2.3 are implemented. `download-token` takes no
+`Idempotency-Key` (deviation from the table: a stored response would keep the raw token for a day; each call issues a
+fresh audited token). Managers and company
+administrators get `404 not-found` (never `403`) from every supporting-document route. HR must give a `reason` when
+requesting a token for another employee's document (`422` otherwise); the owner may omit it. `DELETE` carries a JSON
+body `{reason}` (required). Tokens live 60 s (`DOWNLOAD_TOKEN_TTL_SECONDS`), are single-use and need no bearer; the
+response sets `Content-Disposition: attachment`, `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
+Problem types: `supporting/unsupported-type` (415), `document/too-large` (413), `leave/invalid-state` (409, closed
+request), `security/not-configured` (503, `APP_KEK` missing). `GET /leave/requests/{id}` and the approvals inbox
+items carry `supporting_documents` (count; `0` for managers/administrators). Review-queue items (§2.5) now include
+`findings[]` (`detector`, `family`, `score`, `chunk`, pseudonymised `excerpt`) and `pii_summary`.
+
 ### 2.7 Notifications and calendar
 | Method | Path | Roles | Purpose |
 |--------|------|-------|---------|
@@ -162,6 +174,13 @@ multipart boundary differs on every retry). `DELETE /documents/{id}` takes `?ver
 temporary password **once**; the user must change it at first login), `GET/PUT /platform/settings`, `GET/PUT /platform/security-defaults`,
 `GET /platform/health` (providers, queues, dead events/jobs), `GET /platform/audit` (platform events only).
 No endpoint under `/platform` returns tenant business data or document content.
+
+M5 notes (2026-11-05): `GET/PUT /admin/security-policy` (C) and `GET/PUT /platform/security-defaults` (P) are
+implemented (`PUT` without `Idempotency-Key`, full-replacement semantics on the given fields; ranges validated →
+`422`). Retention: `GET /admin/retention-policies` is readable by H and C, writes are C; `document_class =
+leave_record` is refused (never deleted); `GET /admin/retention/review-items?status=` defaults to `pending`;
+`POST …/{id}/decide` takes `{decision: approved_delete|retained, comment?}` and answers `409
+retention/invalid-decision` for an already-decided item. The security-policy and defaults UI arrives with M10.
 
 ### 2.10 Internal (`/internal/*`, role A or the worker's internal token; not routed from the browser)
 See doc 06 §5 for the catalogue. Responses carry IDs, counts and statuses only.

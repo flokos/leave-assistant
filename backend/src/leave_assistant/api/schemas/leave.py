@@ -263,6 +263,7 @@ class LeaveRequestOut(LeaveRequestSummary):
     reason: str | None
     steps: list[StepOut]
     events: list[EventOut]
+    supporting_documents: int = 0
 
     @classmethod
     def from_detail(cls, d: RequestDetail) -> LeaveRequestOut:
@@ -274,6 +275,7 @@ class LeaveRequestOut(LeaveRequestSummary):
             reason=d.reason,
             steps=[StepOut.from_domain(s) for s in d.steps],
             events=[EventOut.from_domain(e) for e in d.events],
+            supporting_documents=d.supporting_count,
         )
 
 

@@ -1,3 +1,4 @@
+import { PaperClipOutlined } from '@ant-design/icons'
 import { Button, Form, Input, Modal, Space, Table, Tag, Typography } from 'antd'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -65,6 +66,7 @@ export default function ApprovalsPage() {
           { title: t('leave.dates'), render: (_, row) => formatRange(row.request.start_date, row.request.end_date, i18n.language) },
           { title: t('leave.workingDays'), render: (_, row) => formatDays(row.request.working_days) },
           { title: t('common.reason'), render: (_, row) => row.reason ?? '—' },
+          { title: t('supporting.short'), render: (_, row) => (row.supporting_documents > 0 ? <Tag icon={<PaperClipOutlined />} data-testid="has-document">{row.supporting_documents}</Tag> : '—') },
           { title: t('approvals.step'), render: (_, row) => (
               <Space>
                 {row.step.step_no} · {t(`stepRoles.${row.step.approver_role}`)}

@@ -97,6 +97,24 @@ class SeedDocument:
 
 
 @dataclass(frozen=True, slots=True)
+class SeedSupportingDocument:
+    """A fictional supporting document attached to a seeded request (M5, doc 08 §9): `seed/corpus/supporting/<file>`."""
+
+    employee_number: str
+    request_start: date  # identifies the request together with the employee
+    file: str
+
+
+@dataclass(frozen=True, slots=True)
+class SeedRetentionPolicy:
+    """Placeholder retention periods (Q-08) — illustrative values, not legal advice."""
+
+    document_class: str
+    retention_days: int
+    action: str = "delete_after_review"
+
+
+@dataclass(frozen=True, slots=True)
 class SeedCompany:
     slug: str
     name: str
@@ -108,6 +126,15 @@ class SeedCompany:
     holidays: tuple[SeedHoliday, ...] = ()
     requests: tuple[SeedRequest, ...] = ()
     documents: tuple[SeedDocument, ...] = ()
+    supporting_documents: tuple[SeedSupportingDocument, ...] = ()
+    retention_policies: tuple[SeedRetentionPolicy, ...] = ()
+
+
+# M5: every tenant starts with review-based placeholders (doc 07 §7, Q-08); company administrators adjust them
+DEFAULT_RETENTION: tuple[SeedRetentionPolicy, ...] = (
+    SeedRetentionPolicy("supporting_document", 365),
+    SeedRetentionPolicy("company_document", 730),
+)
 
 
 SEED_YEAR = 2026
@@ -379,7 +406,26 @@ AEGEAN = SeedCompany(
             language_hint="el",
         ),
         SeedDocument("faq", "Συχνές ερωτήσεις / FAQ", Category.POLICY_GENERAL, "md", "AEG-001"),
+        # M5 adversarial pair (doc 11 §5 S22/S23): the English override is quarantined, the Greek footnote goes to review
+        SeedDocument(
+            "adversarial-appendix-en",
+            "Leave approvals appendix (untrusted upload)",
+            Category.POLICY_GENERAL,
+            "txt",
+            "AEG-001",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "adversarial-simeiosi-el",
+            "Σημείωμα διαδικασίας (ύποπτο)",
+            Category.POLICY_GENERAL,
+            "md",
+            "AEG-001",
+            language_hint="el",
+        ),
     ),
+    supporting_documents=(SeedSupportingDocument("AEG-004", date(2026, 11, 2), "medical-note.png"),),
+    retention_policies=DEFAULT_RETENTION,
 )
 
 BRIGHTWATER = SeedCompany(
@@ -501,7 +547,25 @@ BRIGHTWATER = SeedCompany(
             department_code="ENG",
             language_hint="en",
         ),
+        SeedDocument(
+            "adversarial-vendor-memo-en",
+            "Vendor memo (untrusted upload)",
+            Category.POLICY_GENERAL,
+            "txt",
+            "BWS-001",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "adversarial-simeiosi-el",
+            "Σημείωμα για το ελληνικό γραφείο (ύποπτο)",
+            Category.POLICY_GENERAL,
+            "md",
+            "BWS-001",
+            language_hint="el",
+        ),
     ),
+    supporting_documents=(SeedSupportingDocument("BWS-004", date(2026, 11, 3), "medical-note.png"),),
+    retention_policies=DEFAULT_RETENTION,
 )
 
 COMPANIES: tuple[SeedCompany, ...] = (AEGEAN, BRIGHTWATER)

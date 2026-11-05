@@ -25,7 +25,9 @@
     "tenants": "Companies",
     "platformAudit": "Platform audit",
     "status": "Status",
-    "documents": "Documents"
+    "documents": "Documents",
+    "reviewQueue": "Review queue",
+    "retention": "Retention"
   },
   "auth": {
     "signIn": "Sign in",
@@ -244,7 +246,10 @@
       "request.cancelled": "Request {{request_number}} was cancelled.",
       "sick.auto_acknowledged": "Sick leave {{request_number}} ({{start_date}} – {{end_date}}) was acknowledged automatically.",
       "document.processed": "Document “{{title}}” v{{version_no}} was processed ({{status}}).",
-      "document.failed": "Document “{{title}}” v{{version_no}} could not be processed: {{error}}"
+      "document.failed": "Document “{{title}}” v{{version_no}} could not be processed: {{error}}",
+      "document.review_required": "Document “{{title}}” v{{version_no}} needs review ({{status}}).",
+      "supporting.uploaded": "A supporting document ({{filename}}) was attached to {{request_number}}.",
+      "retention.items_found": "{{created}} item(s) are eligible for retention review."
     }
   },
   "admin": {
@@ -360,7 +365,11 @@
     "document/duplicate-content": "This exact content was already uploaded",
     "document/acl-not-allowed": "This access rule is not allowed",
     "document/processing-failed": "Processing failed",
-    "job/not-failed": "Only failed jobs can be retried"
+    "job/not-failed": "Only failed jobs can be retried",
+    "supporting/not-permitted": "Supporting document access not permitted",
+    "supporting/unsupported-type": "Supporting documents must be PDF, JPEG or PNG",
+    "security/not-configured": "Security keys are not configured on the server",
+    "retention/invalid-decision": "Invalid retention decision"
   },
   "documents": {
     "title": "Documents",
@@ -394,6 +403,112 @@
       "policy_hr_restricted": "HR restricted",
       "department_notice": "Department notice",
       "admin_internal": "Administration (internal)"
+    },
+    "riskWarning": "Review findings"
+  },
+  "supporting": {
+    "title": "Supporting documents",
+    "short": "Documents",
+    "empty": "No supporting documents.",
+    "attach": "Attach document",
+    "formats": "PDF, JPEG or PNG, up to 10 MB. Visible to you and HR only.",
+    "size": "Size",
+    "uploadedAt": "Attached",
+    "reasonTitle": "Reason for access",
+    "reasonHint": "HR access to employee documents is recorded in the audit log together with the reason.",
+    "deleteTitle": "Delete supporting document",
+    "deleteConfirm": "Delete this document? The file is removed; the record is kept for audit."
+  },
+  "review": {
+    "title": "Document review queue",
+    "intro": "Documents the pipeline held back: medium risk waits for a decision, high risk is quarantined. Excerpts are pseudonymised.",
+    "empty": "Nothing to review.",
+    "findings": "Findings",
+    "noFindings": "No findings recorded.",
+    "pii": "Personal data (counts)",
+    "noPii": "No personal data detected.",
+    "risk": "Risk",
+    "chunk": "chunk {{n}}",
+    "decisionTitle": "{{action}} · {{title}}",
+    "commentRequired": "A comment is required for this decision.",
+    "tiers": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "actions": {
+      "release": "Release",
+      "reject": "Reject",
+      "delete": "Delete",
+      "inspect": "Inspect"
+    },
+    "hints": {
+      "release": "The version becomes active and retrievable; previous versions are superseded.",
+      "reject": "The version is quarantined and never used in answers; it can still be released or deleted later.",
+      "delete": "The version is deleted; the record is kept for audit.",
+      "inspect": "Records that you looked at the content without changing its state."
+    },
+    "detectors": {
+      "heuristic": "Heuristic",
+      "classifier": "Classifier",
+      "structural": "Structural",
+      "llm_judge": "LLM judge"
+    },
+    "families": {
+      "override": "Instruction override",
+      "role_hijack": "Role hijack",
+      "system_marker": "System marker",
+      "approval_forgery": "Approval forgery",
+      "exfiltration": "Exfiltration",
+      "tool_call": "Tool call",
+      "hidden_instruction": "Hidden instruction",
+      "control_chars": "Hidden characters",
+      "base64_blob": "Encoded blob",
+      "similarity": "Similar to known injections",
+      "pdf_javascript": "PDF JavaScript",
+      "pdf_launch_action": "PDF launch action",
+      "pdf_embedded_file": "PDF embedded file",
+      "docx_macros": "DOCX macros",
+      "pdf_submit_form": "PDF form submission"
+    }
+  },
+  "retention": {
+    "title": "Data retention",
+    "items": "Review items",
+    "noItems": "No items in this state.",
+    "subject": "Subject",
+    "eligibleSince": "Eligible since",
+    "retain": "Retain",
+    "approveDelete": "Approve deletion",
+    "retainTitle": "Retain · {{label}}",
+    "deleteTitle": "Approve deletion · {{label}}",
+    "policies": "Retention policies",
+    "newPolicy": "New policy",
+    "editPolicy": "Edit policy",
+    "documentClass": "Document class",
+    "days": "Retention (days)",
+    "action": "Action",
+    "deletePolicyConfirm": "Delete this policy? Existing review items are kept.",
+    "disclaimer": "Placeholder periods for a fictional company — not legal advice. Deletion always waits for an HR decision; leave records are never deleted.",
+    "statuses": {
+      "pending": "Pending",
+      "approved_delete": "Deletion approved",
+      "retained": "Retained",
+      "deleted": "Deleted"
+    },
+    "subjects": {
+      "supporting_document": "Supporting document",
+      "document_version": "Document version"
+    },
+    "classes": {
+      "supporting_document": "Supporting documents",
+      "company_document": "Company documents (superseded/retired)",
+      "conversation": "Conversations",
+      "leave_record": "Leave records"
+    },
+    "actions": {
+      "notify_only": "Notify HR only",
+      "delete_after_review": "Delete after HR review"
     }
   }
 }

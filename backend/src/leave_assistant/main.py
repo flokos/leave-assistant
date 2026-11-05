@@ -11,14 +11,26 @@ from fastapi import FastAPI
 from leave_assistant import __version__
 from leave_assistant.api.errors import register_error_handlers
 from leave_assistant.api.middleware import RequestIdMiddleware
-from leave_assistant.api.routers import approvals, documents, health, leave, me, notifications, team
+from leave_assistant.api.routers import (
+    approvals,
+    documents,
+    health,
+    leave,
+    me,
+    notifications,
+    supporting,
+    team,
+)
 from leave_assistant.api.routers.admin import audit as admin_audit
 from leave_assistant.api.routers.admin import departments as admin_departments
 from leave_assistant.api.routers.admin import employees as admin_employees
 from leave_assistant.api.routers.admin import jobs as admin_jobs
 from leave_assistant.api.routers.admin import leave_catalog as admin_leave_catalog
 from leave_assistant.api.routers.admin import ledger as admin_ledger
+from leave_assistant.api.routers.admin import retention as admin_retention
+from leave_assistant.api.routers.admin import security as admin_security
 from leave_assistant.api.routers.platform import audit as platform_audit
+from leave_assistant.api.routers.platform import security as platform_security
 from leave_assistant.api.routers.platform import tenants as platform_tenants
 from leave_assistant.application.container import Services
 from leave_assistant.application.health import ReadinessCheck
@@ -30,6 +42,7 @@ from leave_assistant.infrastructure.runtime import Runtime, build_runtime
 from leave_assistant.infrastructure.storage.s3 import ensure_bucket, make_s3_client
 from leave_assistant.worker.handlers import build_registry
 from leave_assistant.worker.loop import run_worker_loop
+from leave_assistant.worker.periodic import build_periodic
 from leave_assistant.worker.runner import JobRunner
 
 log = get_logger("api")
@@ -50,6 +63,10 @@ ROUTERS = (
     admin_ledger.router,
     documents.router,
     admin_jobs.router,
+    supporting.router,
+    admin_retention.router,
+    admin_security.router,
+    platform_security.router,
 )
 
 
@@ -90,8 +107,15 @@ def create_app(
                     timeout_seconds=settings.document_process_timeout_seconds,
                     heartbeat_seconds=settings.job_heartbeat_seconds,
                 )
+                periodic = build_periodic(runtime.services, settings)
                 worker_task = asyncio.create_task(
-                    run_worker_loop(settings, stop, periodic=runtime.services.rollover.run_due, runner=runner)
+                    run_worker_loop(
+                        settings,
+                        stop,
+                        periodic=periodic,
+                        periodic_interval_seconds=periodic.interval,
+                        runner=runner,
+                    )
                 )
         else:
             app.state.services = services

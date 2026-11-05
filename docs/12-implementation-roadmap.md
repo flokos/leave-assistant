@@ -75,13 +75,16 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Exit: ingest the seed corpus end-to-end; retrieval integration tests (tenant/visibility predicates); FTS Greek
   stemming test; NFR-PERF-02 measured and recorded; supersede logic tested.
 
-### M5 — Content security and privacy (L)
+### M5 — Content security and privacy (L) — **done 2026-11-05** (worklog: `docs/development/worklog/M5.md`)
 - Presidio engine (EL/EN) + Greek recognisers + known-entity dictionary; vault; LLM-safe text column; re-identification
   policy; injection heuristics + similarity classifier + optional judge; risk scoring; tiers and `security_policies`;
   review queue + quarantine UI; supporting documents (encrypted storage, HR access, audit); retention policies and
   review items (scan job, HR decisions).
 - Exit: PII suite (incl. checkpoint/log leak tests); injection families in EL/EN → expected tiers; false-positive
   rate on benign corpus measured; supporting-document isolation tests; retention workflow tests.
+- Delivered as planned except: the LLM judge is a port with an inert adapter until M6; the security-policy UI is
+  M10; checkpoint leak tests belong to M6 (no checkpointer yet); the similarity classifier scores a contrastive
+  margin (doc 08 §8.6) instead of a raw calibrated similarity.
 
 ### M6 — Agent core: knowledge (L)
 - Provider router (Gemini, Groq, Fake) with failover, health, budgets, structured outputs; prompt files; LangGraph

@@ -22,6 +22,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -801,3 +802,259 @@ class JobRow(Base):
     extra: Mapped[Any] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# --- M5: privacy vault, security policies, injection findings (doc 07 §4.5, ADR-0017) ----------------------------
+
+
+class PiiVaultRow(Base):
+    """Tenant-stable placeholders: HMAC lookup, AES-GCM original (ADR-0017); the LLM never sees this table."""
+
+    __tablename__ = "pii_vault"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "value_hmac", name="uq_pii_vault_hmac"),
+        UniqueConstraint("tenant_id", "placeholder", name="uq_pii_vault_placeholder"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform.tenants.id", name="fk_pii_vault_tenant"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    value_hmac: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    value_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    placeholder: Mapped[str] = mapped_column(String(40), nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_kinds: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    subject_employee_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app.employees.id", name="fk_pii_vault_subject", ondelete="SET NULL")
+    )
+
+
+class PiiVaultCounterRow(Base):
+    __tablename__ = "pii_vault_counters"
+    __table_args__ = {"schema": "app"}
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_pii_vault_counters_tenant"),
+        primary_key=True,
+    )
+    entity_type: Mapped[str] = mapped_column(String(24), primary_key=True)
+    next_seq: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class SecurityPolicyDefaultsRow(Base):
+    """`platform.security_policy_defaults`: one row (id = 1) — tenant defaults and the ranges tenants may use."""
+
+    __tablename__ = "security_policy_defaults"
+    __table_args__ = {"schema": "platform"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    risk_low_max: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_medium_max: Mapped[float] = mapped_column(Float, nullable=False)
+    injection_llm_judge: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    user_input_block_threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    max_upload_mb: Mapped[int] = mapped_column(Integer, nullable=False)
+    allowed_mime: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    threshold_min: Mapped[float] = mapped_column(Float, nullable=False)
+    threshold_max: Mapped[float] = mapped_column(Float, nullable=False)
+    max_upload_mb_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SecurityPolicyRow(Base):
+    __tablename__ = "security_policies"
+    __table_args__ = {"schema": "app"}
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_security_policies_tenant"),
+        primary_key=True,
+    )
+    risk_low_max: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_medium_max: Mapped[float] = mapped_column(Float, nullable=False)
+    injection_llm_judge: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    user_input_block_threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    max_upload_mb: Mapped[int] = mapped_column(Integer, nullable=False)
+    allowed_mime: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class InjectionFindingRow(Base):
+    __tablename__ = "injection_findings"
+    __table_args__ = (
+        Index("ix_injection_findings_subject", "tenant_id", "subject_type", "subject_id"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_injection_findings_tenant"),
+        nullable=False,
+    )
+    subject_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    detector: Mapped[str] = mapped_column(String(32), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    excerpt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    details: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# --- M5: supporting documents (doc 07 §4.7, doc 08 §9) -------------------------------------------------------------
+
+
+class SupportingDocumentRow(Base):
+    __tablename__ = "supporting_documents"
+    __table_args__ = (
+        Index("ix_supporting_documents_request", "tenant_id", "request_id"),
+        Index("ix_supporting_documents_status", "tenant_id", "status"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_supporting_documents_tenant"),
+        nullable=False,
+    )
+    request_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.leave_requests.id", name="fk_supporting_documents_request"),
+        nullable=False,
+    )
+    employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_supporting_documents_employee"),
+        nullable=False,
+    )
+    object_key: Mapped[str] = mapped_column(String(400), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    encrypted_dek: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    uploaded_by_employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_supporting_documents_uploader"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    retention_until: Mapped[date | None] = mapped_column(Date)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SupportingAccessEventRow(Base):
+    __tablename__ = "supporting_document_access_events"
+    __table_args__ = (
+        Index("ix_supporting_access_document", "tenant_id", "supporting_document_id", "occurred_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_supporting_access_tenant"),
+        nullable=False,
+    )
+    supporting_document_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.supporting_documents.id", name="fk_supporting_access_document", ondelete="CASCADE"),
+        nullable=False,
+    )
+    actor_employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_supporting_access_actor"),
+        nullable=False,
+    )
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    request_id: Mapped[str | None] = mapped_column(String(64))
+
+
+class DownloadTokenRow(Base):
+    """`platform.supporting_download_tokens`: hashed single-use tokens; the actor is re-bound when presented."""
+
+    __tablename__ = "supporting_download_tokens"
+    __table_args__ = (Index("ix_supporting_download_tokens_expires", "expires_at"), {"schema": "platform"})
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_download_tokens_tenant"),
+        nullable=False,
+    )
+    supporting_document_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    actor_employee_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    actor_roles: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- M5: retention (doc 07 §7, Q-08) ------------------------------------------------------------------------------
+
+
+class RetentionPolicyRow(Base):
+    __tablename__ = "retention_policies"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "document_class", name="uq_retention_policies_class"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_retention_policies_tenant"),
+        nullable=False,
+    )
+    document_class: Mapped[str] = mapped_column(String(32), nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class RetentionReviewItemRow(Base):
+    __tablename__ = "retention_review_items"
+    __table_args__ = (
+        Index("ix_retention_review_items_status", "tenant_id", "status", "created_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_retention_items_tenant"),
+        nullable=False,
+    )
+    policy_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.retention_policies.id", name="fk_retention_items_policy"),
+        nullable=False,
+    )
+    subject_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    subject_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    label: Mapped[str] = mapped_column(String(300), nullable=False)
+    eligible_since: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reviewer_employee_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app.employees.id", name="fk_retention_items_reviewer")
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comment: Mapped[str | None] = mapped_column(Text)

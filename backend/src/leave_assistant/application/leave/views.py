@@ -34,6 +34,7 @@ class RequestDetail:
     events: list[RequestEventRecord]
     reason_visible: bool
     leave_type_visible: bool = True
+    supporting_count: int = 0  # M5: visible to the owner and HR; managers/administrators always see 0
 
     @property
     def reason(self) -> str | None:
@@ -48,6 +49,7 @@ class PendingItem:
     leave_type: LeaveType
     fallback: bool  # an HR administrator deciding a manager step
     reason_visible: bool
+    supporting_count: int = 0  # M5: HR only
 
 
 @dataclass(frozen=True, slots=True)

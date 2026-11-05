@@ -56,6 +56,50 @@
         "title": "AbsenceOut",
         "type": "object"
       },
+      "AccessEventOut": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_employee_id": {
+            "format": "uuid",
+            "title": "Actor Employee Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "actor_employee_id",
+          "action",
+          "occurred_at",
+          "reason"
+        ],
+        "title": "AccessEventOut",
+        "type": "object"
+      },
       "AclEntryIn": {
         "additionalProperties": false,
         "properties": {
@@ -414,6 +458,20 @@
           "category"
         ],
         "title": "Body_create_document_api_v1_documents_post",
+        "type": "object"
+      },
+      "Body_upload_supporting_document_api_v1_leave_requests__request_id__supporting_documents_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_supporting_document_api_v1_leave_requests__request_id__supporting_documents_post",
         "type": "object"
       },
       "BootstrapAdminRequest": {
@@ -1119,6 +1177,51 @@
           "version"
         ],
         "title": "DocumentUpdate",
+        "type": "object"
+      },
+      "DownloadTokenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for HR administrators",
+            "title": "Reason"
+          }
+        },
+        "title": "DownloadTokenIn",
+        "type": "object"
+      },
+      "DownloadTokenOut": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at",
+          "url"
+        ],
+        "title": "DownloadTokenOut",
         "type": "object"
       },
       "EmployeeCreate": {
@@ -1988,6 +2091,11 @@
             ],
             "title": "Submitted At"
           },
+          "supporting_documents": {
+            "default": 0,
+            "title": "Supporting Documents",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2813,6 +2921,11 @@
           },
           "step": {
             "$ref": "#/components/schemas/StepOut"
+          },
+          "supporting_documents": {
+            "default": 0,
+            "title": "Supporting Documents",
+            "type": "integer"
           }
         },
         "required": [
@@ -3182,6 +3295,267 @@
         "title": "RequesterOut",
         "type": "object"
       },
+      "RetentionDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "decision": {
+            "enum": [
+              "approved_delete",
+              "retained"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "RetentionDecisionIn",
+        "type": "object"
+      },
+      "RetentionItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "eligible_since": {
+            "format": "date",
+            "title": "Eligible Since",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "policy_id": {
+            "format": "uuid",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "reviewer_employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Employee Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_id": {
+            "format": "uuid",
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "subject_type": {
+            "title": "Subject Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "policy_id",
+          "subject_type",
+          "subject_id",
+          "label",
+          "eligible_since",
+          "status",
+          "created_at",
+          "reviewer_employee_id",
+          "decided_at",
+          "comment"
+        ],
+        "title": "RetentionItemOut",
+        "type": "object"
+      },
+      "RetentionPolicyCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "notify_only",
+            "enum": [
+              "notify_only",
+              "delete_after_review"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "document_class": {
+            "enum": [
+              "supporting_document",
+              "company_document",
+              "conversation",
+              "leave_record"
+            ],
+            "title": "Document Class",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "retention_days": {
+            "maximum": 3650.0,
+            "minimum": 0.0,
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_class",
+          "retention_days"
+        ],
+        "title": "RetentionPolicyCreate",
+        "type": "object"
+      },
+      "RetentionPolicyOut": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_class": {
+            "title": "Document Class",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "document_class",
+          "retention_days",
+          "action",
+          "enabled",
+          "updated_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RetentionPolicyOut",
+        "type": "object"
+      },
+      "RetentionPolicyUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "notify_only",
+                  "delete_after_review"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          }
+        },
+        "title": "RetentionPolicyUpdate",
+        "type": "object"
+      },
       "ReviewEventOut": {
         "additionalProperties": false,
         "properties": {
@@ -3270,6 +3644,18 @@
             "title": "Document Id",
             "type": "string"
           },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/RiskFindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "pii_summary": {
+            "additionalProperties": true,
+            "title": "Pii Summary",
+            "type": "object"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -3282,9 +3668,51 @@
           "document_id",
           "title",
           "category",
-          "version"
+          "version",
+          "findings",
+          "pii_summary"
         ],
         "title": "ReviewItemOut",
+        "type": "object"
+      },
+      "RiskFindingOut": {
+        "additionalProperties": false,
+        "properties": {
+          "chunk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk"
+          },
+          "detector": {
+            "title": "Detector",
+            "type": "string"
+          },
+          "excerpt": {
+            "default": "",
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "detector",
+          "family",
+          "score"
+        ],
+        "title": "RiskFindingOut",
         "type": "object"
       },
       "RuleCreate": {
@@ -3708,6 +4136,327 @@
         "title": "SearchOut",
         "type": "object"
       },
+      "SecurityDefaultsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_mime": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Mime",
+            "type": "array"
+          },
+          "injection_llm_judge": {
+            "title": "Injection Llm Judge",
+            "type": "boolean"
+          },
+          "max_upload_mb": {
+            "title": "Max Upload Mb",
+            "type": "integer"
+          },
+          "max_upload_mb_limit": {
+            "title": "Max Upload Mb Limit",
+            "type": "integer"
+          },
+          "risk_low_max": {
+            "title": "Risk Low Max",
+            "type": "number"
+          },
+          "risk_medium_max": {
+            "title": "Risk Medium Max",
+            "type": "number"
+          },
+          "threshold_max": {
+            "title": "Threshold Max",
+            "type": "number"
+          },
+          "threshold_min": {
+            "title": "Threshold Min",
+            "type": "number"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          },
+          "user_input_block_threshold": {
+            "title": "User Input Block Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "risk_low_max",
+          "risk_medium_max",
+          "injection_llm_judge",
+          "user_input_block_threshold",
+          "max_upload_mb",
+          "allowed_mime",
+          "threshold_min",
+          "threshold_max",
+          "max_upload_mb_limit",
+          "updated_by"
+        ],
+        "title": "SecurityDefaultsOut",
+        "type": "object"
+      },
+      "SecurityDefaultsUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "injection_llm_judge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Injection Llm Judge"
+          },
+          "max_upload_mb": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Upload Mb"
+          },
+          "max_upload_mb_limit": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Upload Mb Limit"
+          },
+          "risk_low_max": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Low Max"
+          },
+          "risk_medium_max": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Medium Max"
+          },
+          "threshold_max": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold Max"
+          },
+          "threshold_min": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold Min"
+          },
+          "user_input_block_threshold": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Input Block Threshold"
+          }
+        },
+        "title": "SecurityDefaultsUpdate",
+        "type": "object"
+      },
+      "SecurityPolicyOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_mime": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Mime",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "injection_llm_judge": {
+            "title": "Injection Llm Judge",
+            "type": "boolean"
+          },
+          "max_upload_mb": {
+            "title": "Max Upload Mb",
+            "type": "integer"
+          },
+          "risk_low_max": {
+            "title": "Risk Low Max",
+            "type": "number"
+          },
+          "risk_medium_max": {
+            "title": "Risk Medium Max",
+            "type": "number"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          },
+          "user_input_block_threshold": {
+            "title": "User Input Block Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "risk_low_max",
+          "risk_medium_max",
+          "injection_llm_judge",
+          "user_input_block_threshold",
+          "max_upload_mb",
+          "allowed_mime",
+          "updated_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SecurityPolicyOut",
+        "type": "object"
+      },
+      "SecurityPolicyUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_mime": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Mime"
+          },
+          "injection_llm_judge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Injection Llm Judge"
+          },
+          "max_upload_mb": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Upload Mb"
+          },
+          "risk_low_max": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Low Max"
+          },
+          "risk_medium_max": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Medium Max"
+          },
+          "user_input_block_threshold": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Input Block Threshold"
+          }
+        },
+        "title": "SecurityPolicyUpdate",
+        "type": "object"
+      },
       "SimulateIn": {
         "additionalProperties": false,
         "properties": {
@@ -3884,6 +4633,158 @@
           "end_date"
         ],
         "title": "SubmitRequestIn",
+        "type": "object"
+      },
+      "SupportingDeleteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "SupportingDeleteIn",
+        "type": "object"
+      },
+      "SupportingDocumentDetailOut": {
+        "additionalProperties": false,
+        "properties": {
+          "access_events": {
+            "items": {
+              "$ref": "#/components/schemas/AccessEventOut"
+            },
+            "title": "Access Events",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mime": {
+            "title": "Mime",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "uploaded_by_employee_id": {
+            "format": "uuid",
+            "title": "Uploaded By Employee Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "request_id",
+          "employee_id",
+          "original_filename",
+          "mime",
+          "size_bytes",
+          "sha256",
+          "status",
+          "uploaded_by_employee_id",
+          "created_at",
+          "access_events"
+        ],
+        "title": "SupportingDocumentDetailOut",
+        "type": "object"
+      },
+      "SupportingDocumentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "employee_id": {
+            "format": "uuid",
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mime": {
+            "title": "Mime",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "uploaded_by_employee_id": {
+            "format": "uuid",
+            "title": "Uploaded By Employee Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "request_id",
+          "employee_id",
+          "original_filename",
+          "mime",
+          "size_bytes",
+          "sha256",
+          "status",
+          "uploaded_by_employee_id",
+          "created_at"
+        ],
+        "title": "SupportingDocumentOut",
         "type": "object"
       },
       "TeamEmployeeOut": {
@@ -4389,6 +5290,11 @@
             "title": "Document Id",
             "type": "string"
           },
+          "findings_count": {
+            "default": 0,
+            "title": "Findings Count",
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -4576,6 +5482,11 @@
             "format": "uuid",
             "title": "Document Id",
             "type": "string"
+          },
+          "findings_count": {
+            "default": 0,
+            "title": "Findings Count",
+            "type": "integer"
           },
           "id": {
             "format": "uuid",
@@ -6458,6 +7369,331 @@
         ]
       }
     },
+    "/api/v1/admin/retention-policies": {
+      "get": {
+        "operationId": "list_retention_policies_api_v1_admin_retention_policies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetentionPolicyOut"
+                  },
+                  "title": "Response List Retention Policies Api V1 Admin Retention Policies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Retention Policies",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_retention_policy_api_v1_admin_retention_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionPolicyCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Retention Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/retention-policies/{policy_id}": {
+      "delete": {
+        "operationId": "delete_retention_policy_api_v1_admin_retention_policies__policy_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Retention Policy",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "update_retention_policy_api_v1_admin_retention_policies__policy_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionPolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Retention Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/retention/review-items": {
+      "get": {
+        "operationId": "list_review_items_api_v1_admin_retention_review_items_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "approved_delete",
+                    "retained",
+                    "deleted"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "pending",
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetentionItemOut"
+                  },
+                  "title": "Response List Review Items Api V1 Admin Retention Review Items Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Review Items",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/retention/review-items/{item_id}/decide": {
+      "post": {
+        "operationId": "decide_review_item_api_v1_admin_retention_review_items__item_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Review Item",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/security-policy": {
+      "get": {
+        "operationId": "get_security_policy_api_v1_admin_security_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Security Policy",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_security_policy_api_v1_admin_security_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityPolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Security Policy",
+        "tags": [
+          "admin"
+        ],
+        "x-idempotency": "none"
+      }
+    },
     "/api/v1/approvals/pending": {
       "get": {
         "operationId": "pending_api_v1_approvals_pending_get",
@@ -7924,6 +9160,104 @@
         ]
       }
     },
+    "/api/v1/leave/requests/{request_id}/supporting-documents": {
+      "get": {
+        "operationId": "list_supporting_documents_api_v1_leave_requests__request_id__supporting_documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SupportingDocumentOut"
+                  },
+                  "title": "Response List Supporting Documents Api V1 Leave Requests  Request Id  Supporting Documents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Supporting Documents",
+        "tags": [
+          "supporting-documents"
+        ]
+      },
+      "post": {
+        "operationId": "upload_supporting_document_api_v1_leave_requests__request_id__supporting_documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_supporting_document_api_v1_leave_requests__request_id__supporting_documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportingDocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Supporting Document",
+        "tags": [
+          "supporting-documents"
+        ]
+      }
+    },
     "/api/v1/leave/types": {
       "get": {
         "operationId": "list_types_api_v1_leave_types_get",
@@ -8282,6 +9616,67 @@
         ]
       }
     },
+    "/api/v1/platform/security-defaults": {
+      "get": {
+        "operationId": "get_security_defaults_api_v1_platform_security_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityDefaultsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Security Defaults",
+        "tags": [
+          "platform"
+        ]
+      },
+      "put": {
+        "operationId": "update_security_defaults_api_v1_platform_security_defaults_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityDefaultsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityDefaultsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Security Defaults",
+        "tags": [
+          "platform"
+        ],
+        "x-idempotency": "none"
+      }
+    },
     "/api/v1/platform/tenants": {
       "get": {
         "operationId": "list_tenants_api_v1_platform_tenants_get",
@@ -8638,6 +10033,195 @@
         "tags": [
           "system"
         ]
+      }
+    },
+    "/api/v1/supporting-documents/download/{token}": {
+      "get": {
+        "description": "Token bearer: the 60-second single-use token issued below is the only credential (doc 08 §9).",
+        "operationId": "download_supporting_document_api_v1_supporting_documents_download__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Supporting Document",
+        "tags": [
+          "supporting-documents"
+        ]
+      }
+    },
+    "/api/v1/supporting-documents/{document_id}": {
+      "delete": {
+        "operationId": "delete_supporting_document_api_v1_supporting_documents__document_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportingDeleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportingDocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Supporting Document",
+        "tags": [
+          "supporting-documents"
+        ]
+      },
+      "get": {
+        "operationId": "get_supporting_document_api_v1_supporting_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportingDocumentDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Supporting Document",
+        "tags": [
+          "supporting-documents"
+        ]
+      }
+    },
+    "/api/v1/supporting-documents/{document_id}/download-token": {
+      "post": {
+        "operationId": "issue_download_token_api_v1_supporting_documents__document_id__download_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadTokenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Download Token",
+        "tags": [
+          "supporting-documents"
+        ],
+        "x-idempotency": "none"
       }
     },
     "/api/v1/team/availability": {

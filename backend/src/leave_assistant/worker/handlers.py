@@ -7,6 +7,7 @@ from uuid import UUID
 from leave_assistant.application.container import Services
 from leave_assistant.application.jobs.models import JOB_DOCUMENT_PROCESS, JOB_DOCUMENT_REINDEX, Job
 from leave_assistant.application.jobs.registry import JobHandler, JobRegistry
+from leave_assistant.application.retention.service import JOB_RETENTION_DELETE, JOB_RETENTION_SCAN
 
 
 def _ids(job: Job) -> tuple[UUID, UUID]:
@@ -20,7 +21,9 @@ def build_registry(services: Services) -> JobRegistry:
 
     async def reindex(job: Job) -> object:
         tenant_id, version_id = _ids(job)
-        return await services.ingestion.reindex(tenant_id, version_id)
+        return await services.ingestion.reindex(
+            tenant_id, version_id, rescore=bool(job.payload.get("rescan"))
+        )
 
     async def on_failure(job: Job, error: str, final: bool) -> None:
         tenant_id, version_id = _ids(job)
@@ -30,5 +33,8 @@ def build_registry(services: Services) -> JobRegistry:
         [
             JobHandler(JOB_DOCUMENT_PROCESS, process, isolated=True, on_failure=on_failure),
             JobHandler(JOB_DOCUMENT_REINDEX, reindex, isolated=True, on_failure=on_failure),
+            # M5: retention jobs are plain database work — inline in the worker process
+            JobHandler(JOB_RETENTION_SCAN, services.retention.handle_scan_job),
+            JobHandler(JOB_RETENTION_DELETE, services.retention.handle_delete_job),
         ]
     )

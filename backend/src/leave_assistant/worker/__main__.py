@@ -15,6 +15,7 @@ from leave_assistant.infrastructure.observability.logging import configure_loggi
 from leave_assistant.infrastructure.runtime import build_runtime
 from leave_assistant.worker.handlers import build_registry
 from leave_assistant.worker.loop import run_worker_loop
+from leave_assistant.worker.periodic import build_periodic
 from leave_assistant.worker.runner import JobRunner
 
 
@@ -52,11 +53,13 @@ async def _main(drain: bool, once: bool, wait_seconds: float) -> int:
                 if counts.get(JobStatus.QUEUED.value, 0) == 0 and counts.get(JobStatus.RUNNING.value, 0) == 0
                 else 2
             )
+        periodic = build_periodic(runtime.services, settings)
         await run_worker_loop(
             settings,
             stop,
             max_iterations=1 if once else None,
-            periodic=runtime.services.rollover.run_due,
+            periodic=periodic,
+            periodic_interval_seconds=periodic.interval,
             runner=runner,
         )
         return 0

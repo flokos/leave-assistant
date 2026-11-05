@@ -21,6 +21,8 @@ const HolidaysPage = lazy(() => import('../features/admin/HolidaysPage'))
 const ApprovalRulesPage = lazy(() => import('../features/admin/ApprovalRulesPage'))
 const BalancesPage = lazy(() => import('../features/admin/BalancesPage'))
 const AuditPage = lazy(() => import('../features/admin/AuditPage'))
+const ReviewQueuePage = lazy(() => import('../features/review/ReviewQueuePage'))
+const RetentionPage = lazy(() => import('../features/retention/RetentionPage'))
 const TenantsPage = lazy(() => import('../features/platform/TenantsPage'))
 const PlatformAuditPage = lazy(() => import('../features/platform/PlatformAuditPage'))
 
@@ -66,6 +68,8 @@ export function AppRouter() {
             </Route>
             <Route element={<RequireRole anyOf={['hr_admin', 'company_admin']} tenantOnly />}>
               <Route path="/admin/balances" element={<BalancesPage />} />
+              <Route path="/admin/review-queue" element={<ReviewQueuePage />} />
+              <Route path="/admin/retention" element={<RetentionPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
             </Route>
             <Route element={<RequireRole anyOf={['platform_admin']} />}>

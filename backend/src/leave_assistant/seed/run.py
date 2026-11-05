@@ -23,6 +23,7 @@ from leave_assistant.application.leave.commands import (
     Decide,
     SubmitRequest,
 )
+from leave_assistant.application.retention.service import CreateRetentionPolicy
 from leave_assistant.application.tenancy.commands import (
     CreateDepartment,
     CreateEmployee,
@@ -34,6 +35,7 @@ from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.documents.formats import DOCX, MARKDOWN, PDF, TEXT
 from leave_assistant.domain.leave.request import StepStatus
 from leave_assistant.domain.leave.state_machine import RequestStatus
+from leave_assistant.domain.retention.eligibility import DocumentClass, RetentionAction
 from leave_assistant.domain.tenancy import Department, Employee, Principal, Role, Tenant
 from leave_assistant.seed.data import (
     APPROVAL_RULES,
@@ -46,6 +48,7 @@ from leave_assistant.seed.data import (
 )
 
 CORPUS_FILES = Path(__file__).resolve().parent / "corpus" / "files"
+CORPUS_SUPPORTING = Path(__file__).resolve().parent / "corpus" / "supporting"
 CORPUS_MIME = {"pdf": PDF, "docx": DOCX, "md": MARKDOWN, "txt": TEXT}
 
 SEED_ACTOR = "seed"
@@ -174,7 +177,80 @@ async def seed_company(services: Services, company: SeedCompany, password: str, 
     await seed_grants(services, tenant, report)
     await seed_requests(services, company, tenant, employees, report)
     await seed_documents(services, company, tenant, employees, departments, report)
+    await seed_security(services, company, tenant, admin, report)
+    await seed_supporting_documents(services, company, tenant, employees, report)
     return tenant
+
+
+async def seed_security(
+    services: Services, company: SeedCompany, tenant: Tenant, admin: Principal, report: SeedReport
+) -> None:
+    """M5: the tenant's security-policy row (platform defaults) and placeholder retention policies."""
+    context = TenantContext.for_principal(admin)
+    async with services.uow_factory(context) as uow:
+        existed = (
+            await uow.security_policies.get() is not None
+        )  # provisioning creates it; seed back-fills older tenants
+        await services.security_policies.ensure_policy(uow, tenant.id, updated_by=SEED_ACTOR)
+        await uow.commit()
+    if not existed:
+        report.created.append(f"security-policy:{company.slug}")
+    existing = {p.document_class.value for p in await services.retention.list_policies(admin)}
+    for spec in company.retention_policies:
+        label = f"retention-policy:{company.slug}/{spec.document_class}"
+        if spec.document_class in existing:
+            report.unchanged.append(label)
+            continue
+        await services.retention.create_policy(
+            admin,
+            CreateRetentionPolicy(
+                document_class=DocumentClass(spec.document_class),
+                retention_days=spec.retention_days,
+                action=RetentionAction(spec.action),
+            ),
+        )
+        report.created.append(label)
+
+
+async def seed_supporting_documents(
+    services: Services,
+    company: SeedCompany,
+    tenant: Tenant,
+    employees: dict[str, Employee],
+    report: SeedReport,
+) -> None:
+    """M5: fictional supporting documents uploaded by the employee to their own seeded request (idempotent by
+    request + file name). Skipped with a report entry when the encryption keys are not configured."""
+    for spec in company.supporting_documents:
+        employee = employees[spec.employee_number]
+        principal = employee_principal(tenant, employee)
+        label = f"supporting:{company.slug}/{spec.employee_number}/{spec.request_start.isoformat()}"
+        async with services.uow_factory(TenantContext.for_principal(principal)) as uow:
+            request = next(
+                (
+                    r
+                    for r in await uow.leave_requests.list_for_employee(employee.id)
+                    if r.start_date == spec.request_start
+                ),
+                None,
+            )
+            attached = await uow.supporting_documents.list_for_request(request.id) if request else []
+        if request is None:
+            report.unchanged.append(label + " (request missing)")
+            continue
+        if any(d.original_filename == spec.file and d.status != "deleted" for d in attached):
+            report.unchanged.append(label)
+            continue
+        if not services.supporting.configured:
+            report.unchanged.append(label + " (APP_KEK not configured)")
+            continue
+        path = CORPUS_SUPPORTING / spec.file
+        await services.supporting.upload(
+            principal,
+            request.id,
+            Upload(path=path, filename=spec.file, declared_mime=None, size_bytes=path.stat().st_size),
+        )
+        report.created.append(label)
 
 
 async def seed_documents(

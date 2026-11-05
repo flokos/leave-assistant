@@ -7,8 +7,10 @@ import {
   CheckSquareOutlined,
   ClusterOutlined,
   DashboardOutlined,
+  DeleteOutlined,
   FileDoneOutlined,
   FileTextOutlined,
+  SafetyCertificateOutlined,
   ScheduleOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -52,6 +54,8 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
   if (principal.hasRole('hr_admin', 'company_admin')) {
     admin.push(
       { key: '/admin/balances', icon: <DashboardOutlined />, label: <Link to="/admin/balances">{t('nav.balances')}</Link> },
+      { key: '/admin/review-queue', icon: <SafetyCertificateOutlined />, label: <Link to="/admin/review-queue">{t('nav.reviewQueue')}</Link> },
+      { key: '/admin/retention', icon: <DeleteOutlined />, label: <Link to="/admin/retention">{t('nav.retention')}</Link> },
       { key: '/admin/audit', icon: <AuditOutlined />, label: <Link to="/admin/audit">{t('nav.audit')}</Link> },
     )
   }

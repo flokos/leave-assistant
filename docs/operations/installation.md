@@ -108,6 +108,37 @@ curl -s "localhost:8080/api/v1/documents/search?q=μεταφορά%20υπολο�
 ```
 `make test-ocr` parses the scanned Greek fixture inside the api container (the host does not need Tesseract).
 
+### Content security and privacy (M5)
+`make env` now generates three keys in `deploy/.env` when they are empty — `APP_KEK` (supporting-document
+envelope encryption), `VAULT_HMAC_KEY` and `VAULT_KEK` (PII vault). Keep them: rotating `APP_KEK` makes stored
+supporting documents unreadable, rotating `VAULT_KEK` the vault originals, rotating `VAULT_HMAC_KEY` the
+placeholder stability. Without the keys the API refuses supporting-document uploads (`503 security/not-configured`)
+and documents cannot be indexed (versions end `FAILED` with `pii_not_configured`): the system fails closed.
+
+**Upgrading from M4:** run `make rescan` once after `make migrate`. Versions indexed before M5 hold raw text in
+`content_llm_safe`; the rescan pseudonymises and risk-scores them from the stored structure (no re-parse), and holds
+back any active version that is not low risk. A version whose first scan fails leaves retrieval until it succeeds.
+
+What happens at ingestion (doc 08 §7–§8): every document version is scored for prompt injection (bilingual
+heuristics + a similarity classifier) and scanned for personal data (Presidio with Greek recognisers plus the
+tenant's employee directory). Personal data is replaced by stable placeholders (`PERSON_0001`, `EMAIL_0002`, …)
+in the text the assistant will read; the originals live encrypted in the vault. Risk tiers come from the tenant's
+security policy (`GET/PUT /admin/security-policy`, defaults from `GET/PUT /platform/security-defaults`):
+medium → **Review queue** (HR and company administrators, menu entry under Company administration), high →
+quarantined until a reviewer releases it. The seed includes an adversarial pair per company: the English
+"untrusted upload" is quarantined, the Greek "σημείωμα" with a footnote addressed to the assistant waits for review.
+`make security-check` re-scores the EL/EN fixture families inside the api container.
+
+Supporting documents: an employee attaches PDF/JPEG/PNG files (≤ 10 MB) to their own request from the request
+drawer; HR sees and downloads them (a reason is required and audited) from the team requests page; managers and
+company administrators never see them. The seed attaches a fictional medical note to Eleni's and Dave's sick
+requests. Files are encrypted per file before they reach SeaweedFS; downloads use 60-second single-use links.
+
+Retention: company administrators manage retention policies on the **Retention** page (seed placeholders: 365 days
+for supporting documents after the leave end, 730 days for superseded/retired company documents — not legal
+advice); the worker scans daily (`make retention-scan` runs it now) and HR decides each item (retain or approve
+deletion); deletions run as jobs and keep a tombstone for audit.
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged

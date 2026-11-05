@@ -37,6 +37,7 @@ class VersionOut(ApiModel):
     language: str | None
     risk_tier: str
     risk_score: float
+    findings_count: int = 0
     processing_error: str | None
     processed_at: datetime | None
     retrievable: bool
@@ -61,6 +62,7 @@ class VersionOut(ApiModel):
             language=v.language,
             risk_tier=v.risk_tier.value,
             risk_score=v.risk_score,
+            findings_count=len(v.risk_findings),
             processing_error=v.processing_error,
             processed_at=v.processed_at,
             retrievable=v.retrievable,
@@ -197,11 +199,21 @@ class ReviewIn(ApiModel):
     comment: str | None = Field(default=None, max_length=1000)
 
 
+class RiskFindingOut(ApiModel):
+    detector: str
+    family: str
+    score: float
+    chunk: int | None = None
+    excerpt: str = ""
+
+
 class ReviewItemOut(ApiModel):
     document_id: UUID
     title: str
     category: str
     version: VersionOut
+    findings: list[RiskFindingOut]
+    pii_summary: dict[str, Any]
 
     @classmethod
     def from_domain(cls, item: ReviewItem) -> ReviewItemOut:
@@ -210,6 +222,11 @@ class ReviewItemOut(ApiModel):
             title=item.document.title,
             category=item.document.category.value,
             version=VersionOut.from_domain(item.version),
+            findings=[
+                RiskFindingOut(**{k: v for k, v in f.items() if k in RiskFindingOut.model_fields})
+                for f in item.version.risk_findings
+            ],
+            pii_summary=dict(item.version.pii_summary),
         )
 
 

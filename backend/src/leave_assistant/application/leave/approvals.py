@@ -14,7 +14,7 @@ from leave_assistant.application.leave.errors import (
     StepNotPending,
     VersionConflict,
 )
-from leave_assistant.application.leave.requests import LeaveRequestService, RequestWorkflow
+from leave_assistant.application.leave.requests import LeaveRequestService, RequestWorkflow, supporting_count
 from leave_assistant.application.leave.views import PendingItem, RequestDetail, reason_visible
 from leave_assistant.application.ports import UnitOfWork, UnitOfWorkFactory
 from leave_assistant.application.tenancy.context import TenantContext
@@ -45,7 +45,13 @@ class ApprovalService:
         leave_type = await uow.leave_types.get(request.leave_type_id)
         assert leave_type is not None
         return PendingItem(
-            step, request, requester, leave_type, fallback, reason_visible(principal, request, leave_type)
+            step,
+            request,
+            requester,
+            leave_type,
+            fallback,
+            reason_visible(principal, request, leave_type),
+            supporting_count=await supporting_count(uow, principal, request),
         )
 
     @staticmethod

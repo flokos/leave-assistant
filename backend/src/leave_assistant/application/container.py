@@ -23,15 +23,24 @@ from leave_assistant.application.ports import (
     DocumentParser,
     DocumentStorage,
     EmbeddingModel,
+    FileCipher,
     IdentityAdmin,
     IdGenerator,
     LanguageDetector,
-    PiiScanner,
-    RiskScanner,
+    LlmJudge,
+    PiiEngine,
+    SimilarityClassifier,
     Tokenizer,
     UnitOfWorkFactory,
+    VaultCipher,
 )
+from leave_assistant.application.privacy.reidentification import ReidentificationService
+from leave_assistant.application.privacy.service import PseudonymisationService
+from leave_assistant.application.retention.service import RetentionService
 from leave_assistant.application.retrieval.service import RetrievalService
+from leave_assistant.application.security.policy import SecurityPolicyService
+from leave_assistant.application.security.scan import InjectionScanService
+from leave_assistant.application.supporting.service import SupportingDocumentService
 from leave_assistant.application.tenancy.departments import DepartmentService
 from leave_assistant.application.tenancy.employees import EmployeeService
 from leave_assistant.application.tenancy.provisioning import TenantProvisioningService
@@ -44,15 +53,18 @@ class TokenVerifierPort(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class DocumentAdapters:
-    """The M4 adapters (storage, parsing, ML, scanning) — real ones in the runtime, fakes in tests."""
+    """Storage, parsing, ML, PII and crypto adapters (M4/M5) — real ones in the runtime, fakes in tests."""
 
     storage: DocumentStorage
     parser: DocumentParser
     tokenizer: Tokenizer
     embedder: EmbeddingModel
     language: LanguageDetector
-    risk_scanner: RiskScanner
-    pii_scanner: PiiScanner
+    pii_engine: PiiEngine
+    vault_cipher: VaultCipher
+    file_cipher: FileCipher
+    classifier: SimilarityClassifier | None = None
+    judge: LlmJudge | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +76,9 @@ class DocumentOptions:
     job_stale_after_seconds: float = 1800.0
     retrieval_leg_size: int = 30
     retrieval_k: int = 10
+    pii_score_threshold: float = 0.4
+    supporting_max_upload_mb: int = 10
+    download_token_ttl_seconds: int = 60
 
 
 @dataclass(slots=True)
@@ -90,6 +105,12 @@ class Services:
     documents: DocumentService
     ingestion: IngestionPipeline
     retrieval: RetrievalService
+    privacy: PseudonymisationService
+    reidentification: ReidentificationService
+    security: InjectionScanService
+    security_policies: SecurityPolicyService
+    supporting: SupportingDocumentService
+    retention: RetentionService
 
     @classmethod
     def build(
@@ -118,6 +139,11 @@ class Services:
             stale_after_seconds=options.job_stale_after_seconds,
         )
         rules = ChunkingRules(version=options.chunking_rules_version)
+        security_policies = SecurityPolicyService(uow_factory, clock, audit)
+        privacy = PseudonymisationService(
+            adapters.pii_engine, adapters.vault_cipher, ids, clock, threshold=options.pii_score_threshold
+        )
+        security = InjectionScanService(adapters.classifier, adapters.judge)
         return cls(
             uow_factory=uow_factory,
             identity=identity,
@@ -127,7 +153,9 @@ class Services:
             adapters=adapters,
             options=options,
             audit=audit,
-            provisioning=TenantProvisioningService(uow_factory, identity, ids, clock, audit),
+            provisioning=TenantProvisioningService(
+                uow_factory, identity, ids, clock, audit, security_policies=security_policies
+            ),
             employees=EmployeeService(uow_factory, identity, ids, clock, audit),
             departments=DepartmentService(uow_factory, ids, clock, audit),
             catalog=LeaveCatalogService(uow_factory, ids, clock, audit, planner),
@@ -154,8 +182,9 @@ class Services:
                 adapters.tokenizer,
                 adapters.embedder,
                 adapters.language,
-                adapters.risk_scanner,
-                adapters.pii_scanner,
+                security,
+                privacy,
+                security_policies,
                 ids,
                 clock,
                 audit,
@@ -170,6 +199,22 @@ class Services:
                 leg_size=options.retrieval_leg_size,
                 default_k=options.retrieval_k,
             ),
+            privacy=privacy,
+            reidentification=ReidentificationService(privacy),
+            security=security,
+            security_policies=security_policies,
+            supporting=SupportingDocumentService(
+                uow_factory,
+                adapters.storage,
+                adapters.file_cipher,
+                ids,
+                clock,
+                audit,
+                notifications,
+                max_upload_mb=options.supporting_max_upload_mb,
+                token_ttl_seconds=options.download_token_ttl_seconds,
+            ),
+            retention=RetentionService(uow_factory, ids, clock, audit, notifications, jobs, adapters.storage),
         )
 
     def with_clock(self, clock: Clock) -> Services:

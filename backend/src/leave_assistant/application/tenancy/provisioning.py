@@ -16,6 +16,7 @@ from leave_assistant.application.ports import (
     NewIdentityUser,
     UnitOfWorkFactory,
 )
+from leave_assistant.application.security.policy import SecurityPolicyService
 from leave_assistant.application.tenancy.commands import (
     BootstrapAdmin,
     BootstrapResult,
@@ -51,12 +52,15 @@ class TenantProvisioningService:
         ids: IdGenerator,
         clock: Clock,
         audit: AuditService,
+        *,
+        security_policies: SecurityPolicyService | None = None,
     ) -> None:
         self._uow = uow_factory
         self._identity = identity
         self._ids = ids
         self._clock = clock
         self._audit = audit
+        self._policies = security_policies
 
     async def list_tenants(
         self, principal: Principal, *, limit: int | None, cursor: str | None
@@ -128,7 +132,18 @@ class TenantProvisioningService:
                 details={"slug": slug, "default_locale": cmd.default_locale, "timezone": timezone},
             )
             await uow.commit()
+        await self.ensure_security_policy(context, tenant.id, updated_by=principal.user_id)
         return tenant, True
+
+    async def ensure_security_policy(
+        self, context: TenantContext, tenant_id: UUID, *, updated_by: str
+    ) -> None:
+        """M5: every tenant carries a `security_policies` row copied from the platform defaults (doc 08 §8.2)."""
+        if self._policies is None:
+            return
+        async with self._uow(context.with_tenant(tenant_id)) as uow:
+            await self._policies.ensure_policy(uow, tenant_id, updated_by=updated_by)
+            await uow.commit()
 
     async def update_tenant(self, principal: Principal, tenant_id: UUID, cmd: UpdateTenant) -> Tenant:
         tenant = await self.get_tenant(principal, tenant_id)

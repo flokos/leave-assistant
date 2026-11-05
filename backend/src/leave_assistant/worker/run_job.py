@@ -7,6 +7,7 @@ the outcome itself (exit code 0 on success, 1 on failure). Memory is returned to
 from __future__ import annotations
 
 import asyncio
+import faulthandler
 import sys
 from uuid import UUID
 
@@ -39,4 +40,5 @@ async def _main(job_id: UUID) -> int:
 
 
 if __name__ == "__main__":
+    faulthandler.enable()  # a native crash (R-27 SIGILL) prints the Python frames to stderr
     raise SystemExit(asyncio.run(_main(UUID(sys.argv[1]))))

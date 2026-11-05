@@ -16,35 +16,15 @@ from leave_assistant.application.ports import DocumentFilter
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.documents.types import AclPrincipalType, Category, VersionStatus
 from leave_assistant.domain.documents.visibility import DocumentScope, Reader, can_read
-from leave_assistant.domain.tenancy import Employee, Tenant
+from leave_assistant.domain.tenancy import Tenant
 from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
 from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
-from leave_assistant.seed.run import run_seed
 from tests.conftest import fake_document_adapters, principal_for
 from tests.integration.conftest import RLS_URL
 
 pytestmark = pytest.mark.integration
 
 FAQ = Path(__file__).resolve().parents[2] / "src/leave_assistant/seed/corpus/files/aegean/faq.md"
-
-
-@pytest.fixture
-async def seeded(db_services: Services) -> dict[str, object]:
-    report = await run_seed(db_services, "pw")
-    assert not report.unchanged
-    async with db_services.uow_factory(
-        TenantContext(tenant_id=None, user_id="seed", platform_admin=True)
-    ) as uow:
-        aegean = await uow.tenants.get_by_slug("aegean")
-        brightwater = await uow.tenants.get_by_slug("brightwater")
-    assert aegean and brightwater
-    employees: dict[str, dict[str, Employee]] = {}
-    for tenant in (aegean, brightwater):
-        async with db_services.uow_factory(
-            TenantContext(tenant_id=tenant.id, user_id="seed", roles=("company_admin",))
-        ) as uow:
-            employees[tenant.slug] = {e.employee_number: e for e in await uow.employees.list_active()}
-    return {"aegean": aegean, "brightwater": brightwater, "employees": employees}
 
 
 def upload_of(path: Path, mime: str) -> Upload:
@@ -94,11 +74,11 @@ async def test_seed_uploads_corpus_and_processing_indexes_markdown_under_rls(
     hr = principal_for(employees["AEG-002"])
     employee = principal_for(employees["AEG-004"])
     page = await db_services.documents.list(hr, filters=DocumentFilter(), limit=None, cursor=None)
-    assert len(page.items) == 6 and all(
+    assert len(page.items) == 8 and all(
         s.latest_version and s.latest_version.status is VersionStatus.UPLOADED for s in page.items
     )
     jobs = await db_services.jobs.counts()
-    assert jobs == {"queued": 12}  # 6 Aegean + 5 Brightwater + the superseded handbook version
+    assert jobs == {"queued": 16}  # 8 Aegean + 7 Brightwater + the superseded handbook version
     faq = next(s for s in page.items if s.document.title == "Συχνές ερωτήσεις / FAQ")
     assert faq.latest_version is not None
     outcome = await db_services.ingestion.process(aegean.id, faq.latest_version.id)
@@ -179,6 +159,8 @@ async def test_visibility_predicate_matches_the_python_rules(
                 "Συχνές ερωτήσεις / FAQ",
                 "Leave Policy (English translation)",
                 "Διαδικασία Αναρρωτικής Άδειας",
+                "Leave approvals appendix (untrusted upload)",
+                "Σημείωμα διαδικασίας (ύποπτο)",
             ]:
                 document = await uow.documents.get_by_title(title)
                 assert document is not None, title
@@ -273,6 +255,6 @@ async def test_skip_locked_claims_are_exclusive(
         assert len(claimed) == 6 and len({j.id for j in claimed}) == 6
         assert {j.status.value for j in claimed} == {"running"} and all(j.attempts == 1 for j in claimed)
         remaining = await services.jobs.counts()
-        assert remaining == {"queued": 6, "running": 6}
+        assert remaining == {"queued": 10, "running": 6}
     finally:
         await engine.dispose()

@@ -224,12 +224,49 @@ def build(spec: SeedDocument, tenant_slug: str, stem: str) -> Path:
     return target
 
 
+SUPPORTING = ROOT / "src/leave_assistant/seed/corpus/supporting"
+
+
+def render_medical_note(target: Path) -> None:
+    """A fictional Greek medical note (PNG) attached to a seeded sick request — M5 supporting document (doc 08 §9)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    width, height = 1240, 880
+    image = Image.new("L", (width, height), 250)
+    draw = ImageDraw.Draw(image)
+    bold = ImageFont.truetype(str(font("bold")), 40)
+    regular = ImageFont.truetype(str(font("regular")), 30)
+    lines = [
+        ("ΙΑΤΡΙΚΗ ΒΕΒΑΙΩΣΗ (ΔΕΙΓΜΑ — ΠΛΑΣΜΑΤΙΚΑ ΣΤΟΙΧΕΙΑ)", bold),
+        ("Ιατρείο Γενικής Ιατρικής «Υγεία» · Λεωφ. Παραδείγματος 12, Πειραιάς", regular),
+        ("", regular),
+        ("Βεβαιώνεται ότι η/ο εργαζόμενη/ος με αρ. μητρώου AEG-004", regular),
+        ("εξετάστηκε στις 2 Νοεμβρίου 2026 και χρήζει αναρρωτικής άδειας", regular),
+        ("δύο (2) ημερών, από 2/11/2026 έως 3/11/2026, λόγω ίωσης.", regular),
+        ("", regular),
+        ("Ο ιατρός: Δρ. Π. Παράδειγμα · ΑΜ ΙΣΑ 000000 (πλασματικό)", regular),
+        ("Σφραγίδα / Υπογραφή", regular),
+        ("", regular),
+        ("Το έγγραφο δημιουργήθηκε για τα δεδομένα επίδειξης του Leave Assistant.", regular),
+    ]
+    y = 70
+    for text, fnt in lines:
+        draw.text((70, y), text, fill=25, font=fnt)
+        y += 62 if fnt is bold else 50
+    draw.rectangle([40, 40, width - 40, height - 40], outline=90, width=3)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(str(target), "PNG", optimize=True)
+
+
 def main() -> int:
     for company in COMPANIES:
         for spec in company.documents:
             for stem in (*spec.earlier_versions, spec.slug):
                 target = build(spec, company.slug, stem)
                 sys.stdout.write(f"{target.relative_to(ROOT)}  {target.stat().st_size:,} bytes\n")
+    note = SUPPORTING / "medical-note.png"
+    render_medical_note(note)
+    sys.stdout.write(f"{note.relative_to(ROOT)}  {note.stat().st_size:,} bytes\n")
     return 0
 
 

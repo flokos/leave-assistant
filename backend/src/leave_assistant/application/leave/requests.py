@@ -273,7 +273,16 @@ class RequestWorkflow:
             events,
             reason_visible(principal, request, leave_type),
             leave_type_visible(principal, request),
+            supporting_count=await supporting_count(uow, principal, request),
         )
+
+
+async def supporting_count(uow: UnitOfWork, principal: Principal, request: LeaveRequest) -> int:
+    """M5 (doc 08 §9): only the owner and HR learn that supporting documents exist."""
+    if request.employee_id != principal.employee_id and Role.HR_ADMIN not in principal.roles:
+        return 0
+    counts = await uow.supporting_documents.count_for_requests([request.id])
+    return counts.get(request.id, 0)
 
 
 class LeaveRequestService:

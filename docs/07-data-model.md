@@ -131,16 +131,23 @@ tenant tables have `tenant_id` (+ RLS). `→` marks a foreign key.
 | `document_review_events` | `version_id →`, `reviewer_employee_id →`, `action (release\|reject\|delete\|inspect)`, `comment`, `occurred_at` | |
 | `index_generations` | `generation text`, `embedding_model_id`, `chunking_rules_version`, `status (building\|active\|retired)`, `started_at`, `completed_at` | One active per tenant |
 | `supporting_documents` | `request_id →`, `employee_id →`, `object_key`, `original_filename`, `mime`, `size_bytes`, `sha256`, `encrypted_dek bytea`, `status (stored\|retention_pending\|deleted)`, `retention_until date?`, `deleted_at?` | Never parsed/indexed; see doc 08 §9 |
-| `supporting_document_access_events` | `supporting_document_id →`, `actor_employee_id →`, `action (view\|download\|delete)`, `occurred_at`, `request_id (http)` | INSERT only; mirrored to `audit.audit_log` |
+| `supporting_document_access_events` | `supporting_document_id →`, `actor_employee_id →`, `action (view\|download_token\|download\|delete)`, `occurred_at`, `reason?`, `request_id (http)` | INSERT only; mirrored to `audit.audit_log`; `download_token` added in M5 (the token issue is itself an access) |
+| `supporting_download_tokens` (**`platform` schema, M5**) | `token_hash (sha256, pk)`, `tenant_id →`, `supporting_document_id`, `actor_employee_id`, `actor_user_id`, `actor_roles text[]`, `expires_at`, `created_at`, `reason?`, `used_at?` | Presented without a bearer, so it lives outside RLS like `platform.jobs`; consumed atomically; rows older than a day are swept on use |
 
 ### 4.5 Privacy and security (`app`)
 | Table | Columns | Notes |
 |-------|---------|-------|
 | `pii_vault` | `entity_type (PERSON\|EMAIL\|PHONE\|AMKA\|AFM\|ID_CARD\|IBAN\|ADDRESS\|DATE_OF_BIRTH\|OTHER)`, `value_hmac bytea unique per tenant`, `value_encrypted bytea`, `placeholder text unique per tenant` (e.g. `PERSON_0042`), `first_seen_at`, `last_seen_at`, `source_kinds text[]` | HMAC key and KEK from environment; counters per `(tenant_id, entity_type)` via `pii_vault_counters` |
 | `pii_vault_counters` | `entity_type`, `next_seq int` | |
-| `security_policies` | `risk_low_max numeric`, `risk_medium_max numeric`, `injection_llm_judge bool`, `user_input_block_threshold numeric`, `max_upload_mb int`, `allowed_mime text[]`, `updated_by` | One row per tenant; defaults copied from `platform.security_policy_defaults` |
-| `injection_findings` | `subject_type (document_version\|user_message)`, `subject_id`, `detector (heuristic\|classifier\|llm_judge)`, `score`, `label`, `excerpt_hash`, `details jsonb` | Excerpts are hashed, not stored |
+| `security_policies` | `risk_low_max numeric`, `risk_medium_max numeric`, `injection_llm_judge bool`, `user_input_block_threshold numeric`, `max_upload_mb int`, `allowed_mime text[]`, `updated_by` | One row per tenant (`tenant_id` is the primary key); created at provisioning and back-filled by migration `0004`/the seed from `platform.security_policy_defaults` (single row `id = 1`: the defaults plus `threshold_min`, `threshold_max`, `max_upload_mb_limit` — the ranges tenants may configure within) |
+| `injection_findings` | `subject_type (document_version\|user_message)`, `subject_id`, `detector (heuristic\|classifier\|structural\|llm_judge)`, `score`, `label`, `excerpt_hash`, `details jsonb` | Excerpts are hashed, not stored (reviewers see pseudonymised excerpts on `document_versions.risk_findings`) |
 | `idempotency_keys` (**`platform` schema since M1**) | `tenant_id?` (informational), `user_id`, `route`, `key`, `request_hash`, `response_status`, `response_body jsonb`, `expires_at` | unique `(user_id, route, key)`; TTL 24 h. Lives in `platform` without RLS because platform administrators have no tenant; rows are private to the Keycloak `sub` and every query filters on it (M1 decision, worklog M1) |
+
+M5 note (migration `0004_security_privacy`): the M5 tables use `text` columns instead of PostgreSQL enums for
+`entity_type`, statuses, `document_class`, `action` and `detector` (values are owned by the domain enums, no `ALTER TYPE`
+for additions); statuses and retention days also carry CHECK constraints; `pii_vault_counters.next_seq` is advanced with an atomic
+`INSERT … ON CONFLICT DO UPDATE … RETURNING`; `retention_review_items` has a partial unique index on
+`(tenant_id, subject_type, subject_id) WHERE status = 'pending'`.
 
 ### 4.6 Conversations and agent (`app`)
 | Table | Columns | Notes |
@@ -241,8 +248,8 @@ function with property-based tests; holidays are loaded per request (small table
 | Conversations, messages, checkpoints, agent runs | 90 days after last activity (tenant setting); automatic, no review (decided Q-08/Q-14) | `checkpoint.cleanup` job |
 | Idempotency keys | 24 h | housekeeping |
 | Integration events / jobs | 30 days after completion | housekeeping (archive table) |
-| Supporting documents | seed placeholder: 365 days after the leave end date, `notify_only` → HR review (decided Q-08; not legal advice) | retention workflow |
-| Company documents (superseded/retired) | seed placeholder: 730 days, `notify_only` → reviewer decides (decided Q-08) | retention workflow |
+| Supporting documents | seed placeholder: 365 days after the leave end date, `delete_after_review` → HR review (decided Q-08; not legal advice) | `retention.scan` job (daily in the worker loop, `make retention-scan`) → `retention_review_items` → HR decision → `retention.delete` job (object removed, tombstone kept) |
+| Company documents (superseded/retired) | seed placeholder: 730 days after the version was superseded/retired, `delete_after_review` → HR decides (decided Q-08) | same workflow; the version becomes `DELETED`, its chunks and objects are removed |
 | Audit log | never deleted by the application (export tooling only) | — |
 | Leave records, ledger | never deleted (business records) | — |
 

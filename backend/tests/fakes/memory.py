@@ -35,11 +35,15 @@ from leave_assistant.application.ports import (
     DocumentFilter,
     DocumentRepository,
     DocumentVersionRepository,
+    DownloadToken,
+    DownloadTokenRepository,
     EmployeeFilter,
     EmployeeRepository,
     HolidayRepository,
     IdempotencyRepository,
     IndexGenerationRepository,
+    InjectionFinding,
+    InjectionFindingRepository,
     IntegrationEventRepository,
     JobFilter,
     JobRepository,
@@ -50,8 +54,22 @@ from leave_assistant.application.ports import (
     NotificationRepository,
     RequestEventRepository,
     RequestFilter,
+    RetentionPolicy,
+    RetentionPolicyRepository,
+    RetentionReviewItem,
+    RetentionReviewItemRepository,
     ReviewEventRepository,
+    SecurityDefaults,
+    SecurityDefaultsRepository,
+    SecurityPolicy,
+    SecurityPolicyRepository,
+    SupportingAccessEvent,
+    SupportingAccessRepository,
+    SupportingDocument,
+    SupportingDocumentRepository,
     TenantRepository,
+    VaultEntry,
+    VaultRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.documents.fusion import LegHit
@@ -69,6 +87,8 @@ from leave_assistant.domain.leave.ledger import LedgerEntry
 from leave_assistant.domain.leave.request import ApprovalStep, LeaveRequest, RequestEventRecord, StepStatus
 from leave_assistant.domain.leave.state_machine import PENDING_STATUSES, RequestStatus
 from leave_assistant.domain.leave.types import ApprovalRule, LeavePolicy, LeaveType, PublicHoliday, StepRole
+from leave_assistant.domain.privacy.types import EntityType
+from leave_assistant.domain.retention.eligibility import DocumentClass, ReviewStatus
 from leave_assistant.domain.tenancy import Department, Employee, Role, Tenant
 
 
@@ -97,6 +117,16 @@ class MemoryStore:
     review_events: list[ReviewEvent] = field(default_factory=list)
     index_generations: dict[tuple[UUID, str], IndexGeneration] = field(default_factory=dict)
     jobs: dict[UUID, Job] = field(default_factory=dict)
+    pii_vault: dict[UUID, VaultEntry] = field(default_factory=dict)
+    pii_counters: dict[tuple[UUID, str], int] = field(default_factory=dict)
+    security_defaults: SecurityDefaults = field(default_factory=SecurityDefaults)
+    security_policies: dict[UUID, SecurityPolicy] = field(default_factory=dict)
+    injection_findings: list[InjectionFinding] = field(default_factory=list)
+    supporting_documents: dict[UUID, SupportingDocument] = field(default_factory=dict)
+    supporting_access: list[SupportingAccessEvent] = field(default_factory=list)
+    download_tokens: dict[str, DownloadToken] = field(default_factory=dict)
+    retention_policies: dict[UUID, RetentionPolicy] = field(default_factory=dict)
+    retention_items: dict[UUID, RetentionReviewItem] = field(default_factory=dict)
 
     def tables(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -950,6 +980,214 @@ class _Jobs:
         return counts
 
 
+# --- M5: vault, security, supporting documents, retention -----------------------------------------------------
+
+
+class _Vault:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[VaultEntry]:
+        return [e for e in self._store.pii_vault.values() if e.tenant_id == self._tenant]
+
+    async def get_by_hmac(self, value_hmac: bytes) -> VaultEntry | None:
+        return next((e for e in self._rows() if e.value_hmac == value_hmac), None)
+
+    async def get_by_placeholder(self, placeholder: str) -> VaultEntry | None:
+        return next((e for e in self._rows() if e.placeholder == placeholder), None)
+
+    async def next_sequence(self, entity_type: EntityType) -> int:
+        if self._tenant is None:
+            raise RuntimeError("vault sequences require a tenant context")
+        key = (self._tenant, entity_type.value)
+        value = self._store.pii_counters.get(key, 1)
+        self._store.pii_counters[key] = value + 1
+        return value
+
+    async def add(self, entry: VaultEntry) -> None:
+        if any(e.value_hmac == entry.value_hmac for e in self._rows()):
+            raise ConflictError("duplicate vault entry")
+        self._store.pii_vault[entry.id] = entry
+
+    async def update(self, entry: VaultEntry) -> None:
+        if entry.id in self._store.pii_vault:
+            self._store.pii_vault[entry.id] = entry
+
+    async def count(self) -> int:
+        return len(self._rows())
+
+
+class _SecurityDefaults:
+    def __init__(self, store: MemoryStore) -> None:
+        self._store = store
+
+    async def get(self) -> SecurityDefaults:
+        return self._store.security_defaults
+
+    async def update(self, defaults: SecurityDefaults) -> None:
+        self._store.security_defaults = defaults
+
+
+class _SecurityPolicies:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def get(self) -> SecurityPolicy | None:
+        return self._store.security_policies.get(self._tenant) if self._tenant else None
+
+    async def upsert(self, policy: SecurityPolicy) -> None:
+        if policy.tenant_id != self._tenant:
+            raise RuntimeError("security policy tenant does not match the unit of work")
+        self._store.security_policies[policy.tenant_id] = policy
+
+
+class _InjectionFindings:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def add_many(self, findings: Sequence[InjectionFinding]) -> None:
+        self._store.injection_findings.extend(findings)
+
+    async def list_for_subject(self, subject_type: str, subject_id: str) -> list[InjectionFinding]:
+        return [
+            f
+            for f in self._store.injection_findings
+            if f.tenant_id == self._tenant and f.subject_type == subject_type and f.subject_id == subject_id
+        ]
+
+
+class _SupportingDocuments:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[SupportingDocument]:
+        rows = [d for d in self._store.supporting_documents.values() if d.tenant_id == self._tenant]
+        return sorted(rows, key=lambda d: (d.created_at, d.id))
+
+    async def get(self, document_id: UUID) -> SupportingDocument | None:
+        return next((d for d in self._rows() if d.id == document_id), None)
+
+    async def list_for_request(self, request_id: UUID) -> list[SupportingDocument]:
+        return [d for d in self._rows() if d.request_id == request_id]
+
+    async def count_for_requests(self, request_ids: Sequence[UUID]) -> dict[UUID, int]:
+        wanted = set(request_ids)
+        counts: dict[UUID, int] = {}
+        for d in self._rows():
+            if d.request_id in wanted and d.status != "deleted":
+                counts[d.request_id] = counts.get(d.request_id, 0) + 1
+        return counts
+
+    async def list_by_status(self, status: str) -> list[SupportingDocument]:
+        return [d for d in self._rows() if d.status == status]
+
+    async def add(self, document: SupportingDocument) -> None:
+        if document.request_id not in self._store.leave_requests:
+            raise ConflictError("unknown request")
+        self._store.supporting_documents[document.id] = document
+
+    async def update(self, document: SupportingDocument) -> None:
+        if document.id in self._store.supporting_documents:
+            self._store.supporting_documents[document.id] = document
+
+
+class _SupportingAccess:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def add(self, event: SupportingAccessEvent) -> None:
+        self._store.supporting_access.append(event)
+
+    async def list_for_document(self, document_id: UUID) -> list[SupportingAccessEvent]:
+        return [
+            e
+            for e in self._store.supporting_access
+            if e.tenant_id == self._tenant and e.supporting_document_id == document_id
+        ]
+
+
+class _DownloadTokens:
+    def __init__(self, store: MemoryStore) -> None:
+        self._store = store
+
+    async def add(self, token: DownloadToken) -> None:
+        self._store.download_tokens[token.token_hash] = token
+
+    async def consume(self, token_hash: str, now: datetime) -> DownloadToken | None:
+        token = self._store.download_tokens.get(token_hash)
+        if token is None or token.used_at is not None or token.expires_at <= now:
+            return None
+        token.used_at = now
+        return token
+
+
+class _RetentionPolicies:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[RetentionPolicy]:
+        rows = [p for p in self._store.retention_policies.values() if p.tenant_id == self._tenant]
+        return sorted(rows, key=lambda p: p.document_class.value)
+
+    async def list(self) -> list[RetentionPolicy]:
+        return self._rows()
+
+    async def get(self, policy_id: UUID) -> RetentionPolicy | None:
+        return next((p for p in self._rows() if p.id == policy_id), None)
+
+    async def get_by_class(self, document_class: DocumentClass) -> RetentionPolicy | None:
+        return next((p for p in self._rows() if p.document_class is document_class), None)
+
+    async def add(self, policy: RetentionPolicy) -> None:
+        if any(p.document_class is policy.document_class for p in self._rows()):
+            raise ConflictError("duplicate retention policy")
+        self._store.retention_policies[policy.id] = policy
+
+    async def update(self, policy: RetentionPolicy) -> None:
+        if policy.id in self._store.retention_policies:
+            self._store.retention_policies[policy.id] = policy
+
+    async def delete(self, policy_id: UUID) -> None:
+        if any(i.policy_id == policy_id for i in self._store.retention_items.values()):
+            raise ConflictError("the policy has review items")
+        self._store.retention_policies.pop(policy_id, None)
+
+
+class _RetentionItems:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[RetentionReviewItem]:
+        rows = [i for i in self._store.retention_items.values() if i.tenant_id == self._tenant]
+        return sorted(rows, key=lambda i: (i.created_at, i.id))
+
+    async def list(self, *, status: ReviewStatus | None) -> list[RetentionReviewItem]:
+        return [i for i in self._rows() if status is None or i.status is status]
+
+    async def get(self, item_id: UUID) -> RetentionReviewItem | None:
+        return next((i for i in self._rows() if i.id == item_id), None)
+
+    async def latest_for(self, subject_type: str, subject_id: UUID) -> RetentionReviewItem | None:
+        rows = [i for i in self._rows() if i.subject_type == subject_type and i.subject_id == subject_id]
+        return rows[-1] if rows else None
+
+    async def add(self, item: RetentionReviewItem) -> None:
+        if item.policy_id not in self._store.retention_policies:
+            raise ConflictError("unknown retention policy")
+        self._store.retention_items[item.id] = item
+
+    async def update(self, item: RetentionReviewItem) -> None:
+        if item.id in self._store.retention_items:
+            self._store.retention_items[item.id] = item
+
+
 class MemoryUnitOfWork:
     leave_types: LeaveTypeRepository
     leave_policies: LeavePolicyRepository
@@ -973,6 +1211,15 @@ class MemoryUnitOfWork:
     review_events: ReviewEventRepository
     index_generations: IndexGenerationRepository
     jobs: JobRepository
+    pii_vault: VaultRepository
+    security_defaults: SecurityDefaultsRepository
+    security_policies: SecurityPolicyRepository
+    injection_findings: InjectionFindingRepository
+    supporting_documents: SupportingDocumentRepository
+    supporting_access: SupportingAccessRepository
+    download_tokens: DownloadTokenRepository
+    retention_policies: RetentionPolicyRepository
+    retention_items: RetentionReviewItemRepository
 
     def __init__(self, store: MemoryStore, context: TenantContext | None) -> None:
         self._shared = store
@@ -1005,6 +1252,15 @@ class MemoryUnitOfWork:
         self.review_events = _ReviewEvents(self._work, tenant)
         self.index_generations = _IndexGenerations(self._work, tenant)
         self.jobs = _Jobs(self._work)
+        self.pii_vault = _Vault(self._work, tenant)
+        self.security_defaults = _SecurityDefaults(self._work)
+        self.security_policies = _SecurityPolicies(self._work, tenant)
+        self.injection_findings = _InjectionFindings(self._work, tenant)
+        self.supporting_documents = _SupportingDocuments(self._work, tenant)
+        self.supporting_access = _SupportingAccess(self._work, tenant)
+        self.download_tokens = _DownloadTokens(self._work)
+        self.retention_policies = _RetentionPolicies(self._work, tenant)
+        self.retention_items = _RetentionItems(self._work, tenant)
         return self
 
     async def __aexit__(

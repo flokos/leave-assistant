@@ -24,7 +24,7 @@ def test_table_transitions(status: VersionStatus, event: VersionEvent) -> None:
 
 
 def test_table_has_the_documented_shape() -> None:
-    assert len(TRANSITIONS) == 15
+    assert len(TRANSITIONS) == 17
     assert transition(S.UPLOADED, E.PROCESS) is S.PROCESSING
     assert transition(S.PROCESSING, E.ACTIVATE) is S.ACTIVE
     assert transition(S.ACTIVE, E.SUPERSEDE) is S.SUPERSEDED

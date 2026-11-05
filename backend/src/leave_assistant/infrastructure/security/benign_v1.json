@@ -1,0 +1,894 @@
+{
+ "version": "v1",
+ "description": "Benign HR/leave-policy reference sentences used as the contrast class of the similarity classifier (doc 08 §8.2).",
+ "exemplars": [
+  {
+   "lang": "en",
+   "text": "Every employee is entitled to twenty working days of annual leave per calendar year."
+  },
+  {
+   "lang": "en",
+   "text": "Annual leave is pro-rated in the year of hire according to the start date."
+  },
+  {
+   "lang": "en",
+   "text": "Requests must be submitted at least three working days before the leave starts."
+  },
+  {
+   "lang": "en",
+   "text": "The department manager approves requests of up to five working days."
+  },
+  {
+   "lang": "en",
+   "text": "Requests longer than five working days are also reviewed by Human Resources."
+  },
+  {
+   "lang": "en",
+   "text": "Up to five unused days carry over into the next year and expire on 31 March."
+  },
+  {
+   "lang": "en",
+   "text": "Carry-over days are used before the current year's entitlement."
+  },
+  {
+   "lang": "en",
+   "text": "Public holidays that fall on working days are not deducted from the balance."
+  },
+  {
+   "lang": "en",
+   "text": "Weekends are never counted as leave days."
+  },
+  {
+   "lang": "en",
+   "text": "Sick leave of up to three days is self-declared through the assistant."
+  },
+  {
+   "lang": "en",
+   "text": "A medical certificate is required for sick leave longer than three days."
+  },
+  {
+   "lang": "en",
+   "text": "The certificate is attached to the request as a supporting document."
+  },
+  {
+   "lang": "en",
+   "text": "HR reviews the certificate and records the decision on the request."
+  },
+  {
+   "lang": "en",
+   "text": "Unpaid leave may be granted for personal reasons after the paid balance is used."
+  },
+  {
+   "lang": "en",
+   "text": "Parental leave follows the statutory provisions and is coordinated with HR."
+  },
+  {
+   "lang": "en",
+   "text": "Compassionate leave of up to five days may be granted after a bereavement."
+  },
+  {
+   "lang": "en",
+   "text": "Study leave for examinations requires proof of enrolment."
+  },
+  {
+   "lang": "en",
+   "text": "Employees may modify an approved request before it starts; the change is re-approved."
+  },
+  {
+   "lang": "en",
+   "text": "A request can be cancelled by the employee until the first day of leave."
+  },
+  {
+   "lang": "en",
+   "text": "Cancelling an approved request restores the deducted days to the balance."
+  },
+  {
+   "lang": "en",
+   "text": "The balance shown in the assistant is updated as soon as a decision is recorded."
+  },
+  {
+   "lang": "en",
+   "text": "Managers see the availability of their team on the calendar view."
+  },
+  {
+   "lang": "en",
+   "text": "HR administrators can adjust balances with a documented reason."
+  },
+  {
+   "lang": "en",
+   "text": "Every adjustment is written to the audit log with the author and the reason."
+  },
+  {
+   "lang": "en",
+   "text": "Notifications are sent in the employee's preferred language."
+  },
+  {
+   "lang": "en",
+   "text": "The notice period for annual leave is three working days."
+  },
+  {
+   "lang": "en",
+   "text": "Requests that overlap a release freeze need the Head of Engineering's agreement."
+  },
+  {
+   "lang": "en",
+   "text": "The company observes the national public holidays listed in the calendar."
+  },
+  {
+   "lang": "en",
+   "text": "Local holidays apply to the office where the employee is based."
+  },
+  {
+   "lang": "en",
+   "text": "Half-day leave is not supported; the minimum unit is one working day."
+  },
+  {
+   "lang": "en",
+   "text": "Overtime is compensated according to the collective agreement."
+  },
+  {
+   "lang": "en",
+   "text": "Remote work days are agreed with the manager and do not count as leave."
+  },
+  {
+   "lang": "en",
+   "text": "Employees on probation accrue leave but may take it after the probation ends."
+  },
+  {
+   "lang": "en",
+   "text": "The HR team is available on weekdays between nine and five."
+  },
+  {
+   "lang": "en",
+   "text": "Questions about the policy can be sent to the People team."
+  },
+  {
+   "lang": "en",
+   "text": "The leave year runs from 1 January to 31 December."
+  },
+  {
+   "lang": "en",
+   "text": "The policy applies to all permanent and fixed-term employees."
+  },
+  {
+   "lang": "en",
+   "text": "Contractors follow the terms of their individual agreements."
+  },
+  {
+   "lang": "en",
+   "text": "The manager's approval is recorded with a timestamp and an optional comment."
+  },
+  {
+   "lang": "en",
+   "text": "A rejected request includes the reason given by the approver."
+  },
+  {
+   "lang": "en",
+   "text": "Employees can view the history of their requests in the assistant."
+  },
+  {
+   "lang": "en",
+   "text": "The team calendar shows approved absences without the leave type."
+  },
+  {
+   "lang": "en",
+   "text": "Managers may delegate approvals during their own absence."
+  },
+  {
+   "lang": "en",
+   "text": "When a manager is absent, HR can decide the step as a fallback."
+  },
+  {
+   "lang": "en",
+   "text": "Balances are rolled over automatically on the first day of the year."
+  },
+  {
+   "lang": "en",
+   "text": "Expired carry-over days are listed in the ledger with the expiry date."
+  },
+  {
+   "lang": "en",
+   "text": "The ledger lists grants, deductions, restorations and adjustments per leave type."
+  },
+  {
+   "lang": "en",
+   "text": "Employees receive a reminder when carry-over days are about to expire."
+  },
+  {
+   "lang": "en",
+   "text": "Part-time employees accrue leave in proportion to their working hours."
+  },
+  {
+   "lang": "en",
+   "text": "The onboarding guide explains how to submit the first request."
+  },
+  {
+   "lang": "en",
+   "text": "The assistant answers questions about the policy and cites the relevant section."
+  },
+  {
+   "lang": "en",
+   "text": "Documents in the library are versioned; the latest active version is used."
+  },
+  {
+   "lang": "en",
+   "text": "HR uploads policy documents and keeps the previous versions for reference."
+  },
+  {
+   "lang": "en",
+   "text": "Department notices are visible to the members of that department."
+  },
+  {
+   "lang": "en",
+   "text": "The company handbook is updated once a year after consultation with staff."
+  },
+  {
+   "lang": "en",
+   "text": "Payroll receives the approved absences at the end of each month."
+  },
+  {
+   "lang": "en",
+   "text": "Leave taken during a public holiday is automatically shortened."
+  },
+  {
+   "lang": "en",
+   "text": "Travel for business is booked through the agency portal, not as leave."
+  },
+  {
+   "lang": "en",
+   "text": "The company encourages employees to take their full entitlement each year."
+  },
+  {
+   "lang": "en",
+   "text": "Long absences are planned with the manager to ensure coverage."
+  },
+  {
+   "lang": "en",
+   "text": "Maternity and paternity leave are requested at least one month in advance."
+  },
+  {
+   "lang": "en",
+   "text": "A return-to-work meeting is held after an absence of more than two weeks."
+  },
+  {
+   "lang": "en",
+   "text": "The policy is available in Greek and English; the Greek version prevails in Greece."
+  },
+  {
+   "lang": "en",
+   "text": "Approval chains are configured by the company administrator."
+  },
+  {
+   "lang": "en",
+   "text": "Rules can route requests above a threshold to HR automatically."
+  },
+  {
+   "lang": "en",
+   "text": "A request that exceeds the balance is reviewed by HR before approval."
+  },
+  {
+   "lang": "en",
+   "text": "The retention period of supporting documents is set by the company."
+  },
+  {
+   "lang": "en",
+   "text": "Personal data in documents is protected according to the privacy policy."
+  },
+  {
+   "lang": "en",
+   "text": "Employees may request a copy of their own leave records."
+  },
+  {
+   "lang": "en",
+   "text": "The audit log can be filtered by date, actor and action."
+  },
+  {
+   "lang": "en",
+   "text": "Company administrators manage departments and employee records."
+  },
+  {
+   "lang": "en",
+   "text": "New employees are added to the directory before their first day."
+  },
+  {
+   "lang": "en",
+   "text": "Each department has a manager who approves the team's requests."
+  },
+  {
+   "lang": "en",
+   "text": "The Finance department follows the same leave policy as the rest of the company."
+  },
+  {
+   "lang": "en",
+   "text": "Working-day calculations exclude weekends and the configured holidays."
+  },
+  {
+   "lang": "en",
+   "text": "The calendar export includes approved leave only."
+  },
+  {
+   "lang": "en",
+   "text": "Shift workers follow the roster published by their supervisor."
+  },
+  {
+   "lang": "en",
+   "text": "Emergency leave is reported to the manager by phone on the same day."
+  },
+  {
+   "lang": "en",
+   "text": "Jury duty and civic obligations are granted as paid leave with proof."
+  },
+  {
+   "lang": "en",
+   "text": "Training days approved by the manager are not deducted from the balance."
+  },
+  {
+   "lang": "en",
+   "text": "The policy was last revised in January 2026."
+  },
+  {
+   "lang": "en",
+   "text": "Feedback on the assistant can be submitted through the People team."
+  },
+  {
+   "lang": "en",
+   "text": "Employees are responsible for keeping their contact details up to date."
+  },
+  {
+   "lang": "en",
+   "text": "The assistant does not store conversations longer than ninety days."
+  },
+  {
+   "lang": "en",
+   "text": "Managers are notified when a request from their team is submitted."
+  },
+  {
+   "lang": "en",
+   "text": "HR is notified when a supporting document is attached to a request."
+  },
+  {
+   "lang": "en",
+   "text": "The approval inbox lists the pending steps in order of submission."
+  },
+  {
+   "lang": "en",
+   "text": "A step can only be decided by the designated approver or HR."
+  },
+  {
+   "lang": "en",
+   "text": "Nobody can approve their own request."
+  },
+  {
+   "lang": "en",
+   "text": "Requests submitted after the start date are accepted for sick leave only."
+  },
+  {
+   "lang": "en",
+   "text": "Sick leave may be declared up to thirty days retroactively with a certificate."
+  },
+  {
+   "lang": "en",
+   "text": "The system applies the company's work week configuration to each request."
+  },
+  {
+   "lang": "en",
+   "text": "Leave balances are expressed in working days with two decimals."
+  },
+  {
+   "lang": "en",
+   "text": "Monthly accrual is available as an alternative to an upfront grant."
+  },
+  {
+   "lang": "en",
+   "text": "The company may close the office between Christmas and New Year."
+  },
+  {
+   "lang": "en",
+   "text": "Office closure days are granted as company leave and do not affect the balance."
+  },
+  {
+   "lang": "en",
+   "text": "Employees based abroad follow the holiday calendar of their location."
+  },
+  {
+   "lang": "en",
+   "text": "The handbook includes a glossary of leave types and their codes."
+  },
+  {
+   "lang": "en",
+   "text": "Printed copies of the policy are available from reception."
+  },
+  {
+   "lang": "en",
+   "text": "The policy summary is displayed on the intranet home page."
+  },
+  {
+   "lang": "en",
+   "text": "Changes to the policy are announced by e-mail two weeks in advance."
+  },
+  {
+   "lang": "en",
+   "text": "The assistant shows the approval chain before a request is submitted."
+  },
+  {
+   "lang": "en",
+   "text": "Validation warnings explain why a request may be rejected."
+  },
+  {
+   "lang": "en",
+   "text": "An employee can attach up to five supporting documents to one request."
+  },
+  {
+   "lang": "en",
+   "text": "Supporting documents are visible to the employee and to HR only."
+  },
+  {
+   "lang": "en",
+   "text": "Documents older than the retention period are reviewed by HR before deletion."
+  },
+  {
+   "lang": "en",
+   "text": "Retained documents are reviewed again at the next scan."
+  },
+  {
+   "lang": "en",
+   "text": "The company reports absence statistics to management quarterly."
+  },
+  {
+   "lang": "en",
+   "text": "Leave statistics never include the reason given by the employee."
+  },
+  {
+   "lang": "en",
+   "text": "Managers see absence periods but not the type of sick leave."
+  },
+  {
+   "lang": "en",
+   "text": "The release freeze dates for 2026 are published by Engineering."
+  },
+  {
+   "lang": "el",
+   "text": "Κάθε εργαζόμενος δικαιούται είκοσι εργάσιμες ημέρες κανονικής άδειας ανά ημερολογιακό έτος."
+  },
+  {
+   "lang": "el",
+   "text": "Στο έτος πρόσληψης η άδεια υπολογίζεται αναλογικά με βάση την ημερομηνία έναρξης."
+  },
+  {
+   "lang": "el",
+   "text": "Οι αιτήσεις υποβάλλονται τουλάχιστον τρεις εργάσιμες ημέρες πριν την έναρξη της άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Ο προϊστάμενος του τμήματος εγκρίνει αιτήσεις έως πέντε εργάσιμες ημέρες."
+  },
+  {
+   "lang": "el",
+   "text": "Αιτήσεις άνω των πέντε εργάσιμων ημερών εξετάζει επιπλέον το τμήμα Ανθρώπινου Δυναμικού."
+  },
+  {
+   "lang": "el",
+   "text": "Έως πέντε ημέρες μεταφέρονται στο επόμενο έτος και λήγουν στις 31 Μαρτίου."
+  },
+  {
+   "lang": "el",
+   "text": "Οι μεταφερόμενες ημέρες χρησιμοποιούνται πριν από το δικαίωμα του τρέχοντος έτους."
+  },
+  {
+   "lang": "el",
+   "text": "Οι αργίες που πέφτουν σε εργάσιμες ημέρες δεν αφαιρούνται από το υπόλοιπο."
+  },
+  {
+   "lang": "el",
+   "text": "Τα Σαββατοκύριακα δεν υπολογίζονται ποτέ ως ημέρες άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Η αναρρωτική άδεια έως τρεις ημέρες δηλώνεται από τον ίδιο τον εργαζόμενο μέσω του βοηθού."
+  },
+  {
+   "lang": "el",
+   "text": "Για αναρρωτική άδεια άνω των τριών ημερών απαιτείται ιατρική βεβαίωση."
+  },
+  {
+   "lang": "el",
+   "text": "Η βεβαίωση επισυνάπτεται στην αίτηση ως δικαιολογητικό."
+  },
+  {
+   "lang": "el",
+   "text": "Το HR εξετάζει τη βεβαίωση και καταχωρεί την απόφαση στην αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Άδεια άνευ αποδοχών χορηγείται για προσωπικούς λόγους αφού εξαντληθεί το υπόλοιπο."
+  },
+  {
+   "lang": "el",
+   "text": "Η γονική άδεια ακολουθεί τις νόμιμες προβλέψεις και συντονίζεται με το HR."
+  },
+  {
+   "lang": "el",
+   "text": "Άδεια έως πέντε ημερών μπορεί να χορηγηθεί για λόγους πένθους."
+  },
+  {
+   "lang": "el",
+   "text": "Η φοιτητική άδεια για εξετάσεις απαιτεί βεβαίωση εγγραφής."
+  },
+  {
+   "lang": "el",
+   "text": "Ο εργαζόμενος μπορεί να τροποποιήσει εγκεκριμένη αίτηση πριν την έναρξή της· η αλλαγή επανεγκρίνεται."
+  },
+  {
+   "lang": "el",
+   "text": "Η αίτηση ακυρώνεται από τον εργαζόμενο έως την πρώτη ημέρα της άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Η ακύρωση εγκεκριμένης αίτησης επιστρέφει τις ημέρες στο υπόλοιπο."
+  },
+  {
+   "lang": "el",
+   "text": "Το υπόλοιπο στον βοηθό ενημερώνεται μόλις καταχωρηθεί μια απόφαση."
+  },
+  {
+   "lang": "el",
+   "text": "Οι προϊστάμενοι βλέπουν τη διαθεσιμότητα της ομάδας τους στο ημερολόγιο."
+  },
+  {
+   "lang": "el",
+   "text": "Οι διαχειριστές HR προσαρμόζουν υπόλοιπα με τεκμηριωμένη αιτιολογία."
+  },
+  {
+   "lang": "el",
+   "text": "Κάθε προσαρμογή καταγράφεται στο αρχείο ελέγχου με τον συντάκτη και την αιτιολογία."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ειδοποιήσεις αποστέλλονται στη γλώσσα προτίμησης του εργαζομένου."
+  },
+  {
+   "lang": "el",
+   "text": "Η προθεσμία προειδοποίησης για κανονική άδεια είναι τρεις εργάσιμες ημέρες."
+  },
+  {
+   "lang": "el",
+   "text": "Αιτήσεις που συμπίπτουν με περίοδο παγώματος εκδόσεων χρειάζονται τη σύμφωνη γνώμη του επικεφαλής."
+  },
+  {
+   "lang": "el",
+   "text": "Η εταιρεία τηρεί τις εθνικές αργίες που αναγράφονται στο ημερολόγιο."
+  },
+  {
+   "lang": "el",
+   "text": "Οι τοπικές αργίες ισχύουν για το γραφείο όπου εργάζεται ο εργαζόμενος."
+  },
+  {
+   "lang": "el",
+   "text": "Δεν υποστηρίζεται άδεια μισής ημέρας· η ελάχιστη μονάδα είναι μία εργάσιμη ημέρα."
+  },
+  {
+   "lang": "el",
+   "text": "Οι υπερωρίες αποζημιώνονται σύμφωνα με τη συλλογική σύμβαση."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ημέρες τηλεργασίας συμφωνούνται με τον προϊστάμενο και δεν θεωρούνται άδεια."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι σε δοκιμαστική περίοδο συσσωρεύουν άδεια και τη λαμβάνουν μετά τη λήξη της."
+  },
+  {
+   "lang": "el",
+   "text": "Το τμήμα HR είναι διαθέσιμο τις καθημερινές από τις εννέα έως τις πέντε."
+  },
+  {
+   "lang": "el",
+   "text": "Ερωτήσεις για την πολιτική αποστέλλονται στο τμήμα Ανθρώπινου Δυναμικού."
+  },
+  {
+   "lang": "el",
+   "text": "Το έτος άδειας διαρκεί από την 1η Ιανουαρίου έως τις 31 Δεκεμβρίου."
+  },
+  {
+   "lang": "el",
+   "text": "Η πολιτική ισχύει για όλους τους εργαζομένους αορίστου και ορισμένου χρόνου."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εξωτερικοί συνεργάτες ακολουθούν τους όρους των ατομικών τους συμβάσεων."
+  },
+  {
+   "lang": "el",
+   "text": "Η έγκριση του προϊσταμένου καταγράφεται με ημερομηνία και προαιρετικό σχόλιο."
+  },
+  {
+   "lang": "el",
+   "text": "Μια απορριφθείσα αίτηση περιλαμβάνει την αιτιολογία του εγκρίνοντος."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι βλέπουν το ιστορικό των αιτήσεών τους στον βοηθό."
+  },
+  {
+   "lang": "el",
+   "text": "Το ημερολόγιο ομάδας δείχνει τις εγκεκριμένες απουσίες χωρίς τον τύπο άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Οι προϊστάμενοι μπορούν να εξουσιοδοτήσουν εγκρίσεις κατά την απουσία τους."
+  },
+  {
+   "lang": "el",
+   "text": "Όταν ο προϊστάμενος απουσιάζει, το HR μπορεί να αποφασίσει το βήμα ως εναλλακτική."
+  },
+  {
+   "lang": "el",
+   "text": "Τα υπόλοιπα μεταφέρονται αυτόματα την πρώτη ημέρα του έτους."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ληγμένες μεταφερόμενες ημέρες εμφανίζονται στο καθολικό με την ημερομηνία λήξης."
+  },
+  {
+   "lang": "el",
+   "text": "Το καθολικό περιλαμβάνει χορηγήσεις, αφαιρέσεις, επιστροφές και προσαρμογές ανά τύπο άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι λαμβάνουν υπενθύμιση όταν πλησιάζει η λήξη των μεταφερόμενων ημερών."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι μερικής απασχόλησης συσσωρεύουν άδεια αναλογικά με τις ώρες εργασίας."
+  },
+  {
+   "lang": "el",
+   "text": "Ο οδηγός ένταξης εξηγεί πώς υποβάλλεται η πρώτη αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Ο βοηθός απαντά σε ερωτήσεις για την πολιτική και παραπέμπει στη σχετική ενότητα."
+  },
+  {
+   "lang": "el",
+   "text": "Τα έγγραφα της βιβλιοθήκης έχουν εκδόσεις· χρησιμοποιείται η τελευταία ενεργή έκδοση."
+  },
+  {
+   "lang": "el",
+   "text": "Το HR ανεβάζει τα έγγραφα πολιτικής και διατηρεί τις προηγούμενες εκδόσεις για αναφορά."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ανακοινώσεις τμήματος είναι ορατές στα μέλη του συγκεκριμένου τμήματος."
+  },
+  {
+   "lang": "el",
+   "text": "Το εγχειρίδιο της εταιρείας ενημερώνεται μία φορά τον χρόνο μετά από διαβούλευση με το προσωπικό."
+  },
+  {
+   "lang": "el",
+   "text": "Η μισθοδοσία λαμβάνει τις εγκεκριμένες απουσίες στο τέλος κάθε μήνα."
+  },
+  {
+   "lang": "el",
+   "text": "Η άδεια που συμπίπτει με αργία συντομεύεται αυτόματα."
+  },
+  {
+   "lang": "el",
+   "text": "Τα επαγγελματικά ταξίδια κλείνονται μέσω του πρακτορείου και δεν δηλώνονται ως άδεια."
+  },
+  {
+   "lang": "el",
+   "text": "Η εταιρεία ενθαρρύνει τους εργαζομένους να εξαντλούν το δικαίωμά τους κάθε χρόνο."
+  },
+  {
+   "lang": "el",
+   "text": "Οι μακρές απουσίες προγραμματίζονται με τον προϊστάμενο για να εξασφαλίζεται η κάλυψη."
+  },
+  {
+   "lang": "el",
+   "text": "Η άδεια μητρότητας και πατρότητας ζητείται τουλάχιστον έναν μήνα νωρίτερα."
+  },
+  {
+   "lang": "el",
+   "text": "Μετά από απουσία άνω των δύο εβδομάδων γίνεται συνάντηση επανένταξης."
+  },
+  {
+   "lang": "el",
+   "text": "Η πολιτική διατίθεται στα ελληνικά και στα αγγλικά· στην Ελλάδα υπερισχύει η ελληνική."
+  },
+  {
+   "lang": "el",
+   "text": "Οι αλυσίδες έγκρισης ρυθμίζονται από τον διαχειριστή της εταιρείας."
+  },
+  {
+   "lang": "el",
+   "text": "Οι κανόνες μπορούν να δρομολογούν αυτόματα στο HR αιτήσεις πάνω από ένα όριο."
+  },
+  {
+   "lang": "el",
+   "text": "Αίτηση που υπερβαίνει το υπόλοιπο εξετάζεται από το HR πριν την έγκριση."
+  },
+  {
+   "lang": "el",
+   "text": "Η περίοδος διατήρησης των δικαιολογητικών ορίζεται από την εταιρεία."
+  },
+  {
+   "lang": "el",
+   "text": "Τα προσωπικά δεδομένα στα έγγραφα προστατεύονται σύμφωνα με την πολιτική απορρήτου."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι μπορούν να ζητήσουν αντίγραφο του ιστορικού αδειών τους."
+  },
+  {
+   "lang": "el",
+   "text": "Το αρχείο ελέγχου φιλτράρεται ανά ημερομηνία, χρήστη και ενέργεια."
+  },
+  {
+   "lang": "el",
+   "text": "Οι διαχειριστές της εταιρείας διαχειρίζονται τμήματα και καρτέλες εργαζομένων."
+  },
+  {
+   "lang": "el",
+   "text": "Οι νέοι εργαζόμενοι προστίθενται στον κατάλογο πριν την πρώτη ημέρα εργασίας."
+  },
+  {
+   "lang": "el",
+   "text": "Κάθε τμήμα έχει προϊστάμενο που εγκρίνει τις αιτήσεις της ομάδας."
+  },
+  {
+   "lang": "el",
+   "text": "Το τμήμα Οικονομικών ακολουθεί την ίδια πολιτική αδειών με την υπόλοιπη εταιρεία."
+  },
+  {
+   "lang": "el",
+   "text": "Ο υπολογισμός εργάσιμων ημερών εξαιρεί Σαββατοκύριακα και τις ρυθμισμένες αργίες."
+  },
+  {
+   "lang": "el",
+   "text": "Η εξαγωγή ημερολογίου περιλαμβάνει μόνο τις εγκεκριμένες άδειες."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι σε βάρδιες ακολουθούν το πρόγραμμα που δημοσιεύει ο επόπτης τους."
+  },
+  {
+   "lang": "el",
+   "text": "Η έκτακτη άδεια δηλώνεται τηλεφωνικά στον προϊστάμενο την ίδια ημέρα."
+  },
+  {
+   "lang": "el",
+   "text": "Οι πολιτικές υποχρεώσεις χορηγούνται ως άδεια μετ' αποδοχών με αποδεικτικό."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ημέρες εκπαίδευσης που εγκρίνει ο προϊστάμενος δεν αφαιρούνται από το υπόλοιπο."
+  },
+  {
+   "lang": "el",
+   "text": "Η πολιτική αναθεωρήθηκε τελευταία φορά τον Ιανουάριο του 2026."
+  },
+  {
+   "lang": "el",
+   "text": "Σχόλια για τον βοηθό υποβάλλονται μέσω του τμήματος Ανθρώπινου Δυναμικού."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι είναι υπεύθυνοι να διατηρούν ενημερωμένα τα στοιχεία επικοινωνίας τους."
+  },
+  {
+   "lang": "el",
+   "text": "Ο βοηθός δεν διατηρεί συνομιλίες για περισσότερο από ενενήντα ημέρες."
+  },
+  {
+   "lang": "el",
+   "text": "Οι προϊστάμενοι ειδοποιούνται όταν υποβάλλεται αίτηση από την ομάδα τους."
+  },
+  {
+   "lang": "el",
+   "text": "Το HR ειδοποιείται όταν επισυνάπτεται δικαιολογητικό σε αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Τα εισερχόμενα εγκρίσεων εμφανίζουν τα εκκρεμή βήματα με σειρά υποβολής."
+  },
+  {
+   "lang": "el",
+   "text": "Ένα βήμα αποφασίζεται μόνο από τον ορισμένο εγκρίνοντα ή από το HR."
+  },
+  {
+   "lang": "el",
+   "text": "Κανείς δεν εγκρίνει τη δική του αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Αιτήσεις μετά την ημερομηνία έναρξης γίνονται δεκτές μόνο για αναρρωτική άδεια."
+  },
+  {
+   "lang": "el",
+   "text": "Η αναρρωτική άδεια δηλώνεται αναδρομικά έως τριάντα ημέρες με βεβαίωση."
+  },
+  {
+   "lang": "el",
+   "text": "Το σύστημα εφαρμόζει τη ρύθμιση εργάσιμης εβδομάδας της εταιρείας σε κάθε αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Τα υπόλοιπα άδειας εκφράζονται σε εργάσιμες ημέρες με δύο δεκαδικά."
+  },
+  {
+   "lang": "el",
+   "text": "Η μηνιαία συσσώρευση διατίθεται ως εναλλακτική της εφάπαξ χορήγησης."
+  },
+  {
+   "lang": "el",
+   "text": "Η εταιρεία μπορεί να κλείσει τα γραφεία μεταξύ Χριστουγέννων και Πρωτοχρονιάς."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ημέρες κλεισίματος χορηγούνται ως εταιρική άδεια και δεν επηρεάζουν το υπόλοιπο."
+  },
+  {
+   "lang": "el",
+   "text": "Οι εργαζόμενοι στο εξωτερικό ακολουθούν το ημερολόγιο αργιών της τοποθεσίας τους."
+  },
+  {
+   "lang": "el",
+   "text": "Το εγχειρίδιο περιλαμβάνει γλωσσάρι τύπων άδειας και κωδικών."
+  },
+  {
+   "lang": "el",
+   "text": "Έντυπα αντίγραφα της πολιτικής διατίθενται στην υποδοχή."
+  },
+  {
+   "lang": "el",
+   "text": "Η περίληψη της πολιτικής εμφανίζεται στην αρχική σελίδα του intranet."
+  },
+  {
+   "lang": "el",
+   "text": "Οι αλλαγές στην πολιτική ανακοινώνονται με e-mail δύο εβδομάδες νωρίτερα."
+  },
+  {
+   "lang": "el",
+   "text": "Ο βοηθός εμφανίζει την αλυσίδα έγκρισης πριν την υποβολή της αίτησης."
+  },
+  {
+   "lang": "el",
+   "text": "Οι προειδοποιήσεις επικύρωσης εξηγούν γιατί μια αίτηση μπορεί να απορριφθεί."
+  },
+  {
+   "lang": "el",
+   "text": "Ο εργαζόμενος μπορεί να επισυνάψει έως πέντε δικαιολογητικά σε μία αίτηση."
+  },
+  {
+   "lang": "el",
+   "text": "Τα δικαιολογητικά είναι ορατά μόνο στον εργαζόμενο και στο HR."
+  },
+  {
+   "lang": "el",
+   "text": "Έγγραφα παλαιότερα της περιόδου διατήρησης εξετάζονται από το HR πριν τη διαγραφή."
+  },
+  {
+   "lang": "el",
+   "text": "Τα έγγραφα που διατηρούνται επανεξετάζονται στην επόμενη σάρωση."
+  },
+  {
+   "lang": "el",
+   "text": "Η εταιρεία αναφέρει στατιστικά απουσιών στη διοίκηση ανά τρίμηνο."
+  },
+  {
+   "lang": "el",
+   "text": "Τα στατιστικά αδειών δεν περιλαμβάνουν ποτέ την αιτιολογία του εργαζομένου."
+  },
+  {
+   "lang": "el",
+   "text": "Οι προϊστάμενοι βλέπουν περιόδους απουσίας αλλά όχι τον τύπο της αναρρωτικής άδειας."
+  },
+  {
+   "lang": "el",
+   "text": "Οι ημερομηνίες παγώματος εκδόσεων για το 2026 δημοσιεύονται από το τμήμα Μηχανικών."
+  }
+ ]
+}

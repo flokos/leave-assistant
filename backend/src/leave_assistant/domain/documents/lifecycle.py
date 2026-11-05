@@ -34,6 +34,11 @@ TRANSITIONS: Final[dict[tuple[VersionStatus, VersionEvent], VersionStatus]] = {
     (S.PENDING_REVIEW, E.REJECT): S.QUARANTINED,
     (S.QUARANTINED, E.RELEASE): S.ACTIVE,
     (S.QUARANTINED, E.DELETE): S.DELETED,
+    (
+        S.ACTIVE,
+        E.SEND_TO_REVIEW,
+    ): S.PENDING_REVIEW,  # M5 back-fill: first scan of a version activated before M5
+    (S.ACTIVE, E.QUARANTINE): S.QUARANTINED,
     (S.ACTIVE, E.SUPERSEDE): S.SUPERSEDED,
     (S.ACTIVE, E.RETIRE): S.RETIRED,
     (S.SUPERSEDED, E.DELETE): S.DELETED,

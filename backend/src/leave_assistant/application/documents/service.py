@@ -59,6 +59,7 @@ from leave_assistant.domain.documents.formats import (
     DOCX,
     HEAD_BYTES,
     FileFormat,
+    UnsupportedType,
     check_size,
     sanitize_filename,
     sniff,
@@ -123,6 +124,7 @@ class DocumentService:
         document_id, version_id = self._ids.new_id(), self._ids.new_id()
         key = original_key(tenant_id, document_id, 1, fmt.extension)
         async with self._uow(TenantContext.for_principal(principal)) as uow:
+            await self._enforce_policy(uow, cmd.upload, fmt)
             if department_id is not None and await uow.departments.get(department_id) is None:
                 raise InvalidInputError(
                     "unknown department",
@@ -154,6 +156,7 @@ class DocumentService:
         fmt, digest = await self._validate_upload(upload)
         now = self._clock.now()
         async with self._uow(TenantContext.for_principal(principal)) as uow:
+            await self._enforce_policy(uow, upload, fmt)
             document, scope = await load_visible(uow, principal, document_id)
             require_manage(principal, document, scope)
             versions = await uow.document_versions.list_for_document(document.id)
@@ -183,6 +186,16 @@ class DocumentService:
             await self._after_upload(uow, principal, document, version)
             await uow.commit()
         return version
+
+    @staticmethod
+    async def _enforce_policy(uow: UnitOfWork, upload: Upload, fmt: FileFormat) -> None:
+        """The tenant's security policy may narrow the instance limits (M5); it can never widen `MAX_UPLOAD_MB`."""
+        policy = await uow.security_policies.get()
+        if policy is None:
+            return
+        check_size(upload.size_bytes, max_mb=policy.max_upload_mb)
+        if fmt.mime not in policy.allowed_mime:
+            raise UnsupportedType(f"{fmt.mime} is not allowed by the company's security policy")
 
     async def _validate_upload(self, upload: Upload) -> tuple[FileFormat, str]:
         check_size(upload.size_bytes, max_mb=self._limits.max_upload_mb)

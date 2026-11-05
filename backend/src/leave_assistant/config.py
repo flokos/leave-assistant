@@ -71,6 +71,17 @@ class Settings(BaseSettings):
     retrieval_k: int = 10
     retrieval_leg_size: int = 30
 
+    # Content security and privacy — M5 (doc 08 §7–§10, ADR-0017/0018). Keys: base64, 32 bytes, from the environment
+    # only (`make env` generates them); without them vault writes and supporting-document uploads fail closed.
+    app_kek: SecretStr | None = None  # wraps per-file DEKs of supporting documents (AES key wrap)
+    vault_hmac_key: SecretStr | None = None  # HMAC-SHA256 lookups in the PII vault
+    vault_kek: SecretStr | None = None  # AES-256-GCM of vault originals
+    pii_score_threshold: float = 0.4
+    supporting_max_upload_mb: int = 10
+    download_token_ttl_seconds: int = 60
+    retention_scan_interval_seconds: float = 86400.0
+    injection_exemplars_version: str = "v1"
+
     # Feature flags — doc 03 §7
     retrieval_backend: Literal["pgvector", "chroma"] = "pgvector"
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
@@ -78,6 +89,13 @@ class Settings(BaseSettings):
     calendar_provider: Literal["google", "mock"] = "mock"
     langfuse_enabled: bool = False
     llm_provider_order: str = "gemini,groq"
+
+    @property
+    def security_keys_configured(self) -> bool:
+        return all(
+            k is not None and k.get_secret_value().strip()
+            for k in (self.app_kek, self.vault_hmac_key, self.vault_kek)
+        )
 
     @property
     def llm_providers(self) -> list[str]:

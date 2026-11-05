@@ -68,6 +68,10 @@ _PROBLEM_STATUS = {
     "document/acl-not-allowed": 422,
     "document/processing-failed": 500,
     "job/not-failed": 409,
+    "supporting/not-permitted": 403,
+    "supporting/unsupported-type": 415,
+    "security/not-configured": 503,
+    "retention/invalid-decision": 409,
 }
 _PROBLEM_TITLES = {
     "tenant/suspended": "Tenant suspended",
@@ -94,6 +98,10 @@ _PROBLEM_TITLES = {
     "document/acl-not-allowed": "ACL not allowed",
     "document/processing-failed": "Document processing failed",
     "job/not-failed": "Job is not in a failed state",
+    "supporting/not-permitted": "Supporting document access not permitted",
+    "supporting/unsupported-type": "Unsupported supporting document type",
+    "security/not-configured": "Security keys not configured",
+    "retention/invalid-decision": "Invalid retention decision",
 }
 
 

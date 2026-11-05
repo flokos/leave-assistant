@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signIn, signOut, USERS } from './helpers'
+import { findRow, signIn, signOut, USERS } from './helpers'
 
 const START = '2026-11-30'
 const END = '2026-12-01'
@@ -41,7 +41,7 @@ test('employee submits, manager approves, employee sees the approval and cancels
 
   // --- employee: sees APPROVED, cancels (keeps the seed data repeatable) -------------------------------
   await signIn(page, USERS.employee)
-  const myRow = page.getByTestId('requests-table').locator('tr', { hasText: requestNumber as string })
+  const myRow = await findRow(page, 'requests-table', requestNumber as string)
   await expect(myRow.getByTestId('status-APPROVED')).toBeVisible()
   await myRow.click()
   await page.getByTestId('cancel-request').click()

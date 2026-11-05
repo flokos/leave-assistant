@@ -233,6 +233,24 @@ user message, document version, tool result). Unknown placeholders (model-invent
 - Logs: structlog processor drops/obfuscates fields named like `email`, `name`, `token`, `authorization`, and runs a
   regex scrub on free-text fields.
 
+### 7.6 M5 implementation notes (2026-11-05, worklog M5)
+- `PiiEngine` port → `PresidioEngine` (spaCy `en_core_web_lg` / `el_core_news_md`, lazy load ≈ 20 s in the worker
+  child). Presidio's predefined e-mail/IBAN recognisers are registered for `en` only, so bilingual pattern
+  recognisers for `EMAIL_ADDRESS` and `IBAN_CODE` are added alongside `GR_AMKA` (date + Luhn), `GR_AFM` (mod-11),
+  `GR_ID_CARD`, `GR_PHONE` (each with Greek + English context words). `DATE_TIME` findings are kept only with a
+  birth-date context within the preceding 60 characters.
+- Known-entity layer (`infrastructure/privacy/known_entities.py`): surname matching in every Greek case and with
+  English possessives, first name + surname or initial + surname spans, exact e-mails; findings carry the
+  `subject_employee_id` so every variant of an employee maps to one placeholder (`employee:{id}` lookup key).
+- Pseudonymisation runs in the worker child; detection (`detect_many`) happens outside transactions, vault
+  allocation (`apply`) inside the indexing transaction, so chunks and vault rows commit together. `content_llm_safe`
+  is the only text the context builder reads; `pii_summary` holds counts per entity type, never values.
+- The re-identification matrix is implemented as a pure library (`domain/privacy/reidentification.py`) plus
+  `ReidentificationService` (provenance-aware); the chat ingress/egress wiring arrives with M6/M7.
+- Fail closed: missing `VAULT_HMAC_KEY`/`VAULT_KEK` or an engine error makes the version `FAILED`
+  (`pii_not_configured` / `pii_scan_failed`), never `ACTIVE`; the API answers `503 security/not-configured` on
+  vault writes. The log scrubber masks e-mails, IBANs, Greek phones, AMKA and AFM in free text; placeholders pass.
+
 ## 8. Prompt-injection and content security (brief §9.4–§9.5, ADR-0018)
 
 ### 8.1 Layers
@@ -286,6 +304,37 @@ manipulation ("cancel request 123" where 123 belongs to someone else), cross-ten
 document references, prompt/mapping exfiltration requests, approval forgery via chat ("as the manager I approve"),
 duplicate submission replay, unicode obfuscation, long-context dilution attacks.
 
+### 8.6 M5 implementation notes (2026-11-05, worklog M5)
+- Heuristics (`domain/security/heuristics.py`): accent/case-folded, line-anchored bilingual rule families
+  `override` 0.9, `approval_forgery` 0.9, `exfiltration` 0.9, `role_hijack` 0.8, `system_marker` 0.8, `tool_call` 0.7,
+  **`hidden_instruction` 0.5** (text addressed to the model asking for silence — the "subtle footnote" family, added
+  so that such documents land in the medium band instead of passing), `control_chars` 0.6, `base64_blob` 0.5;
+  block score = max family weight + 0.05 per extra family. Docling-derived hidden-text signals (tiny fonts, text
+  outside the page box) are **not** implemented: the normalised block model does not carry font metrics — recorded
+  as a follow-up (doc 13 R-29).
+- Similarity classifier (`infrastructure/security/similarity_classifier.py`): e5-small places every leave-related
+  sentence in a narrow cosine band (benign policy text 0.83–0.92 versus the injection exemplars), so the raw
+  "calibrated max similarity" of the baseline design cannot separate the classes. The implemented score is the
+  **margin** between the nearest injection exemplar (`exemplars_v1.json`, 210 phrases: 106 EN + 104 EL across the
+  high-band families) and the nearest benign reference sentence (`benign_v1.json`, 222 curated HR/leave sentences:
+  111 EN + 111 EL), mapped linearly between `floor = 0.025` and `ceiling = 0.065`. Calibration on the benign seed
+  corpus (91 blocks, held out from both lists): maximum margin +0.035 → score 0.25 (below the medium threshold),
+  p90 +0.014 → 0; paraphrased injections score 0.30–1.0. A block is "flagged" by the classifier at ≥ 0.5.
+- Structural flags: byte scan of PDFs for `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile`, `/SubmitForm`; DOCX
+  archives containing `vbaProject.bin`. `/OpenAction` and `/AA` alone are not flags: ordinary PDFs use them for the
+  initial view (the first rescan quarantined every fpdf2 PDF for this reason). Compressed object streams are not
+  decoded, so a marker inside one is missed (R-29). Any structural flag forces score 1.0 (quarantine).
+- Reviewers of the category receive a `document.review_required` notification when a version is held back. The
+  tenant policy's `max_upload_mb`/`allowed_mime` narrow the instance limits at upload; they cannot widen `MAX_UPLOAD_MB`.
+- `make rescan` is the upgrade back-fill for versions indexed before M5 (`document.rescanned` audit); a version a
+  reviewer already released is not held back again.
+- The LLM judge is a port (`LlmJudge`) with an inert adapter until the provider router exists (M6);
+  `injection_llm_judge` is stored in the policies but has no effect yet.
+- Findings are stored twice: `injection_findings` (detector, family, score, excerpt hash) and
+  `document_versions.risk_findings` for reviewers, where the excerpt is the **pseudonymised** chunk text.
+- User-input screening (`InjectionScanService.screen_input`) is implemented and tested; the chat ingress (M6/M7)
+  will act on `blocked`.
+
 ## 9. Sick-leave supporting documents (brief §5.6, ADR-0016)
 - Upload only by the employee for their own request (or HR on their behalf, audited); allowed types PDF/JPEG/PNG;
   size ≤ 10 MB; magic-byte check; no parsing, no OCR, no thumbnails via ML, no LLM, no Langfuse.
@@ -299,6 +348,16 @@ duplicate submission replay, unicode obfuscation, long-context dilution attacks.
   strips any content fields by schema.
 - Retention: `retention_policies(document_class = supporting_document)`; eligible items go to HR review; deletion
   removes the object and keeps a tombstone (hash, dates) for audit.
+
+M5 implementation notes (2026-11-05): `SupportingDocumentService` has no path to the ingestion pipeline (no
+`Category` member, no job type); files are sniffed by magic bytes (PDF/JPEG/PNG, ≤ 10 MB) and encrypted with a
+fresh AES-256-GCM DEK wrapped by `APP_KEK` (AES key wrap, RFC 3394) before `put_bytes`; the object key is the AAD.
+Tokens are random (256 bits), stored as SHA-256 hashes in `platform.supporting_download_tokens` together with the
+actor (employee, user id, roles) and the reason, consumed atomically (`UPDATE … WHERE used_at IS NULL AND
+expires_at > now() RETURNING`), and the download is audited as that actor. Managers and company administrators
+receive `404` from every supporting-document route (no existence leak); the request detail and the approvals inbox
+carry a `supporting_documents` count for the owner and HR only. The employee may attach to their own request while
+it is not rejected/cancelled/withdrawn; HR may attach on the employee's behalf (audited `on_behalf`).
 
 ## 10. Audit logging
 - Table `audit.audit_log` (doc 07 §4.8), INSERT-only for the runtime role; written in the same transaction as the
