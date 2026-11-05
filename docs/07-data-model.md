@@ -140,7 +140,7 @@ tenant tables have `tenant_id` (+ RLS). `→` marks a foreign key.
 | `pii_vault_counters` | `entity_type`, `next_seq int` | |
 | `security_policies` | `risk_low_max numeric`, `risk_medium_max numeric`, `injection_llm_judge bool`, `user_input_block_threshold numeric`, `max_upload_mb int`, `allowed_mime text[]`, `updated_by` | One row per tenant; defaults copied from `platform.security_policy_defaults` |
 | `injection_findings` | `subject_type (document_version\|user_message)`, `subject_id`, `detector (heuristic\|classifier\|llm_judge)`, `score`, `label`, `excerpt_hash`, `details jsonb` | Excerpts are hashed, not stored |
-| `idempotency_keys` | `user_id`, `route`, `key`, `request_hash`, `response_status`, `response_body jsonb`, `expires_at` | unique `(tenant_id, user_id, route, key)`; TTL 24 h |
+| `idempotency_keys` (**`platform` schema since M1**) | `tenant_id?` (informational), `user_id`, `route`, `key`, `request_hash`, `response_status`, `response_body jsonb`, `expires_at` | unique `(user_id, route, key)`; TTL 24 h. Lives in `platform` without RLS because platform administrators have no tenant; rows are private to the Keycloak `sub` and every query filters on it (M1 decision, worklog M1) |
 
 ### 4.6 Conversations and agent (`app`)
 | Table | Columns | Notes |
@@ -166,7 +166,7 @@ tenant tables have `tenant_id` (+ RLS). `→` marks a foreign key.
 ### 4.8 Audit (`audit`, INSERT + SELECT only for `app_rls`)
 | Table | Columns | Notes |
 |-------|---------|-------|
-| `audit_log` | `tenant_id?` (null for platform events), `occurred_at`, `actor_kind (user\|automation\|system\|agent)`, `actor_id`, `actor_roles text[]`, `action` (taxonomy in doc 08 §10), `resource_type`, `resource_id`, `outcome (success\|denied\|error)`, `request_id`, `thread_id?`, `details jsonb` (no PII beyond IDs), `prev_hash bytea?`, `hash bytea?` | Hash chain per tenant (P3); partitioned by month |
+| `audit_log` | `tenant_id?` (null for platform events), `occurred_at`, `actor_kind (user\|automation\|system\|agent)`, `actor_id`, `actor_roles text[]`, `action` (taxonomy in doc 08 §10), `resource_type`, `resource_id`, `outcome (success\|denied\|error)`, `request_id`, `thread_id?`, `details jsonb` (no PII beyond IDs), `prev_hash bytea?`, `hash bytea?` | Hash chain per tenant (P3). Monthly partitioning deferred (M1: plain table with `(tenant_id, occurred_at)` index — no partition tooling in the image, tiny volume). Policies: `tenant_isolation` (SELECT, tenant rows), `platform_read` (SELECT, NULL-tenant rows for `app.platform_admin = 'true'`), `audit_insert` (tenant contexts write their tenant; tenant-less contexts write NULL-tenant rows); no UPDATE/DELETE grants |
 
 ### 4.9 LangGraph schema (`langgraph`, role `langgraph_rw`)
 Tables are created by `AsyncPostgresSaver.setup()` (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`,
@@ -240,7 +240,8 @@ function with property-based tests; holidays are loaded per request (small table
 - Alembic migrations in `backend/alembic/versions`; the first migration creates schemas, enums, tables, RLS policies
   (via a helper that applies the standard policy to every tenant table) and grants. `saver.setup()` for LangGraph
   runs from a migration step executed as `langgraph_rw`.
-- Seed (`scripts/seed.py`, idempotent): two tenants, departments, employees (also created in Keycloak via the Admin
+- Seed (`python -m leave_assistant.seed`, idempotent, M1): runs through the provisioning and administration services as
+  synthetic principals (`seed`, audited as `system`), so Keycloak users, groups and rows follow the production path. Two tenants, departments, employees (also created in Keycloak via the Admin
   API with dev passwords), roles, leave types/policies for the current year, holidays (Greek public holidays 2026 for
   Aegean Logistics; Irish public holidays 2026 for Brightwater Software — decided Q-07), approval rules, security
   policies from defaults, retention placeholders, seed documents (doc 05 §10) enqueued for processing.

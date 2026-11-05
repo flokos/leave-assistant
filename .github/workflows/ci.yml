@@ -21,6 +21,7 @@ jobs:
       - run: uv run --no-sync mypy
       - run: uv run --no-sync lint-imports
       - run: uv run --no-sync pytest
+      - run: uv run --no-sync python -m leave_assistant.openapi > ../docs/api/openapi.json && git diff --exit-code -- ../docs/api/openapi.json
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -35,5 +36,6 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint && npm run typecheck
+      - run: npm run --silent api:types && git diff --exit-code -- src/api/schema.d.ts
       - run: npm run test
       - run: npm run build

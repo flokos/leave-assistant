@@ -4,7 +4,7 @@ A multilingual (Greek/English), multi-tenant leave-management assistant that let
 and request leave in natural language, while deterministic backend services own identity, tenancy, business rules,
 approvals, execution and audit. The LLM coordinates; the backend decides.
 
-**Project status: implementation phase, milestone M0 (foundation).** The architecture package in
+**Project status: implementation phase — M0 (foundation) and M1 (identity, tenancy, audit, seed) done; next M2 (leave domain).** The architecture package in
 [`docs/`](docs/README.md) was completed first, as the project brief requires; code is added milestone by milestone
 (roadmap in [docs/12](docs/12-implementation-roadmap.md)).
 
@@ -27,6 +27,7 @@ Pytest + RAGAS. Everything runs locally with Docker Compose.
 
 ```bash
 make env && make build && make up    # or `make up-staged` on hosts with < 4 GB free RAM
+make bootstrap                       # migrations + seed of the two fictional companies (idempotent)
 make smoke                            # liveness + readiness through the frontend proxy
 ```
 Then open http://localhost:8080 (application), http://localhost:8081 (Keycloak) and http://localhost:8025 (Mailpit).
@@ -37,7 +38,7 @@ Details, profiles and troubleshooting: [docs/operations/installation.md](docs/op
 ```
 docs/        architecture package, ADRs, (later) operations, evaluation and development logs
 backend/     FastAPI application, LangGraph agent, worker          (M0: skeleton, health endpoints, worker loop)
-frontend/    React + TypeScript SPA                                   (M0: shell, i18n, system status page)
+frontend/    React + TypeScript SPA                                   (M0: shell, i18n, status page; M1: PKCE login, /me)
 deploy/      Docker Compose, Keycloak realm export, init scripts      (M0: core profile)
 automation/  n8n workflows as JSON                                    (from M8)
 evaluation/  datasets and evaluation harness (own Python project)     (from M9)

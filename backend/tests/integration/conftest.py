@@ -1,0 +1,114 @@
+"""Database-backed fixtures: a dedicated `leave_test` database on the running Postgres (127.0.0.1), migrated to head.
+
+Credentials come from deploy/.env (`make test-integration` exports it). The test database is (re)created from
+scratch once per session as the superuser, migrated as `app_owner`, and used through `app_rls` like the API.
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import AsyncIterator, Iterator
+
+import psycopg
+import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from leave_assistant.application.container import Services
+from leave_assistant.config import Settings
+from leave_assistant.infrastructure.db.migrations import upgrade_to_head
+from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
+from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
+from leave_assistant.infrastructure.identity.tokens import TokenVerifier
+from tests.fakes.identity import FakeIdentityAdmin
+from tests.fakes.system import FixedClock, SequentialIds
+from tests.fakes.tokens import AUDIENCE, ISSUER, TestKeys
+
+pytestmark = pytest.mark.integration
+
+HOST = os.environ.get("TEST_DATABASE_HOST", "127.0.0.1")
+PORT = os.environ.get("POSTGRES_PORT", "5432")
+TEST_DB = os.environ.get("TEST_DATABASE_NAME", "leave_test")
+ADMIN_URL = os.environ.get("TEST_DATABASE_ADMIN_URL") or (
+    f"postgresql://postgres:{os.environ.get('POSTGRES_PASSWORD', 'postgres-dev')}@{HOST}:{PORT}/postgres"
+)
+OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PASSWORD', 'app-owner-dev')}@{HOST}:{PORT}/{TEST_DB}"
+RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
+TENANT_TABLES = (
+    "app.employee_roles",
+    "app.employees",
+    "app.departments",
+    "platform.idempotency_keys",
+    "platform.tenants",
+    "audit.audit_log",
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        if "/tests/integration/" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+
+
+@pytest.fixture(scope="session")
+def migrated_database() -> Iterator[str]:
+    try:
+        admin = psycopg.connect(ADMIN_URL, autocommit=True)
+    except psycopg.OperationalError as exc:  # pragma: no cover - environment guard
+        pytest.fail(
+            f"PostgreSQL not reachable at {HOST}:{PORT} — start the stack (`make up-staged`) first: {exc}"
+        )
+    with admin:
+        exists = admin.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,)).fetchone()
+        if not exists:
+            admin.execute(f'CREATE DATABASE "{TEST_DB}" OWNER app_owner')
+    with psycopg.connect(ADMIN_URL.rsplit("/", 1)[0] + f"/{TEST_DB}", autocommit=True) as conn:
+        for extension in ("vector", "unaccent", "pgcrypto"):
+            conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension}")
+        conn.execute("GRANT ALL ON SCHEMA public TO app_owner")
+        conn.execute("GRANT USAGE ON SCHEMA public TO app_rls")
+        conn.execute(f'GRANT CONNECT ON DATABASE "{TEST_DB}" TO app_rls')
+        conn.execute("DROP SCHEMA IF EXISTS audit, app, platform CASCADE")
+        conn.execute("DROP TABLE IF EXISTS public.alembic_version")
+    upgrade_to_head(OWNER_URL)
+    yield RLS_URL
+
+
+@pytest.fixture
+async def engine(migrated_database: str, settings: Settings) -> AsyncIterator[AsyncEngine]:
+    engine = create_engine(settings, url=migrated_database, pool_size=2, max_overflow=0)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture
+async def owner_engine(migrated_database: str, settings: Settings) -> AsyncIterator[AsyncEngine]:
+    engine = create_engine(settings, url=OWNER_URL, pool_size=1, max_overflow=0)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+async def clean_tables(owner_engine: AsyncEngine) -> AsyncIterator[None]:
+    async with owner_engine.begin() as conn:
+        await conn.execute(text(f"TRUNCATE {', '.join(TENANT_TABLES)} CASCADE"))
+    yield
+
+
+@pytest.fixture
+def sql_uow_factory(engine: AsyncEngine) -> SqlAlchemyUnitOfWorkFactory:
+    return SqlAlchemyUnitOfWorkFactory(make_session_factory(engine))
+
+
+@pytest.fixture
+def db_services(
+    sql_uow_factory: SqlAlchemyUnitOfWorkFactory,
+    identity: FakeIdentityAdmin,
+    clock: FixedClock,
+    ids: SequentialIds,
+    test_keys: TestKeys,
+) -> Services:
+    verifier = TokenVerifier(test_keys.resolver(), issuer=ISSUER, audience=AUDIENCE)
+    return Services.build(
+        uow_factory=sql_uow_factory, identity=identity, verifier=verifier, clock=clock, ids=ids
+    )

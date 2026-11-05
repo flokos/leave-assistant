@@ -18,7 +18,14 @@ describe('HealthPage', () => {
         url.endsWith('/healthz')
           ? jsonResponse({ status: 'ok', version: '0.1.0', app_env: 'test' })
           : jsonResponse(
-              { status: 'not_ready', version: '0.1.0', checks: [{ name: 'postgres', ok: true, detail: '' }, { name: 'keycloak', ok: false, detail: 'HTTP 503' }] },
+              {
+                status: 'not_ready',
+                version: '0.1.0',
+                checks: [
+                  { name: 'postgres', ok: true, detail: '' },
+                  { name: 'keycloak', ok: false, detail: 'HTTP 503' },
+                ],
+              },
               503,
             ),
       ),

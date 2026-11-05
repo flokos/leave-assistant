@@ -18,6 +18,8 @@ COPY pyproject.toml uv.lock ./
 # Dependencies first (cached layer); the project itself is installed in the next step.
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 COPY src ./src
+COPY alembic.ini ./
+COPY alembic ./alembic
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
 RUN useradd --system --uid 10001 --create-home app && chown -R app:app /app

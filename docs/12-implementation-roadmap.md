@@ -39,7 +39,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Exit: `docker compose --profile core up` brings up infra with green healthchecks; `make lint test-unit` pass on
   an empty-but-structured codebase; `uv sync` succeeds on Python 3.14 (import smoke test in CI).
 
-### M1 — Identity, tenancy, audit, seed (M)
+### M1 — Identity, tenancy, audit, seed (M) — **done 2026-11-05** (worklog: `docs/development/worklog/M1.md`)
 - Keycloak realm export (clients, roles, groups, mappers, dev users); JWT validation; `Principal`; `/me`.
 - Alembic baseline: schemas, roles, `platform.tenants`, `app.departments/employees/employee_roles`, `audit.audit_log`,
   RLS helper + meta-test; transaction-scoped context; pool leak test.

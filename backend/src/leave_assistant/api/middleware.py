@@ -9,6 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from leave_assistant.application.request_context import set_request_id
+
 REQUEST_ID_HEADER = "X-Request-Id"
 
 
@@ -16,11 +18,13 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get(REQUEST_ID_HEADER) or uuid.uuid4().hex
         request.state.request_id = request_id
+        set_request_id(request_id)
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id, path=request.url.path)
         try:
             response = await call_next(request)
         finally:
             structlog.contextvars.clear_contextvars()
+            set_request_id(None)
         response.headers[REQUEST_ID_HEADER] = request_id
         return response

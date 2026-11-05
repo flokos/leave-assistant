@@ -4,7 +4,8 @@ This directory is the single source of truth for *why* and *how* the system is b
 It is organised so that an engineer who has never seen the project can read it top to bottom
 and implement the system without reconstructing the original discussions.
 
-**Status:** Architecture baseline v0.1 — produced before any application code exists
+**Status:** Architecture baseline v0.1 (2026-11-04), kept current during implementation — M0 and M1 delivered (see
+[development/worklog/](development/worklog/)). The baseline was produced before any application code existed
 (brief §16: "Do not start implementing the application yet").
 Every statement about versions, licences and limits was verified on **2026-11-04** and is
 marked as such; anything not verified is explicitly labelled *assumption* or *to verify*.
@@ -50,6 +51,7 @@ Deliverable 18 (documentation structure) is this file plus the
 | [operations/installation.md](operations/installation.md) | Prerequisites, first start, profiles, low-memory start-up, troubleshooting |
 | [development/process.md](development/process.md) | Methodology, AI-assisted process, definition of done, conventions |
 | [development/worklog/](development/worklog/) | One entry per milestone: what was built, measurements, problems, changes versus the plan |
+| [api/](api/README.md) | Generated OpenAPI snapshot (`openapi.json`, checked by `make contract`) and contract notes |
 
 ## Documentation plan for the implementation phase
 

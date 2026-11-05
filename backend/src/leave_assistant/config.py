@@ -28,10 +28,18 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     s3_bucket_documents: str = "leave-documents"
 
-    # Identity (Keycloak) — ADR-0004
+    # Identity (Keycloak) — ADR-0004. `keycloak_url` is how the backend reaches Keycloak (JWKS, Admin API);
+    # `keycloak_public_url` is what the browser uses and therefore the issuer written into tokens.
     keycloak_url: str = "http://localhost:8081"
+    keycloak_public_url: str = "http://localhost:8081"
     keycloak_realm: str = "leave-assistant"
     keycloak_audience: str = "backend-api"
+    keycloak_admin_client_id: str = "backend-admin"
+    keycloak_admin_client_secret: SecretStr = SecretStr("backend-admin-dev")
+    jwt_leeway_seconds: int = 30
+    jwks_ttl_seconds: int = 600
+    idempotency_ttl_hours: int = 24
+    seed_user_password: SecretStr = SecretStr("leave-dev")  # seed only; never used by the API
 
     # Worker — ADR-0001 / ADR-0019
     worker_mode: Literal["separate", "embedded"] = "separate"
@@ -52,6 +60,14 @@ class Settings(BaseSettings):
     @property
     def llm_providers(self) -> list[str]:
         return [p.strip() for p in self.llm_provider_order.split(",") if p.strip()]
+
+    @property
+    def keycloak_issuer(self) -> str:
+        return f"{self.keycloak_public_url.rstrip('/')}/realms/{self.keycloak_realm}"
+
+    @property
+    def keycloak_jwks_url(self) -> str:
+        return f"{self.keycloak_url.rstrip('/')}/realms/{self.keycloak_realm}/protocol/openid-connect/certs"
 
 
 @lru_cache

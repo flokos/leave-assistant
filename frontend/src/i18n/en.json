@@ -1,5 +1,8 @@
 {
-  "app": { "title": "Leave Assistant", "language": "Language" },
+  "app": {
+    "title": "Leave Assistant",
+    "language": "Language"
+  },
   "system": {
     "title": "System status",
     "liveness": "API liveness",
@@ -10,5 +13,28 @@
     "unreachable": "The API is not reachable.",
     "version": "Version",
     "environment": "Environment"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "loading": "Signing in…"
+  },
+  "me": {
+    "title": "Signed-in identity",
+    "signedOut": "Sign in to see your tenant, roles and employee record.",
+    "user": "User",
+    "roles": "Roles",
+    "tenant": "Company",
+    "employee": "Employee",
+    "locale": "Locale",
+    "noTenant": "No company (platform administrator)"
+  },
+  "roles": {
+    "employee": "Employee",
+    "manager": "Manager",
+    "hr_admin": "HR Administrator",
+    "company_admin": "Company Administrator",
+    "platform_admin": "Platform Administrator",
+    "automation": "Automation"
   }
 }

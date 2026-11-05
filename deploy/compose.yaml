@@ -13,6 +13,10 @@ x-backend-env: &backend-env
   S3_SECRET_KEY: ${S3_SECRET_KEY}
   S3_BUCKET_DOCUMENTS: ${S3_BUCKET_DOCUMENTS:-leave-documents}
   KEYCLOAK_URL: http://keycloak:8080
+  KEYCLOAK_PUBLIC_URL: ${KC_PUBLIC_URL:-http://localhost:8081}
+  KEYCLOAK_ADMIN_CLIENT_ID: backend-admin
+  KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+  SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
   WORKER_MODE: ${WORKER_MODE:-separate}
   RETRIEVAL_BACKEND: ${RETRIEVAL_BACKEND:-pgvector}
   CALENDAR_PROVIDER: ${CALENDAR_PROVIDER:-mock}
@@ -37,6 +41,8 @@ services:
       N8N_DB_PASSWORD: ${N8N_DB_PASSWORD}
       LANGFUSE_DB_PASSWORD: ${LANGFUSE_DB_PASSWORD}
     command: ["postgres", "-c", "shared_buffers=128MB", "-c", "work_mem=16MB", "-c", "max_connections=100"]
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"   # localhost only: host-side integration tests and psql
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -55,7 +61,9 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
     profiles: [core]
-    command: ["start-dev"]   # local HTTP only; production hardening (build + start --optimized, TLS) is out of scope
+    command: ["start-dev", "--import-realm"]   # local HTTP only; production hardening (build + start --optimized, TLS) is out of scope
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro   # realm export (ADR-0004); skipped when the realm already exists
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
@@ -68,6 +76,10 @@ services:
       KC_HOSTNAME: ${KC_PUBLIC_URL:-http://localhost:8081}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx512m"
+      # placeholders resolved inside the realm export
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      N8N_CLIENT_SECRET: ${N8N_CLIENT_SECRET}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
     ports:
       - "${KEYCLOAK_PORT:-8081}:8080"
     depends_on:
@@ -185,6 +197,9 @@ services:
     build:
       context: ..
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_AUTH_ENABLED: "true"
+        VITE_KEYCLOAK_URL: ${KC_PUBLIC_URL:-http://localhost:8081}
     image: leave-assistant/frontend:dev
     profiles: [core]
     ports:

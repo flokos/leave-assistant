@@ -5,7 +5,7 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit build up up-staged up-dev down ps logs smoke stats precommit clean
+.PHONY: help setup env lint test-unit test-integration contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -24,6 +24,14 @@ lint: ## ruff, ruff format, mypy, import-linter, eslint, tsc
 test-unit: ## backend pytest (with coverage) and frontend vitest
 	cd backend && $(UV) run --no-sync pytest
 	cd frontend && $(NPM) run test
+
+test-integration: ## integration + security suites against the running stack (postgres 127.0.0.1:5432, keycloak :8081, api via :8080)
+	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak" --no-cov
+
+contract: ## regenerate docs/api/openapi.json and the frontend types; fail if either changed
+	cd backend && $(UV) run --no-sync python -m leave_assistant.openapi > ../docs/api/openapi.json
+	cd frontend && $(NPM) run --silent api:types
+	git diff --exit-code -- docs/api/openapi.json frontend/src/api/schema.d.ts
 
 build: env ## build the api and frontend images
 	$(COMPOSE) --profile core build
@@ -47,6 +55,18 @@ ps: ## service status
 
 logs: ## follow logs (SERVICE=api to filter)
 	$(COMPOSE) --profile core logs -f $(SERVICE)
+
+migrate: ## apply database migrations (inside the api container, as app_owner)
+	$(COMPOSE) --profile core exec -T api alembic upgrade head
+
+seed: ## seed the two fictional companies into Keycloak and the database (idempotent)
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.seed
+
+bootstrap: migrate seed ## first start: migrate, then seed
+
+token: ## print an access token for EMAIL=<seed user e-mail> (dev realm, direct grant)
+	@set -a && . ./deploy/.env && set +a && curl -fsS -d "grant_type=password&client_id=frontend-spa&username=$(EMAIL)&password=$${SEED_USER_PASSWORD}" \
+	  "http://localhost:$${KEYCLOAK_PORT:-8081}/realms/leave-assistant/protocol/openid-connect/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
 
 smoke: ## liveness/readiness through the frontend proxy
 	@curl -fsS http://localhost:$${FRONTEND_PORT:-8080}/api/v1/healthz && echo && curl -sS http://localhost:$${FRONTEND_PORT:-8080}/api/v1/readyz && echo

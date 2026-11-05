@@ -142,7 +142,8 @@ Roles: E = employee, M = manager, H = HR admin, C = company admin, P = platform 
 
 ### 2.9 Platform administration (`/platform/*`, role P)
 `GET/POST /platform/tenants`, `GET/PATCH /platform/tenants/{id}`, `POST …/suspend|resume`, `POST …/bootstrap-admin`
-(creates the first company administrator), `GET/PUT /platform/settings`, `GET/PUT /platform/security-defaults`,
+(creates the first company administrator — returns the employee, the default `ADMIN` department, the username and the
+temporary password **once**; the user must change it at first login), `GET/PUT /platform/settings`, `GET/PUT /platform/security-defaults`,
 `GET /platform/health` (providers, queues, dead events/jobs), `GET /platform/audit` (platform events only).
 No endpoint under `/platform` returns tenant business data or document content.
 

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Card, Descriptions, List, Space, Tag, Typography } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { getHealthz, getReadyz } from '../../api/client'
+import { MePanel } from './MePanel'
 
 export function HealthPage() {
   const { t } = useTranslation()
@@ -11,6 +12,7 @@ export function HealthPage() {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Title level={3}>{t('system.title')}</Typography.Title>
+      <MePanel />
       <Card title={t('system.liveness')}>
         {healthz.isPending && <Typography.Text>{t('system.loading')}</Typography.Text>}
         {healthz.isError && <Alert type="error" showIcon message={t('system.unreachable')} />}
@@ -30,7 +32,9 @@ export function HealthPage() {
             renderItem={(check) => (
               <List.Item data-testid={`check-${check.name}`}>
                 <Space>
-                  <Tag color={check.ok ? 'green' : 'red'}>{check.ok ? t('system.ok') : t('system.failed')}</Tag>
+                  <Tag color={check.ok ? 'green' : 'red'}>
+                    {check.ok ? t('system.ok') : t('system.failed')}
+                  </Tag>
                   <Typography.Text strong>{check.name}</Typography.Text>
                   {!check.ok && <Typography.Text type="secondary">{check.detail}</Typography.Text>}
                 </Space>

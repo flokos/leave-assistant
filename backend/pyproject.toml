@@ -110,8 +110,13 @@ strict = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "-q --cov=leave_assistant --cov-report=term-missing"
+addopts = "-q -m 'not integration and not keycloak' --cov=leave_assistant --cov-report=term-missing"
+markers = [
+  "integration: needs PostgreSQL on 127.0.0.1 (run with `make test-integration`)",
+  "keycloak: needs the running stack — Keycloak realm and api (run with `make test-integration`)",
+]
 filterwarnings = ["error::DeprecationWarning:leave_assistant.*"]
 
 [tool.coverage.run]

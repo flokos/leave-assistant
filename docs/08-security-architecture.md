@@ -88,10 +88,18 @@ flowchart LR
   `locale`. Nothing else is trusted from the token; the employee record is looked up by `sub` under the tenant.
 - **Validation**: `PyJWKClient` with cached keys (TTL 10 min, forced refresh on unknown `kid`), algorithm allowlist
   `RS256`/`ES256`, `aud` must contain `backend-api`, clock skew 30 s.
-- **Provisioning**: creating an employee in the admin UI creates the Keycloak user (temporary password or
-  invitation), assigns roles, adds to the tenant group, and stores `keycloak_sub`; disabling an employee disables
-  the user. The realm export in `deploy/keycloak/realm-export.json` seeds dev users for both companies.
-- **Dev security posture**: HTTP on localhost only; Keycloak admin console bound to localhost; dev passwords in
+- **Provisioning**: creating an employee in the admin UI creates the Keycloak user (temporary password shown once,
+  `UPDATE_PASSWORD` required action), assigns realm roles, adds it to the tenant group, and stores `keycloak_sub`;
+  disabling an employee disables the user. Keycloak is written first, the database second; if the database
+  transaction fails the Keycloak user is deleted again (compensation). The realm export
+  `deploy/keycloak/leave-assistant-realm.json` contains clients, roles, mappers, the `/platform` and `/tenants`
+  groups, the platform administrator and the service accounts only; **tenants and their users are created by the
+  seed through the same provisioning service** (M1 decision: one source of truth, real path exercised).
+- **Tenant claim**: the mapper aggregates group attributes into a *multivalued* `tenant_id` claim; the backend
+  requires exactly one value and rejects tokens with zero or several (fail closed), as well as tokens that mix
+  `platform_admin`/`automation` with tenant roles or tenant membership.
+- **Dev security posture**: HTTP on localhost only; Keycloak admin console bound to localhost; `frontend-spa` has
+  direct access grants enabled for dev tooling (`make token`, live tests) — disabled in production; dev passwords in
   `.env.example` clearly marked; production notes documented but out of scope.
 
 ## 5. Authorization policy
@@ -291,8 +299,8 @@ duplicate submission replay, unicode obfuscation, long-context dilution attacks.
 - Taxonomy (`action`): `auth.login_failed` (from Keycloak events via admin API polling, P3), `authz.denied`,
   `leave.request.submitted|modified|cancelled|approved|rejected`, `ledger.entry.posted`, `document.uploaded|processed|
   released|quarantined|deleted|version.activated`, `supporting.viewed|downloaded|deleted`, `retention.scan|decision|deleted`,
-  `calendar.synced|failed|reconciled|connection.authorised|revoked`, `admin.tenant.created|config.changed|employee.created|
-  role.changed|security_policy.changed`, `agent.tool.denied|input.blocked|proposal.executed`, `provider.failover`.
+  `calendar.synced|failed|reconciled|connection.authorised|revoked`, `admin.tenant.created|config.changed|employee.created|updated|deactivated|
+  role.changed|department.created|updated|deleted|manager.changed|security_policy.changed`, `agent.tool.denied|input.blocked|proposal.executed`, `provider.failover`.
 - Access to audit: HR Administrators and Company Administrators read their tenant's log; Platform Administrators
   read platform-level entries only; export is a CSV endpoint (audited itself).
 - Integrity (P3): per-tenant hash chain (`prev_hash`, `hash`) verified by a maintenance job.
