@@ -121,6 +121,7 @@ markers = [
   "integration: needs PostgreSQL on 127.0.0.1 (run with `make test-integration`)",
   "keycloak: needs the running stack — Keycloak realm and api (run with `make test-integration`)",
   "ml: needs the local models (e5 tokenizer/embedder, Docling) — downloaded on first run (run with `make test-integration`)",
+  "security: Presidio-backed PII suite (spaCy models are venv packages; runs on every commit)",
 ]
 filterwarnings = ["error::DeprecationWarning:leave_assistant.*"]
 

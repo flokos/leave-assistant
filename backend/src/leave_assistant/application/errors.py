@@ -60,3 +60,9 @@ class DependencyError(ApplicationError):
     """An external dependency (identity provider) failed; the operation was not completed."""
 
     problem_type = "service-unavailable"
+
+
+class SecurityNotConfigured(ApplicationError):
+    """Encryption/vault keys are missing: the operation fails closed (doc 08 §7.5, M5 decision 1)."""
+
+    problem_type = "security/not-configured"

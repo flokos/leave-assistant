@@ -88,7 +88,7 @@ export default function DocumentsPage() {
           columns={[
             { title: t('documents.docTitle'), dataIndex: 'title' },
             { title: t('documents.category'), dataIndex: 'category', render: (v: string) => t(`documents.categories.${v}`) },
-            { title: t('common.status'), render: (_, row) => { const v = currentVersion(row); return v ? <StatusTag status={v.status} /> : '—' } },
+            { title: t('common.status'), render: (_, row) => { const v = currentVersion(row); return v ? <Space size={4}><StatusTag status={v.status} />{v.status === 'ACTIVE' && v.findings_count > 0 ? <Tag color="gold" data-testid="risk-warning">{t('documents.riskWarning')}</Tag> : null}</Space> : '—' } },
             { title: 'v', render: (_, row) => currentVersion(row)?.version_no ?? '—' },
             { title: t('common.locale'), render: (_, row) => currentVersion(row)?.language ?? '—' },
             { title: t('common.updated'), dataIndex: 'updated_at', render: (v: string) => formatDateTime(v, i18n.language) },

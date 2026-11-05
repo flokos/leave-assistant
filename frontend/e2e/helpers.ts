@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 export const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'leave-dev'
 export const USERS = {
@@ -34,4 +34,18 @@ export async function signOut(page: Page): Promise<void> {
   await expect(page.getByTestId('sign-in').first()).toBeVisible()
   await page.waitForLoadState('networkidle')
   await page.context().clearCookies()
+}
+
+/** Tables are paginated and repeated runs add rows: walks the pages until the row with `text` shows, and returns it. */
+export async function findRow(page: Page, testId: string, text: string): Promise<Locator> {
+  const table = page.getByTestId(testId)
+  await table.locator('tbody .ant-table-row').first().waitFor()
+  const row = table.locator('tr', { hasText: text })
+  for (;;) {
+    if ((await row.count()) > 0) return row
+    const next = page.locator('.ant-pagination-next') // rendered outside the element carrying the test id
+    if ((await next.count()) === 0 || (await next.getAttribute('aria-disabled')) === 'true') return row
+    await next.click()
+    await page.waitForTimeout(150)
+  }
 }

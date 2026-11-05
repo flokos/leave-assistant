@@ -43,3 +43,12 @@ Exemplar set and heuristics versioned in the repo; review queue UI.
 
 ## Consequences
 Security evaluation reports block rates per family and the false-positive rate on the benign corpus.
+
+## Implementation note (M5, 2026-11-05)
+Layers 1, 2 and 4 are implemented (ingestion scoring, tiers from `security_policies` with platform defaults and
+ranges, user-input screening as a service); layers 3 and 5–9 arrive with the agent (M6/M7); layer 10 exists as the
+EL/EN fixture suite (`make security-check`, `ml` calibration test). Deviation: the similarity classifier scores the
+margin between the nearest injection exemplar and the nearest benign reference sentence (doc 08 §8.6) because
+e5-small's raw similarities do not separate benign policy text from injections; the LLM judge stays an inert port
+until the provider router exists. A `hidden_instruction` heuristic family (weight 0.5) covers the subtle-footnote
+case in the medium band. See worklog M5.

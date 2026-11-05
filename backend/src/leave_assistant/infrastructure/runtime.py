@@ -24,7 +24,11 @@ from leave_assistant.infrastructure.ml.embedder import E5Embedder
 from leave_assistant.infrastructure.ml.language import LinguaLanguageDetector
 from leave_assistant.infrastructure.ml.tokenizer import E5Tokenizer
 from leave_assistant.infrastructure.parsing.docling_parser import DoclingParser
-from leave_assistant.infrastructure.scanning.noop import NoPiiScanner, NoRiskScanner
+from leave_assistant.infrastructure.privacy.presidio_engine import PresidioEngine
+from leave_assistant.infrastructure.privacy.vault_crypto import VaultCrypto, decode_key
+from leave_assistant.infrastructure.security.llm_judge import UnavailableLlmJudge
+from leave_assistant.infrastructure.security.similarity_classifier import SimilarityClassifier
+from leave_assistant.infrastructure.storage.crypto import EnvelopeCipher
 from leave_assistant.infrastructure.storage.s3 import S3DocumentStorage, make_s3_client
 from leave_assistant.infrastructure.system import SystemClock, Uuid7IdGenerator
 
@@ -54,15 +58,39 @@ def document_options(settings: Settings) -> DocumentOptions:
         job_stale_after_seconds=settings.job_stale_after_seconds,
         retrieval_leg_size=settings.retrieval_leg_size,
         retrieval_k=settings.retrieval_k,
+        pii_score_threshold=settings.pii_score_threshold,
+        supporting_max_upload_mb=settings.supporting_max_upload_mb,
+        download_token_ttl_seconds=settings.download_token_ttl_seconds,
     )
+
+
+def _secret(value: Any) -> str | None:
+    return value.get_secret_value() if value is not None else None
+
+
+def build_vault_cipher(settings: Settings) -> VaultCrypto:
+    return VaultCrypto(
+        decode_key(_secret(settings.vault_hmac_key), name="VAULT_HMAC_KEY"),
+        decode_key(_secret(settings.vault_kek), name="VAULT_KEK"),
+    )
+
+
+def build_file_cipher(settings: Settings) -> EnvelopeCipher:
+    return EnvelopeCipher(decode_key(_secret(settings.app_kek), name="APP_KEK"))
 
 
 def build_document_adapters(
     settings: Settings, *, role: Role, s3_client: Any | None = None
 ) -> DocumentAdapters:
-    """Real adapters; models load lazily on first use (the API only ever embeds queries)."""
+    """Real adapters; models load lazily on first use (the API only ever embeds queries and screens input)."""
     client = s3_client or make_s3_client(settings, timeout=60.0)
     threads = settings.worker_torch_threads if role == "worker" else settings.torch_threads
+    embedder = E5Embedder(
+        settings.embedding_model,
+        settings.embedding_model_revision,
+        batch_size=settings.embedding_batch_size,
+        threads=threads,
+    )
     return DocumentAdapters(
         storage=S3DocumentStorage(client, settings.s3_bucket_documents),
         parser=DoclingParser(
@@ -72,15 +100,13 @@ def build_document_adapters(
             num_threads=settings.worker_torch_threads,
         ),
         tokenizer=E5Tokenizer(settings.embedding_model, settings.embedding_model_revision),
-        embedder=E5Embedder(
-            settings.embedding_model,
-            settings.embedding_model_revision,
-            batch_size=settings.embedding_batch_size,
-            threads=threads,
-        ),
+        embedder=embedder,
         language=LinguaLanguageDetector(),
-        risk_scanner=NoRiskScanner(),
-        pii_scanner=NoPiiScanner(),
+        pii_engine=PresidioEngine(threshold=settings.pii_score_threshold),
+        vault_cipher=build_vault_cipher(settings),
+        file_cipher=build_file_cipher(settings),
+        classifier=SimilarityClassifier(embedder),
+        judge=UnavailableLlmJudge(),
     )
 
 

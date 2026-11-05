@@ -43,3 +43,11 @@ spaCy models in the image/volume; vault growth is bounded by distinct entities p
 
 ## Consequences
 Evaluation includes PII leak checks on outbound payloads, checkpoints, logs and traces.
+
+## Implementation note (M5, 2026-11-05)
+Implemented as decided: `PresidioEngine` with the Greek recognisers and bilingual e-mail/IBAN patterns (Presidio's
+predefined ones are `en`-only), the known-entity layer keyed by employee id, the vault (`pii_vault` +
+`pii_vault_counters`, HMAC-SHA256 over `tenant\x1f{type}:{normalised value}`, AES-256-GCM originals with the
+tenant id as AAD), `LlmSafeText`, the re-identification library and fail-closed ingestion. Keys come from the
+environment (`VAULT_HMAC_KEY`, `VAULT_KEK`; `make env` generates local ones). Re-identification is wired into chat
+in M6/M7. See doc 08 §7.6 and worklog M5.

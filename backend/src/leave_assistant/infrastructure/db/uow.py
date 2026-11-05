@@ -18,10 +18,12 @@ from leave_assistant.application.ports import (
     DepartmentRepository,
     DocumentRepository,
     DocumentVersionRepository,
+    DownloadTokenRepository,
     EmployeeRepository,
     HolidayRepository,
     IdempotencyRepository,
     IndexGenerationRepository,
+    InjectionFindingRepository,
     IntegrationEventRepository,
     JobRepository,
     LeavePolicyRepository,
@@ -30,8 +32,15 @@ from leave_assistant.application.ports import (
     LedgerRepository,
     NotificationRepository,
     RequestEventRepository,
+    RetentionPolicyRepository,
+    RetentionReviewItemRepository,
     ReviewEventRepository,
+    SecurityDefaultsRepository,
+    SecurityPolicyRepository,
+    SupportingAccessRepository,
+    SupportingDocumentRepository,
     TenantRepository,
+    VaultRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.infrastructure.db.repositories.audit import SqlAuditRepository
@@ -63,6 +72,21 @@ from leave_assistant.infrastructure.db.repositories.notifications import (
     SqlIntegrationEventRepository,
     SqlNotificationRepository,
 )
+from leave_assistant.infrastructure.db.repositories.retention import (
+    SqlRetentionPolicyRepository,
+    SqlRetentionReviewItemRepository,
+)
+from leave_assistant.infrastructure.db.repositories.security import (
+    SqlInjectionFindingRepository,
+    SqlSecurityDefaultsRepository,
+    SqlSecurityPolicyRepository,
+    SqlVaultRepository,
+)
+from leave_assistant.infrastructure.db.repositories.supporting import (
+    SqlDownloadTokenRepository,
+    SqlSupportingAccessRepository,
+    SqlSupportingDocumentRepository,
+)
 from leave_assistant.infrastructure.db.repositories.tenants import SqlTenantRepository
 from leave_assistant.infrastructure.db.session import CONTEXT_KEY
 
@@ -90,6 +114,15 @@ class SqlAlchemyUnitOfWork:
     review_events: ReviewEventRepository
     index_generations: IndexGenerationRepository
     jobs: JobRepository
+    pii_vault: VaultRepository
+    security_defaults: SecurityDefaultsRepository
+    security_policies: SecurityPolicyRepository
+    injection_findings: InjectionFindingRepository
+    supporting_documents: SupportingDocumentRepository
+    supporting_access: SupportingAccessRepository
+    download_tokens: DownloadTokenRepository
+    retention_policies: RetentionPolicyRepository
+    retention_items: RetentionReviewItemRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -131,6 +164,15 @@ class SqlAlchemyUnitOfWork:
         self.review_events = SqlReviewEventRepository(session, tenant_id)
         self.index_generations = SqlIndexGenerationRepository(session, tenant_id)
         self.jobs = SqlJobRepository(session)
+        self.pii_vault = SqlVaultRepository(session, tenant_id)
+        self.security_defaults = SqlSecurityDefaultsRepository(session)
+        self.security_policies = SqlSecurityPolicyRepository(session, tenant_id)
+        self.injection_findings = SqlInjectionFindingRepository(session, tenant_id)
+        self.supporting_documents = SqlSupportingDocumentRepository(session, tenant_id)
+        self.supporting_access = SqlSupportingAccessRepository(session, tenant_id)
+        self.download_tokens = SqlDownloadTokenRepository(session)
+        self.retention_policies = SqlRetentionPolicyRepository(session, tenant_id)
+        self.retention_items = SqlRetentionReviewItemRepository(session, tenant_id)
         return self
 
     async def __aexit__(

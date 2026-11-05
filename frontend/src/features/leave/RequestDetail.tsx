@@ -6,7 +6,9 @@ import { formatDate, formatDateTime, formatRange, toIso } from '../../shared/dat
 import { formatDays } from '../../shared/days'
 import { ProblemAlert } from '../../shared/ProblemAlert'
 import { StatusTag } from '../../shared/StatusTag'
+import { usePrincipal } from '../../auth/usePrincipal'
 import { type LeaveRequestOut, useCancelRequest, useLeaveTypeName, useModifyRequest, useRequest } from './api'
+import { SupportingDocuments } from './SupportingDocuments'
 import { handle } from '../../shared/async'
 
 const MODIFIABLE = new Set(['PENDING_MANAGER', 'PENDING_HR', 'APPROVED'])
@@ -14,6 +16,7 @@ const CANCELLABLE = new Set(['SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR', 'APPR
 
 export function RequestDetail({ id, onClose, readOnly }: { id: string | null; onClose: () => void; readOnly?: boolean }) {
   const { t, i18n } = useTranslation()
+  const principal = usePrincipal()
   const request = useRequest(id)
   const typeName = useLeaveTypeName()
   const modify = useModifyRequest()
@@ -82,6 +85,12 @@ export function RequestDetail({ id, onClose, readOnly }: { id: string | null; on
             <Typography.Title level={5}>{t('leave.eventsTitle')}</Typography.Title>
             <Timeline items={r.events.map((e) => ({ key: e.id, children: `${formatDateTime(e.occurred_at, i18n.language)} · ${e.event_type} → ${t(`status.${e.to_status}`)}` }))} />
           </div>
+          <SupportingDocuments
+            requestId={r.id}
+            requestStatus={r.status}
+            isOwner={Boolean(principal.me?.employee && principal.me.employee.id === r.employee_id)}
+            isHr={principal.hasRole('hr_admin')}
+          />
         </Space>
       )}
       <Modal open={modifying} title={t('leave.modifyTitle')} onCancel={() => setModifying(false)} onOk={handle(doModify)} confirmLoading={modify.isPending} destroyOnHidden>

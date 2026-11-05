@@ -5,13 +5,14 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit test-integration test-e2e test-ocr contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover models ingest jobs reindex token precommit clean
+.PHONY: help setup env lint test-unit test-integration test-e2e test-ocr contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover models ingest jobs reindex rescan retention-scan security-check token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
 
-env: ## create deploy/.env from the example if missing
+env: ## create deploy/.env from the example if missing; generate the M5 encryption keys when empty
 	@test -f deploy/.env || (cp deploy/.env.example deploy/.env && echo "created deploy/.env — review the values")
+	@python3 scripts/ensure_keys.py deploy/.env
 
 setup: env ## install backend (uv) and frontend (npm) dependencies
 	cd backend && $(UV) sync --all-groups
@@ -87,6 +88,17 @@ jobs: ## job queue and document version status overview
 reindex: ## enqueue document.reindex jobs for active versions with a stale index generation, then drain
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.reindex
 	$(MAKE) --no-print-directory ingest
+
+rescan: ## upgrade back-fill: pseudonymise and risk-score every indexed version the M5 pipeline has not scanned, then drain
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.reindex --rescan
+	$(MAKE) --no-print-directory ingest
+
+retention-scan: ## run the retention scan for every tenant now (creates HR review items), then drain deletion jobs
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.retention.scan
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.worker --drain
+
+security-check: ## score the EL/EN injection fixtures with the live heuristics + classifier inside the api container
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.security.check
 
 token: ## print an access token for EMAIL=<seed user e-mail> (dev realm, direct grant)
 	@set -a && . ./deploy/.env && set +a && curl -fsS -d "grant_type=password&client_id=frontend-spa&username=$(EMAIL)&password=$${SEED_USER_PASSWORD}" \

@@ -12,12 +12,12 @@ from leave_assistant.config import Settings
 from leave_assistant.domain.tenancy import Employee, Principal, Role
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
 from leave_assistant.infrastructure.ml.language import ScriptLanguageDetector
-from leave_assistant.infrastructure.scanning.noop import NoPiiScanner, NoRiskScanner
 from leave_assistant.main import create_app
 from tests.fakes.documents import FakeEmbedder, FakeParser, MemoryDocumentStorage, WordTokenizer
 from tests.fakes.identity import FakeIdentityAdmin
 from tests.fakes.leave_world import seed_leave_catalogue
 from tests.fakes.memory import MemoryStore, MemoryUnitOfWorkFactory
+from tests.fakes.security import FakeClassifier, FakePiiEngine, fake_file_cipher, fake_vault_cipher
 from tests.fakes.system import FixedClock, SequentialIds
 from tests.fakes.tokens import AUDIENCE, ISSUER, TestKeys, claims_for
 from tests.fakes.world import World, build_world
@@ -108,15 +108,17 @@ def document_adapters() -> DocumentAdapters:
     return fake_document_adapters()
 
 
-def fake_document_adapters(dimension: int = 32) -> DocumentAdapters:
+def fake_document_adapters(dimension: int = 32, *, keys_configured: bool = True) -> DocumentAdapters:
     return DocumentAdapters(
         storage=MemoryDocumentStorage(),
         parser=FakeParser(),
         tokenizer=WordTokenizer(),
         embedder=FakeEmbedder(dimension),
         language=ScriptLanguageDetector(),
-        risk_scanner=NoRiskScanner(),
-        pii_scanner=NoPiiScanner(),
+        pii_engine=FakePiiEngine(),
+        vault_cipher=fake_vault_cipher(configured=keys_configured),
+        file_cipher=fake_file_cipher(configured=keys_configured),
+        classifier=FakeClassifier(),
     )
 
 

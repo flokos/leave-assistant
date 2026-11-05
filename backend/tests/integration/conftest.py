@@ -15,11 +15,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from leave_assistant.application.container import Services
+from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.config import Settings
+from leave_assistant.domain.tenancy import Employee
 from leave_assistant.infrastructure.db.migrations import upgrade_to_head
 from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
 from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
+from leave_assistant.seed.run import run_seed
 from tests.conftest import fake_document_adapters
 from tests.fakes.identity import FakeIdentityAdmin
 from tests.fakes.system import FixedClock, SequentialIds
@@ -37,6 +40,15 @@ OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PAS
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
     "platform.jobs",
+    "platform.supporting_download_tokens",
+    "app.retention_review_items",
+    "app.retention_policies",
+    "app.supporting_document_access_events",
+    "app.supporting_documents",
+    "app.injection_findings",
+    "app.security_policies",
+    "app.pii_vault_counters",
+    "app.pii_vault",
     "app.document_chunks",
     "app.document_review_events",
     "app.document_acl",
@@ -136,3 +148,22 @@ def db_services(
         ids=ids,
         adapters=fake_document_adapters(dimension=384),
     )
+
+
+@pytest.fixture
+async def seeded(db_services: Services) -> dict[str, object]:
+    report = await run_seed(db_services, "pw")
+    assert not report.unchanged
+    async with db_services.uow_factory(
+        TenantContext(tenant_id=None, user_id="seed", platform_admin=True)
+    ) as uow:
+        aegean = await uow.tenants.get_by_slug("aegean")
+        brightwater = await uow.tenants.get_by_slug("brightwater")
+    assert aegean and brightwater
+    employees: dict[str, dict[str, Employee]] = {}
+    for tenant in (aegean, brightwater):
+        async with db_services.uow_factory(
+            TenantContext(tenant_id=tenant.id, user_id="seed", roles=("company_admin",))
+        ) as uow:
+            employees[tenant.slug] = {e.employee_number: e for e in await uow.employees.list_active()}
+    return {"aegean": aegean, "brightwater": brightwater, "employees": employees}
