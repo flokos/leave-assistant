@@ -10,6 +10,7 @@ import { RequireRole } from './RequireRole'
 // Route-level code splitting: each workspace is a separate chunk (M0 follow-up).
 const MyLeavePage = lazy(() => import('../features/leave/MyLeavePage'))
 const NotificationsPage = lazy(() => import('../features/notifications/NotificationsPage'))
+const DocumentsPage = lazy(() => import('../features/documents/DocumentsPage'))
 const ApprovalsPage = lazy(() => import('../features/approvals/ApprovalsPage'))
 const TeamAvailabilityPage = lazy(() => import('../features/team/TeamAvailabilityPage'))
 const TeamRequestsPage = lazy(() => import('../features/team/TeamRequestsPage'))
@@ -49,6 +50,7 @@ export function AppRouter() {
             <Route element={<RequireRole tenantOnly />}>
               <Route path="/leave" element={<MyLeavePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
             </Route>
             <Route element={<RequireRole anyOf={['manager', 'hr_admin']} tenantOnly />}>
               <Route path="/approvals" element={<ApprovalsPage />} />

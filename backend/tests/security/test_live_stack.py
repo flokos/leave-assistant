@@ -365,3 +365,132 @@ def test_leave_flow_submit_approve_cancel(http: httpx.Client) -> None:
     assert available(employee) == before  # the reversal restored the balance
     ledger = http.get(f"{API}/leave/ledger", params={"type": "annual", "year": 2026}, headers=employee).json()
     assert [e["entry_type"] for e in ledger][-2:] == ["DEDUCTION", "REVERSAL"]
+
+
+# --- M4: documents through the real stack (upload → worker → search → visibility → download → retire) --------------
+DOCS_FIXTURE = (
+    "# Οδηγός live test\n\n## Άδεια εξετάσεων\n\nΟι εργαζόμενοι που σπουδάζουν δικαιούνται έως έξι ημέρες άδειας "
+    "εξετάσεων τον χρόνο, με βεβαίωση συμμετοχής από το εκπαιδευτικό ίδρυμα.\n\n## Study leave\n\n"
+    "Employees who study may take up to six days of examination leave per year with a certificate from the institution.\n"
+)
+
+
+def _wait_for_version(
+    http: httpx.Client, headers: dict[str, str], document_id: str, *, timeout: float = 240.0
+) -> dict[str, Any]:
+    import time
+
+    deadline = time.monotonic() + timeout
+    while True:
+        detail = http.get(f"{API}/documents/{document_id}", headers=headers)
+        assert detail.status_code == 200, detail.text
+        version = detail.json()["versions"][-1]
+        if version["status"] in {"ACTIVE", "FAILED", "PENDING_REVIEW", "QUARANTINED"}:
+            return dict(detail.json())
+        assert time.monotonic() < deadline, f"document still {version['status']} after {timeout:.0f} s"
+        time.sleep(3)
+
+
+def test_document_platform_end_to_end(http: httpx.Client) -> None:
+    hr = bearer_for(http, SEED_USERS["hr_admin"])
+    employee = bearer_for(http, SEED_USERS["employee"])
+    admin = bearer_for(http, SEED_USERS["company_admin"])
+    # the seed corpus is present and processed (make ingest ran before this suite)
+    library = http.get(f"{API}/documents", headers=hr)
+    assert library.status_code == 200
+    titles = {d["title"]: d for d in library.json()["items"]}
+    assert "Κανονισμός Αδειών" in titles and "Οδηγός Εξαιρέσεων" in titles
+    assert titles["Κανονισμός Αδειών"]["active_version"]["status"] == "ACTIVE"
+    scanned = titles["Διαδικασία Αναρρωτικής Άδειας"]["active_version"]
+    assert scanned["status"] == "ACTIVE" and scanned["language"] == "el", (
+        scanned
+    )  # OCR path (Tesseract in the image)
+    employee_titles = {d["title"] for d in http.get(f"{API}/documents", headers=employee).json()["items"]}
+    assert "Κανονισμός Αδειών" in employee_titles and "Οδηγός Εξαιρέσεων" not in employee_titles
+
+    # upload a new Markdown document as HR; the worker (embedded or separate) processes it
+    key = {"Idempotency-Key": str(uuid4())}
+    created = http.post(
+        f"{API}/documents",
+        headers={**hr, **key},
+        data={"title": "Οδηγός live test", "category": "policy_general"},
+        files={"file": ("live-guide.md", DOCS_FIXTURE.encode(), "text/markdown")},
+    )
+    assert created.status_code == 201, created.text
+    document_id = created.json()["id"]
+    replay = http.post(
+        f"{API}/documents",
+        headers={**hr, **key},
+        data={"title": "Οδηγός live test", "category": "policy_general"},
+        files={"file": ("live-guide.md", DOCS_FIXTURE.encode(), "text/markdown")},
+    )
+    assert replay.status_code == 201 and replay.headers.get("Idempotent-Replayed") == "true"
+    try:
+        detail = _wait_for_version(http, hr, document_id)
+        version = detail["versions"][-1]
+        assert version["status"] == "ACTIVE", version
+        assert version["language"] == "el" and version["pages"] is None  # Markdown: no pagination
+        # hybrid search in both languages, through the real e5 model and PostgreSQL FTS
+        greek = http.get(f"{API}/documents/search", params={"q": "άδεια εξετάσεων"}, headers=employee)
+        assert greek.status_code == 200 and greek.json()["language"] == "el"
+        assert any(h["document_id"] == document_id for h in greek.json()["hits"][:3]), greek.json()
+        english = http.get(
+            f"{API}/documents/search", params={"q": "examination leave for students"}, headers=employee
+        )
+        assert any(h["document_id"] == document_id for h in english.json()["hits"][:3]), english.json()
+        hit = next(h for h in greek.json()["hits"] if h["document_id"] == document_id)
+        citation = http.get(f"{API}/documents/citations/{hit['chunk_id']}", headers=employee)
+        assert citation.status_code == 200 and citation.json()["title"] == "Οδηγός live test"
+        # the OCR'd seed document answers a Greek query
+        ocr = http.get(
+            f"{API}/documents/search", params={"q": "ιατρική βεβαίωση αναρρωτική άδεια"}, headers=employee
+        )
+        assert any(h["title"] == "Διαδικασία Αναρρωτικής Άδειας" for h in ocr.json()["hits"]), ocr.json()
+        # HR-restricted content never reaches employees, even by search
+        restricted = http.get(
+            f"{API}/documents/search",
+            params={"q": "αρνητικό υπόλοιπο αναρρωτικής εξαίρεση"},
+            headers=employee,
+        )
+        assert all(h["category"] != "policy_hr_restricted" for h in restricted.json()["hits"])
+        restricted_hr = http.get(
+            f"{API}/documents/search", params={"q": "αρνητικό υπόλοιπο αναρρωτικής εξαίρεση"}, headers=hr
+        )
+        assert any(h["category"] == "policy_hr_restricted" for h in restricted_hr.json()["hits"])
+        # download streams the original; problems for bad uploads
+        download = http.get(f"{API}/documents/{document_id}/versions/1/download", headers=employee)
+        assert download.status_code == 200 and download.content == DOCS_FIXTURE.encode()
+        png = http.post(
+            f"{API}/documents",
+            headers={**hr, "Idempotency-Key": str(uuid4())},
+            data={"title": "png", "category": "policy_general"},
+            files={"file": ("x.png", b"\x89PNG\r\n\x1a\n....", "image/png")},
+        )
+        assert png.status_code == 415 and png.json()["type"].endswith("document/unsupported-type")
+        forbidden = http.post(
+            f"{API}/documents",
+            headers={**employee, "Idempotency-Key": str(uuid4())},
+            data={"title": "x", "category": "policy_general"},
+            files={"file": ("x.md", b"# x\n\ntext", "text/markdown")},
+        )
+        assert forbidden.status_code == 403
+        # retire → no longer retrievable; jobs visible to administrators
+        retired = http.post(
+            f"{API}/documents/{document_id}/versions/1/retire",
+            headers={**hr, "Idempotency-Key": str(uuid4())},
+        )
+        assert retired.status_code == 200 and retired.json()["status"] == "RETIRED"
+        gone = http.get(f"{API}/documents/citations/{hit['chunk_id']}", headers=employee)
+        assert gone.status_code == 409 and gone.json()["type"].endswith("document/not-retrievable")
+        jobs = http.get(f"{API}/admin/jobs", params={"type": "document.process", "limit": 50}, headers=admin)
+        assert jobs.status_code == 200 and any(
+            j["payload"]["document_id"] == document_id and j["status"] == "succeeded" for j in jobs.json()
+        )
+    finally:
+        version = http.get(f"{API}/documents/{document_id}", headers=hr).json()["version"]
+        deleted = http.delete(
+            f"{API}/documents/{document_id}",
+            params={"version": version},
+            headers={**hr, "Idempotency-Key": str(uuid4())},
+        )
+        assert deleted.status_code == 204, deleted.text

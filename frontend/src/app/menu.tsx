@@ -8,6 +8,7 @@ import {
   ClusterOutlined,
   DashboardOutlined,
   FileDoneOutlined,
+  FileTextOutlined,
   ScheduleOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -28,6 +29,7 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
     group('employee', t('nav.employee'), [
       { key: '/leave', icon: <ScheduleOutlined />, label: <Link to="/leave">{t('nav.myLeave')}</Link> },
       { key: '/notifications', icon: <BellOutlined />, label: <Link to="/notifications">{t('nav.notifications')}</Link> },
+      { key: '/documents', icon: <FileTextOutlined />, label: <Link to="/documents">{t('nav.documents')}</Link> },
     ])
   }
   if (principal.hasRole('manager', 'hr_admin')) {

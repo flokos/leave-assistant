@@ -10,27 +10,43 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from leave_assistant.application.errors import ConflictError
 from leave_assistant.application.ports import (
+    AclRepository,
     ApprovalRuleRepository,
     ApprovalStepRepository,
     AuditRepository,
+    ChunkRepository,
     DepartmentRepository,
+    DocumentRepository,
+    DocumentVersionRepository,
     EmployeeRepository,
     HolidayRepository,
     IdempotencyRepository,
+    IndexGenerationRepository,
     IntegrationEventRepository,
+    JobRepository,
     LeavePolicyRepository,
     LeaveRequestRepository,
     LeaveTypeRepository,
     LedgerRepository,
     NotificationRepository,
     RequestEventRepository,
+    ReviewEventRepository,
     TenantRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.infrastructure.db.repositories.audit import SqlAuditRepository
+from leave_assistant.infrastructure.db.repositories.chunks import SqlChunkRepository
 from leave_assistant.infrastructure.db.repositories.departments import SqlDepartmentRepository
+from leave_assistant.infrastructure.db.repositories.documents import (
+    SqlAclRepository,
+    SqlDocumentRepository,
+    SqlDocumentVersionRepository,
+    SqlIndexGenerationRepository,
+    SqlReviewEventRepository,
+)
 from leave_assistant.infrastructure.db.repositories.employees import SqlEmployeeRepository
 from leave_assistant.infrastructure.db.repositories.idempotency import SqlIdempotencyRepository
+from leave_assistant.infrastructure.db.repositories.jobs import SqlJobRepository
 from leave_assistant.infrastructure.db.repositories.leave_catalog import (
     SqlApprovalRuleRepository,
     SqlHolidayRepository,
@@ -67,6 +83,13 @@ class SqlAlchemyUnitOfWork:
     ledger: LedgerRepository
     notifications: NotificationRepository
     integration_events: IntegrationEventRepository
+    documents: DocumentRepository
+    document_versions: DocumentVersionRepository
+    chunks: ChunkRepository
+    document_acl: AclRepository
+    review_events: ReviewEventRepository
+    index_generations: IndexGenerationRepository
+    jobs: JobRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -101,6 +124,13 @@ class SqlAlchemyUnitOfWork:
         self.ledger = SqlLedgerRepository(session, tenant_id)
         self.notifications = SqlNotificationRepository(session, tenant_id)
         self.integration_events = SqlIntegrationEventRepository(session, tenant_id)
+        self.documents = SqlDocumentRepository(session, tenant_id)
+        self.document_versions = SqlDocumentVersionRepository(session, tenant_id)
+        self.chunks = SqlChunkRepository(session, tenant_id)
+        self.document_acl = SqlAclRepository(session, tenant_id)
+        self.review_events = SqlReviewEventRepository(session, tenant_id)
+        self.index_generations = SqlIndexGenerationRepository(session, tenant_id)
+        self.jobs = SqlJobRepository(session)
         return self
 
     async def __aexit__(

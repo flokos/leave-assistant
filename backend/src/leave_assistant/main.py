@@ -11,10 +11,11 @@ from fastapi import FastAPI
 from leave_assistant import __version__
 from leave_assistant.api.errors import register_error_handlers
 from leave_assistant.api.middleware import RequestIdMiddleware
-from leave_assistant.api.routers import approvals, health, leave, me, notifications, team
+from leave_assistant.api.routers import approvals, documents, health, leave, me, notifications, team
 from leave_assistant.api.routers.admin import audit as admin_audit
 from leave_assistant.api.routers.admin import departments as admin_departments
 from leave_assistant.api.routers.admin import employees as admin_employees
+from leave_assistant.api.routers.admin import jobs as admin_jobs
 from leave_assistant.api.routers.admin import leave_catalog as admin_leave_catalog
 from leave_assistant.api.routers.admin import ledger as admin_ledger
 from leave_assistant.api.routers.platform import audit as platform_audit
@@ -27,7 +28,9 @@ from leave_assistant.infrastructure.health_checks import default_checks
 from leave_assistant.infrastructure.observability.logging import configure_logging, get_logger
 from leave_assistant.infrastructure.runtime import Runtime, build_runtime
 from leave_assistant.infrastructure.storage.s3 import ensure_bucket, make_s3_client
+from leave_assistant.worker.handlers import build_registry
 from leave_assistant.worker.loop import run_worker_loop
+from leave_assistant.worker.runner import JobRunner
 
 log = get_logger("api")
 
@@ -45,6 +48,8 @@ ROUTERS = (
     notifications.router,
     admin_leave_catalog.router,
     admin_ledger.router,
+    documents.router,
+    admin_jobs.router,
 )
 
 
@@ -66,9 +71,8 @@ def create_app(
         worker_task: asyncio.Task[int] | None = None
         runtime: Runtime | None = None
         if bootstrap_infrastructure:
-            runtime = build_runtime(settings)
+            runtime = build_runtime(settings, role="api")
             s3 = make_s3_client(settings, timeout=settings.readiness_timeout_seconds)
-            runtime.s3_client = s3
             try:
                 created = await asyncio.to_thread(ensure_bucket, s3, settings.s3_bucket_documents)
                 log.info("storage.bucket", bucket=settings.s3_bucket_documents, created=created)
@@ -79,8 +83,15 @@ def create_app(
                 readiness_checks or default_checks(settings, runtime.engine, s3, expected_head())
             )
             if settings.worker_mode == "embedded":
+                runner = JobRunner(
+                    runtime.services.jobs,
+                    build_registry(runtime.services),
+                    worker_id="api-embedded",
+                    timeout_seconds=settings.document_process_timeout_seconds,
+                    heartbeat_seconds=settings.job_heartbeat_seconds,
+                )
                 worker_task = asyncio.create_task(
-                    run_worker_loop(settings, stop, periodic=runtime.services.rollover.run_due)
+                    run_worker_loop(settings, stop, periodic=runtime.services.rollover.run_due, runner=runner)
                 )
         else:
             app.state.services = services

@@ -3,18 +3,36 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from types import TracebackType
-from typing import Protocol, Self
+from typing import Any, Protocol, Self
 from uuid import UUID
 
 from leave_assistant.application.audit.entry import AuditEntry
 from leave_assistant.application.idempotency import IdempotencyRecord
+from leave_assistant.application.jobs.models import Job, JobStatus
 from leave_assistant.application.notifications.models import IntegrationEvent, Notification
 from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.domain.documents.chunking import ChunkDraft
+from leave_assistant.domain.documents.fusion import LegHit
+from leave_assistant.domain.documents.types import (
+    AclEntry,
+    Block,
+    Category,
+    Chunk,
+    Document,
+    DocumentVersion,
+    IndexGeneration,
+    ParsedDocument,
+    ReviewEvent,
+    RiskTier,
+    VersionStatus,
+)
+from leave_assistant.domain.documents.visibility import Reader
 from leave_assistant.domain.leave.ledger import LedgerEntry
 from leave_assistant.domain.leave.request import ApprovalStep, LeaveRequest, RequestEventRecord
 from leave_assistant.domain.leave.state_machine import RequestStatus
@@ -204,6 +222,156 @@ class IntegrationEventRepository(Protocol):
     async def add(self, event: IntegrationEvent) -> None: ...
 
 
+# --- documents, retrieval and jobs (M4, doc 05 / doc 07 §4.4 / ADR-0016 / ADR-0019) --------------------------
+
+
+class DocumentStorage(Protocol):
+    """Object storage behind ADR-0016 keys. Browsers never see storage URLs; downloads stream through the API."""
+
+    async def put_file(self, key: str, path: Path, *, content_type: str) -> None: ...
+    async def put_bytes(self, key: str, data: bytes, *, content_type: str) -> None: ...
+    async def get_bytes(self, key: str) -> bytes: ...
+    async def download_to(self, key: str, path: Path) -> None: ...
+    def stream(self, key: str) -> AsyncIterator[bytes]: ...
+    async def delete(self, key: str) -> None: ...
+    async def exists(self, key: str) -> bool: ...
+
+
+class DocumentParser(Protocol):
+    """Blocking (Docling + Tesseract); the pipeline calls it in a thread of the worker's child process."""
+
+    def parse(self, path: Path, mime: str, *, max_pages: int | None = None) -> ParsedDocument: ...
+
+
+class Tokenizer(Protocol):
+    def count(self, text: str) -> int: ...
+
+
+class EmbeddingModel(Protocol):
+    """Prefix discipline (`passage:` / `query:`) is enforced by the adapter; callers pass raw text (ADR-0013)."""
+
+    @property
+    def model_id(self) -> str: ...
+    @property
+    def dimension(self) -> int: ...
+    def embed_passages(self, texts: Sequence[str]) -> builtins.list[builtins.list[float]]: ...
+    def embed_query(self, text: str) -> builtins.list[float]: ...
+
+
+class LanguageDetector(Protocol):
+    def detect(self, text: str) -> str | None: ...  # "el" | "en" | None
+
+
+@dataclass(frozen=True, slots=True)
+class RiskAssessment:
+    score: float = 0.0
+    tier: RiskTier = RiskTier.LOW
+    findings: tuple[dict[str, Any], ...] = ()
+    chunk_flags: dict[int, tuple[str, ...]] = field(default_factory=dict)  # by chunk ordinal
+
+
+class RiskScanner(Protocol):
+    """Injection inspection (doc 08 §8.2) — a no-op until M5; the pipeline already routes by tier."""
+
+    def scan(self, blocks: Sequence[Block], drafts: Sequence[ChunkDraft]) -> RiskAssessment: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PiiResult:
+    llm_safe_texts: tuple[str, ...]
+    has_pii: tuple[bool, ...]
+    summary: dict[str, Any] = field(default_factory=dict)
+
+
+class PiiScanner(Protocol):
+    """Pseudonymisation of chunk text for the LLM (doc 08 §7) — identity until M5."""
+
+    def scan(self, drafts: Sequence[ChunkDraft]) -> PiiResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentFilter:
+    category: Category | None = None
+    status: VersionStatus | None = None  # of the active or, failing that, the latest version
+    query: str | None = None  # title contains (case-insensitive)
+
+
+class DocumentRepository(Protocol):
+    async def get(self, document_id: UUID) -> Document | None: ...
+    async def get_by_title(self, title: str) -> Document | None: ...
+    async def list(
+        self, *, reader: Reader, filters: DocumentFilter, limit: int, after: tuple[datetime, UUID] | None
+    ) -> builtins.list[Document]: ...
+    async def add(self, document: Document) -> None: ...
+    async def update(self, document: Document, *, expected_version: int) -> None: ...
+
+
+class DocumentVersionRepository(Protocol):
+    async def get(self, version_id: UUID) -> DocumentVersion | None: ...
+    async def get_by_number(self, document_id: UUID, version_no: int) -> DocumentVersion | None: ...
+    async def list_for_document(self, document_id: UUID) -> builtins.list[DocumentVersion]: ...
+    async def list_for_documents(
+        self, document_ids: Sequence[UUID]
+    ) -> dict[UUID, builtins.list[DocumentVersion]]: ...
+    async def find_by_sha256(self, document_id: UUID, sha256: str) -> DocumentVersion | None: ...
+    async def list_by_status(self, statuses: frozenset[VersionStatus]) -> builtins.list[DocumentVersion]: ...
+    async def add(self, version: DocumentVersion) -> None: ...
+    async def update(self, version: DocumentVersion) -> None: ...
+
+
+class ChunkRepository(Protocol):
+    """Chunks, vectors and both retrieval legs; the visibility predicate is applied inside the adapter."""
+
+    async def replace_for_version(self, version_id: UUID, chunks: Sequence[Chunk]) -> None: ...
+    async def get(self, chunk_id: UUID) -> Chunk | None: ...
+    async def list_for_version(self, version_id: UUID) -> builtins.list[Chunk]: ...
+    async def count_for_version(self, version_id: UUID) -> int: ...
+    async def set_retrievable(self, version_id: UUID, retrievable: bool) -> int: ...
+    async def vector_search(
+        self, embedding: Sequence[float], *, reader: Reader, limit: int
+    ) -> builtins.list[LegHit]: ...
+    async def keyword_search(
+        self, query: str, *, language: str | None, reader: Reader, limit: int
+    ) -> builtins.list[LegHit]: ...
+
+
+class AclRepository(Protocol):
+    async def list_for_document(self, document_id: UUID) -> builtins.list[AclEntry]: ...
+    async def replace_for_document(self, document_id: UUID, entries: Sequence[AclEntry]) -> None: ...
+
+
+class ReviewEventRepository(Protocol):
+    async def add(self, event: ReviewEvent) -> None: ...
+    async def list_for_version(self, version_id: UUID) -> builtins.list[ReviewEvent]: ...
+
+
+class IndexGenerationRepository(Protocol):
+    async def get(self, generation: str) -> IndexGeneration | None: ...
+    async def upsert(self, generation: IndexGeneration) -> None: ...
+    async def list(self) -> builtins.list[IndexGeneration]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class JobFilter:
+    status: JobStatus | None = None
+    type: str | None = None
+    tenant_id: UUID | None = None
+
+
+class JobRepository(Protocol):
+    """`platform.jobs`: not tenant-scoped (the worker claims across tenants); payloads carry identifiers only."""
+
+    async def add(self, job: Job) -> None: ...
+    async def get(self, job_id: UUID) -> Job | None: ...
+    async def find_active_by_dedupe(self, dedupe_key: str) -> Job | None: ...
+    async def claim(
+        self, *, now: datetime, worker_id: str, stale_before: datetime, types: Sequence[str] | None
+    ) -> Job | None: ...
+    async def update(self, job: Job) -> None: ...
+    async def list(self, *, filters: JobFilter, limit: int) -> builtins.list[Job]: ...
+    async def counts(self) -> dict[str, int]: ...
+
+
 class UnitOfWork(Protocol):
     """One database transaction. Entering opens a session bound to `context` (SET LOCAL app.* — ADR-0003)."""
 
@@ -223,6 +391,13 @@ class UnitOfWork(Protocol):
     ledger: LedgerRepository
     notifications: NotificationRepository
     integration_events: IntegrationEventRepository
+    documents: DocumentRepository
+    document_versions: DocumentVersionRepository
+    chunks: ChunkRepository
+    document_acl: AclRepository
+    review_events: ReviewEventRepository
+    index_generations: IndexGenerationRepository
+    jobs: JobRepository
 
     async def __aenter__(self) -> Self: ...
     async def __aexit__(

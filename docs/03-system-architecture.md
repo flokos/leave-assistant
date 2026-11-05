@@ -127,7 +127,7 @@ backend/
 │   │   ├── llm/                   # GeminiProvider, GroqProvider, ProviderRouter, FakeProvider (tests)
 │   │   ├── ml/                    # E5Embedder, CrossEncoderReranker, ModelRegistry (lazy loading)
 │   │   ├── parsing/               # DoclingParser (+Tesseract), StructureAwareChunker
-│   │   ├── vector/                # PgVectorIndex, ChromaIndex
+│   │   ├── vector/                # ChromaIndex (M9 eval profile); the pgvector/FTS legs live in db/repositories/chunks.py (M4)
 │   │   ├── privacy/               # PresidioEngine (+ Greek recognisers), VaultRepository
 │   │   ├── security/              # HeuristicInjectionDetector, LocalClassifier, LlmJudge (optional)
 │   │   ├── calendar/              # GoogleCalendarProvider, MockCalendarProvider

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 
+from leave_assistant.domain.documents.types import Category
 from leave_assistant.domain.leave.types import StepRole
 from leave_assistant.domain.tenancy import Locale, Role
 
@@ -78,6 +79,24 @@ class SeedRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class SeedDocument:
+    """A corpus document (doc 05 §10): rendered from `seed/corpus/sources` by `scripts/build_corpus.py`."""
+
+    slug: str  # source stem; the rendered file is `seed/corpus/files/<tenant>/<slug>.<format>`
+    title: str
+    category: Category
+    format: str  # pdf | docx | md | txt | scan (image-only PDF → OCR)
+    uploader_number: str
+    department_code: str | None = None
+    language_hint: str | None = None
+    earlier_versions: tuple[str, ...] = ()  # source stems uploaded first, in order (supersede test)
+
+    @property
+    def extension(self) -> str:
+        return "pdf" if self.format == "scan" else self.format
+
+
+@dataclass(frozen=True, slots=True)
 class SeedCompany:
     slug: str
     name: str
@@ -88,6 +107,7 @@ class SeedCompany:
     settings: dict[str, object] = field(default_factory=dict)
     holidays: tuple[SeedHoliday, ...] = ()
     requests: tuple[SeedRequest, ...] = ()
+    documents: tuple[SeedDocument, ...] = ()
 
 
 SEED_YEAR = 2026
@@ -322,6 +342,44 @@ AEGEAN = SeedCompany(
             "Αλλαγή σχεδίων",
         ),
     ),
+    documents=(
+        SeedDocument(
+            "kanonismos-adeion",
+            "Κανονισμός Αδειών",
+            Category.POLICY_GENERAL,
+            "pdf",
+            "AEG-002",
+            language_hint="el",
+        ),
+        SeedDocument(
+            "leave-policy-en",
+            "Leave Policy (English translation)",
+            Category.POLICY_GENERAL,
+            "docx",
+            "AEG-002",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "argies-2026", "Αργίες 2026", Category.POLICY_GENERAL, "md", "AEG-001", language_hint="el"
+        ),
+        SeedDocument(
+            "diadikasia-anarrotikis",
+            "Διαδικασία Αναρρωτικής Άδειας",
+            Category.POLICY_GENERAL,
+            "scan",
+            "AEG-002",
+            language_hint="el",
+        ),
+        SeedDocument(
+            "odigos-exaireseon",
+            "Οδηγός Εξαιρέσεων",
+            Category.POLICY_HR_RESTRICTED,
+            "docx",
+            "AEG-002",
+            language_hint="el",
+        ),
+        SeedDocument("faq", "Συχνές ερωτήσεις / FAQ", Category.POLICY_GENERAL, "md", "AEG-001"),
+    ),
 )
 
 BRIGHTWATER = SeedCompany(
@@ -398,6 +456,50 @@ BRIGHTWATER = SeedCompany(
             date(2026, 11, 2),
             "rejected",
             "Personal matters",
+        ),
+    ),
+    documents=(
+        SeedDocument(
+            "employee-leave-handbook",
+            "Employee Leave Handbook",
+            Category.POLICY_GENERAL,
+            "pdf",
+            "BWS-002",
+            language_hint="en",
+            earlier_versions=("employee-leave-handbook-v1",),
+        ),
+        SeedDocument(
+            "public-holidays-2026",
+            "Public Holidays 2026",
+            Category.POLICY_GENERAL,
+            "md",
+            "BWS-001",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "sick-leave-procedure",
+            "Sick Leave Procedure",
+            Category.POLICY_GENERAL,
+            "docx",
+            "BWS-002",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "exceptional-leave-guidelines",
+            "Exceptional Leave Guidelines",
+            Category.POLICY_HR_RESTRICTED,
+            "pdf",
+            "BWS-002",
+            language_hint="en",
+        ),
+        SeedDocument(
+            "release-freeze-dates",
+            "Engineering release freeze dates 2026",
+            Category.DEPARTMENT_NOTICE,
+            "txt",
+            "BWS-003",
+            department_code="ENG",
+            language_hint="en",
         ),
     ),
 )

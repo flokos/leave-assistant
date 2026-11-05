@@ -5,7 +5,7 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit test-integration test-e2e contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover token precommit clean
+.PHONY: help setup env lint test-unit test-integration test-e2e test-ocr contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover models ingest jobs reindex token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -25,8 +25,11 @@ test-unit: ## backend pytest (with coverage) and frontend vitest
 	cd backend && $(UV) run --no-sync pytest
 	cd frontend && $(NPM) run test
 
-test-integration: ## integration + security suites against the running stack (postgres 127.0.0.1:5432, keycloak :8081, api via :8080)
-	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak" --no-cov
+test-integration: ## integration + ml + security suites against the running stack (postgres 127.0.0.1:5432, keycloak :8081, api via :8080)
+	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak or ml" --no-cov
+
+test-ocr: ## parse the scanned Greek fixture with Docling + Tesseract inside the api container
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.parse_check /app/src/leave_assistant/seed/corpus/files/aegean/diadikasia-anarrotikis.pdf
 
 test-e2e: ## Playwright smoke against the running stack (make up-staged && make bootstrap first)
 	set -a && . ./deploy/.env && set +a && cd frontend && $(NPM) run --silent test:e2e
@@ -42,10 +45,10 @@ build: env ## build the api and frontend images
 up: env ## start the core profile (needs ~4 GB free RAM)
 	$(COMPOSE) --profile core up -d --wait
 
-up-staged: env ## low-memory hosts: infra first, worker embedded in the api process (doc 02 §10)
+up-staged: env ## low-memory hosts: infra first, worker embedded in the api process (doc 02 §10); api limit 3 GB for the ingestion child
 	$(COMPOSE) --profile core up -d --wait postgres seaweedfs mailpit
 	$(COMPOSE) --profile core up -d --wait keycloak
-	WORKER_MODE=embedded $(COMPOSE) --profile core up -d --wait --force-recreate api frontend   # worker container not started; loop runs inside api
+	WORKER_MODE=embedded API_MEMORY_LIMIT=3G $(COMPOSE) --profile core up -d --wait --force-recreate api frontend   # worker container not started; loop runs inside api
 
 up-dev: env ## core profile with hot reload and api published on :8000
 	$(COMPOSE_DEV) --profile core up -d --wait
@@ -69,6 +72,21 @@ bootstrap: migrate seed ## first start: migrate, then seed
 
 rollover: ## run the leave rollover now (statuses, year grants, carry-over, expiry) for all tenants
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.leave.rollover
+
+models: ## download the embedding and Docling models into the models volume (once; ~1 GB)
+	$(COMPOSE) --profile core exec -T -u root api chown -R app:app /models   # volumes created before M4 belong to root
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.infrastructure.ml.prefetch
+
+ingest: ## process every queued document job now (drains the queue inside the api container), then show the status table
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.worker --drain
+	$(MAKE) --no-print-directory jobs
+
+jobs: ## job queue and document version status overview
+	$(COMPOSE) --profile core exec -T postgres psql -U postgres -d leave -c "SELECT status, type, count(*) FROM platform.jobs GROUP BY 1, 2 ORDER BY 1, 2" -c "SELECT t.slug, d.title, v.version_no, v.status, v.pages, v.language, (SELECT count(*) FROM app.document_chunks c WHERE c.version_id = v.id) AS chunks, left(coalesce(v.processing_error, ''), 60) AS error FROM app.document_versions v JOIN app.documents d ON d.id = v.document_id JOIN platform.tenants t ON t.id = d.tenant_id ORDER BY t.slug, d.title, v.version_no"
+
+reindex: ## enqueue document.reindex jobs for active versions with a stale index generation, then drain
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.reindex
+	$(MAKE) --no-print-directory ingest
 
 token: ## print an access token for EMAIL=<seed user e-mail> (dev realm, direct grant)
 	@set -a && . ./deploy/.env && set +a && curl -fsS -d "grant_type=password&client_id=frontend-spa&username=$(EMAIL)&password=$${SEED_USER_PASSWORD}" \

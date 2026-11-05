@@ -39,7 +39,18 @@ def test_models_match_migrated_schema(migrated_database: str) -> None:
                     else name not in {"alembic_version", "leave_balances"}
                 ),
                 "include_object": lambda obj, name, type_, reflected, compare_to: (
-                    not (type_ == "index" and name == "ex_leave_requests_no_overlap")
+                    not (
+                        type_ == "index"
+                        and name
+                        in {
+                            "ex_leave_requests_no_overlap",
+                            "ix_document_chunks_embedding",
+                            "ix_document_chunks_tsv_el",
+                            "ix_document_chunks_tsv_en",
+                            "ix_document_chunks_tsv_simple",
+                            "uq_jobs_active_dedupe",
+                        }
+                    )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),
             },
         )
@@ -52,7 +63,7 @@ async def test_seed_and_repositories_round_trip(db_services: Services) -> None:
     report = await run_seed(db_services, "pw")
     assert report.changed >= 34 and not report.unchanged
     second = await run_seed(db_services, "pw")
-    assert second.changed == 0 and len(second.unchanged) == 86
+    assert second.changed == 0 and len(second.unchanged) == 98
 
     async with db_services.uow_factory(
         TenantContext(tenant_id=None, user_id="seed", platform_admin=True)

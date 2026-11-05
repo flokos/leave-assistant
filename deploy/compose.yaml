@@ -25,6 +25,12 @@ x-backend-env: &backend-env
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   GROQ_API_KEY: ${GROQ_API_KEY:-}
   HF_HOME: /models
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+  DOCUMENT_PROCESS_TIMEOUT_SECONDS: ${DOCUMENT_PROCESS_TIMEOUT_SECONDS:-900}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+  OCR_LANGUAGES: ${OCR_LANGUAGES:-ell,eng}
+  TORCH_THREADS: ${TORCH_THREADS:-2}
+  WORKER_TORCH_THREADS: ${WORKER_TORCH_THREADS:-4}
 
 services:
   postgres:
@@ -166,7 +172,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: ${API_MEMORY_LIMIT:-2G}   # 3G in embedded mode (make up-staged): the ingestion child shares the cgroup
     networks: [internal]
 
   worker:

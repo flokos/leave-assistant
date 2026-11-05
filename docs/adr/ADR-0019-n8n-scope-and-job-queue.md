@@ -12,6 +12,8 @@ Give n8n real responsibilities without letting it hold logic or data it should n
 depend on n8n being up.
 
 ## Decision
+(M4 note: the `jobs` table lives in the `platform` schema without RLS — it is claimed across tenants and carries identifiers only; handlers run under the job's tenant context. ML handlers run in a child process with a timeout; see worklog M4.)
+
 - Heavy work runs in the backend worker via a `jobs` table (`FOR UPDATE SKIP LOCKED`, retries, dead-letter).
 - Side effects are recorded in `integration_events` (outbox) within business transactions.
 - n8n polls the outbox through `/internal/*` (client-credentials, `automation` role, internal network only), routes

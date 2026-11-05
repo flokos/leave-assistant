@@ -19,6 +19,8 @@ make build          # builds the api and frontend images; the first build downlo
 make up             # core profile; waits until every service is healthy (Keycloak imports the realm on first start)
 make bootstrap      # applies the database migrations and seeds the two fictional companies (idempotent)
 make smoke          # liveness + readiness through the frontend proxy (readyz reports `schema` until migrated)
+make models         # once: downloads the embedding and Docling models (~1.2 GB) into the `models` volume
+make ingest         # processes the seeded company documents (parsing, OCR, chunking, embeddings); shows the status table
 ```
 Then open:
 - http://localhost:8080 — the application: sign in with a seed user (below); the workspace menu follows your roles
@@ -86,6 +88,26 @@ curl -s localhost:8080/api/v1/approvals/pending -H "Authorization: Bearer $MANAG
 
 `make ps` shows service health; `make logs SERVICE=api` follows one service.
 
+### Company documents (M4)
+`make seed` also uploads the fictional policy corpus (six Greek documents for Aegean incl. a scanned PDF, five English
+documents for Brightwater incl. a superseded handbook version) through the same `DocumentService` the API uses. Each
+upload queues a `document.process` job; the worker (the `worker` container, or the api process in embedded mode)
+parses the file with Docling (Tesseract OCR for scanned pages), chunks it along its headings, embeds the chunks with
+`multilingual-e5-small` and indexes them in PostgreSQL (pgvector + full-text search). `make ingest` drains the queue
+now and prints the job/version table; `make jobs` prints it again later; `make reindex` rebuilds the index after a
+model or chunking change. Processing runs in a child process per job (memory is returned afterwards); expect
+≈ 1 minute per document on the reference machine, mostly model start-up.
+
+Then, in the UI, every company user has a **Documents** page (library, search, versions, download); HR and company
+administrators upload new documents or versions. Through the API:
+```bash
+TOKEN=$(make -s token EMAIL=maria.oikonomou@aegean-logistics.example)
+curl -s -X POST localhost:8080/api/v1/documents -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
+  -F title="Οδηγός" -F category=policy_general -F file=@guide.md
+curl -s "localhost:8080/api/v1/documents/search?q=μεταφορά%20υπολοίπου" -H "Authorization: Bearer $TOKEN"
+```
+`make test-ocr` parses the scanned Greek fixture inside the api container (the host does not need Tesseract).
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged
@@ -107,10 +129,10 @@ API process (`WORKER_MODE=embedded`; the separate `worker` container is not star
 make setup          # uv sync (backend) + npm ci (frontend)
 make lint           # ruff, ruff format, mypy, import-linter, eslint, tsc
 make test-unit      # pytest with coverage + vitest (no infrastructure needed)
-make test-integration  # DB integration + security suites against the running stack (creates database `leave_test`)
+make test-integration  # DB integration, model (`ml`) and security suites against the running stack (creates database `leave_test`; the `ml` tests download the models into ~/.cache on first run)
 make rollover       # leave status rollover + ledger calendar for all tenants now
 make contract       # regenerate docs/api/openapi.json + frontend/src/api/schema.d.ts and fail on drift
-make test-e2e       # Playwright smoke (role logins, submit → approve → cancel, admin holiday) against the running stack
+make test-e2e       # Playwright smoke (role logins, submit → approve → cancel, admin holiday, document upload + search) against the running stack
 make up-dev         # core profile with hot reload; api also published on http://localhost:8000
 ```
 `make test-e2e` needs the stack up and bootstrapped (`make up` or `make up-staged`, then `make bootstrap`) and a

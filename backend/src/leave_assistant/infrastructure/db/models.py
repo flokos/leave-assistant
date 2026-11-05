@@ -11,10 +11,14 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    BigInteger,
     Boolean,
+    Computed,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -23,7 +27,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -528,3 +532,272 @@ class IntegrationEventRow(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, nullable=False)
     dead: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+# --- documents, retrieval and jobs (M4: doc 07 §4.4 / §4.7, migration 0003) -----------------------------------
+DOCUMENT_CATEGORY = ENUM(
+    "policy_general",
+    "policy_hr_restricted",
+    "department_notice",
+    "admin_internal",
+    name="document_category",
+    schema="app",
+    create_type=False,
+)
+VERSION_STATUS = ENUM(
+    "UPLOADED",
+    "PROCESSING",
+    "FAILED",
+    "ACTIVE",
+    "PENDING_REVIEW",
+    "QUARANTINED",
+    "SUPERSEDED",
+    "RETIRED",
+    "DELETED",
+    name="document_version_status",
+    schema="app",
+    create_type=False,
+)
+RISK_TIER = ENUM("low", "medium", "high", name="risk_tier", schema="app", create_type=False)
+CHUNK_TYPE = ENUM("text", "table", name="chunk_type", schema="app", create_type=False)
+ACL_PRINCIPAL_TYPE = ENUM(
+    "role", "department", "employee", name="acl_principal_type", schema="app", create_type=False
+)
+REVIEW_ACTION = ENUM(
+    "release", "reject", "delete", "inspect", name="review_action", schema="app", create_type=False
+)
+GENERATION_STATUS = ENUM(
+    "building", "active", "retired", name="generation_status", schema="app", create_type=False
+)
+JOB_STATUS = ENUM(
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "dead",
+    name="job_status",
+    schema="platform",
+    create_type=False,
+)
+EMBEDDING_DIMENSION = 384
+
+
+class DocumentRow(Base):
+    __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_tenant_created", "tenant_id", "created_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform.tenants.id", name="fk_documents_tenant"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[str] = mapped_column(DOCUMENT_CATEGORY, nullable=False)
+    department_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.departments.id", name="fk_documents_department", ondelete="SET NULL"),
+    )
+    owner_employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app.employees.id", name="fk_documents_owner"), nullable=False
+    )
+    active_version_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "app.document_versions.id",
+            name="fk_documents_active_version",
+            use_alter=True,
+            deferrable=True,
+            initially="DEFERRED",
+            ondelete="SET NULL",
+        ),
+    )
+    language_hint: Mapped[str | None] = mapped_column(String(8))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentVersionRow(Base):
+    __tablename__ = "document_versions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version_no", name="uq_document_versions_number"),
+        Index("ix_document_versions_tenant_status", "tenant_id", "status"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_document_versions_tenant"),
+        nullable=False,
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.documents.id", name="fk_document_versions_document", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    object_key: Mapped[str] = mapped_column(String(400), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(VERSION_STATUS, nullable=False)
+    pages: Mapped[int | None] = mapped_column(Integer)
+    language: Mapped[str | None] = mapped_column(String(8))
+    extracted_object_key: Mapped[str | None] = mapped_column(String(400))
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_tier: Mapped[str] = mapped_column(RISK_TIER, nullable=False)
+    risk_findings: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    pii_summary: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    processing_error: Mapped[str | None] = mapped_column(Text)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    index_generation: Mapped[str | None] = mapped_column(String(200))
+    retrievable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    uploaded_by_employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_document_versions_uploader"),
+        nullable=False,
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentChunkRow(Base):
+    __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint("version_id", "ordinal", name="uq_document_chunks_ordinal"),
+        Index("ix_document_chunks_tenant_version", "tenant_id", "version_id", "ordinal"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_document_chunks_tenant"),
+        nullable=False,
+    )
+    version_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.document_versions.id", name="fk_document_chunks_version", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    chunk_type: Mapped[str] = mapped_column(CHUNK_TYPE, nullable=False)
+    heading_path: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    page_start: Mapped[int | None] = mapped_column(Integer)
+    page_end: Mapped[int | None] = mapped_column(Integer)
+    language: Mapped[str | None] = mapped_column(String(8))
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_llm_safe: Mapped[str] = mapped_column(Text, nullable=False)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[Any] = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=True)
+    embedding_model_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    tsv_el: Mapped[Any] = mapped_column(TSVECTOR, Computed("to_tsvector('greek', content)", persisted=True))
+    tsv_en: Mapped[Any] = mapped_column(TSVECTOR, Computed("to_tsvector('english', content)", persisted=True))
+    tsv_simple: Mapped[Any] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('simple', app.f_unaccent(content))", persisted=True)
+    )
+    risk_flags: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    has_pii: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    retrievable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentAclRow(Base):
+    __tablename__ = "document_acl"
+    __table_args__ = (
+        UniqueConstraint("document_id", "principal_type", "principal_id", name="uq_document_acl_principal"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform.tenants.id", name="fk_document_acl_tenant"), nullable=False
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.documents.id", name="fk_document_acl_document", ondelete="CASCADE"),
+        nullable=False,
+    )
+    principal_type: Mapped[str] = mapped_column(ACL_PRINCIPAL_TYPE, nullable=False)
+    principal_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    permission: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentReviewEventRow(Base):
+    __tablename__ = "document_review_events"
+    __table_args__ = (Index("ix_document_review_events_version", "version_id"), {"schema": "app"})
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_document_review_events_tenant"),
+        nullable=False,
+    )
+    version_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.document_versions.id", name="fk_document_review_events_version", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reviewer_employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_document_review_events_reviewer"),
+        nullable=False,
+    )
+    action: Mapped[str] = mapped_column(REVIEW_ACTION, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class IndexGenerationRow(Base):
+    __tablename__ = "index_generations"
+    __table_args__ = {"schema": "app"}
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_index_generations_tenant"),
+        primary_key=True,
+    )
+    generation: Mapped[str] = mapped_column(String(200), primary_key=True)
+    embedding_model_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    chunking_rules_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(GENERATION_STATUS, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class JobRow(Base):
+    """`platform.jobs` (M4 decision 2): claimed across tenants; handlers open tenant-scoped transactions."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        Index("ix_jobs_claim", "status", "run_after"),
+        Index("ix_jobs_tenant_created", "tenant_id", "created_at"),
+        {"schema": "platform"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform.tenants.id", name="fk_jobs_tenant")
+    )
+    type: Mapped[str] = mapped_column(String(60), nullable=False)
+    payload: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(JOB_STATUS, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    run_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    locked_by: Mapped[str | None] = mapped_column(String(120))
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    extra: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

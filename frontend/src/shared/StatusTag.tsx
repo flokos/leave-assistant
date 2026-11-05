@@ -21,6 +21,14 @@ const COLORS: Record<string, string> = {
   active: 'green',
   inactive: 'default',
   suspended: 'red',
+  UPLOADED: 'processing',
+  PROCESSING: 'processing',
+  FAILED: 'red',
+  PENDING_REVIEW: 'orange',
+  QUARANTINED: 'red',
+  SUPERSEDED: 'default',
+  RETIRED: 'default',
+  DELETED: 'default',
 }
 
 export function StatusTag({ status }: { status: string }) {

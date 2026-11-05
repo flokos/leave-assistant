@@ -22,6 +22,7 @@ _STATUS_TITLES = {
     404: "Not found",
     405: "Method not allowed",
     409: "Conflict",
+    413: "Payload too large",
     415: "Unsupported media type",
     422: "Validation error",
     429: "Rate limited",
@@ -35,6 +36,7 @@ _STATUS_TYPES = {
     404: "not-found",
     405: "method-not-allowed",
     409: "conflict",
+    413: "document/too-large",
     415: "document/unsupported-type",
     422: "validation-error",
     429: "rate-limited",
@@ -58,6 +60,14 @@ _PROBLEM_STATUS = {
     "rate-limited": 429,
     "service-unavailable": 503,
     "internal-error": 500,
+    "document/unsupported-type": 415,
+    "document/too-large": 413,
+    "document/not-retrievable": 409,
+    "document/invalid-state": 409,
+    "document/duplicate-content": 409,
+    "document/acl-not-allowed": 422,
+    "document/processing-failed": 500,
+    "job/not-failed": 409,
 }
 _PROBLEM_TITLES = {
     "tenant/suspended": "Tenant suspended",
@@ -76,6 +86,14 @@ _PROBLEM_TITLES = {
     "version-conflict": "Version conflict",
     "idempotency-mismatch": "Idempotency key mismatch",
     "department/not-empty": "Department not empty",
+    "document/unsupported-type": "Unsupported document type",
+    "document/too-large": "Document too large",
+    "document/not-retrievable": "Document version not retrievable",
+    "document/invalid-state": "Not allowed in the current document state",
+    "document/duplicate-content": "Identical content already uploaded",
+    "document/acl-not-allowed": "ACL not allowed",
+    "document/processing-failed": "Document processing failed",
+    "job/not-failed": "Job is not in a failed state",
 }
 
 

@@ -236,7 +236,7 @@ brief's principles (doc 14 §4, ADR-0028). They are seed configuration per tenan
 
 *M2 note:* the seed sick-leave policy sets `allow_negative = true` so that a sick request beyond the remaining
 cap is routed to HR review (Q-02) instead of being rejected by the balance check; annual leave keeps the hard check.
-Supporting-document requirements are advisory (warning + HR review) until uploads arrive in M4.
+Supporting-document requirements are advisory (warning + HR review) until uploads arrive in M5 (doc 12).
 
 ### 6.2 Entitlements and ledger (Q-01, decided)
 - Entitlement is granted **up-front on 1 January** (`grant_mode = upfront`); hires during the year receive a pro-rated

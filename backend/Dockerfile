@@ -22,7 +22,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-RUN useradd --system --uid 10001 --create-home app && chown -R app:app /app
+RUN useradd --system --uid 10001 --create-home app && chown -R app:app /app \
+ && mkdir -p /models && chown app:app /models   # model cache volume (HF_HOME) must be writable by the app user
 USER app
 EXPOSE 8000
 CMD ["uvicorn", "leave_assistant.main:app", "--host", "0.0.0.0", "--port", "8000"]

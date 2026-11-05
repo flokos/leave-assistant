@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
+from pathlib import Path
 from uuid import UUID
 
 from leave_assistant.application.container import Services
+from leave_assistant.application.documents.commands import CreateDocument, Upload
+from leave_assistant.application.documents.service import sha256_of
 from leave_assistant.application.leave.commands import (
     CancelRequest,
     CreateHoliday,
@@ -28,9 +31,10 @@ from leave_assistant.application.tenancy.commands import (
     UpdateEmployee,
 )
 from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.domain.documents.formats import DOCX, MARKDOWN, PDF, TEXT
 from leave_assistant.domain.leave.request import StepStatus
 from leave_assistant.domain.leave.state_machine import RequestStatus
-from leave_assistant.domain.tenancy import Employee, Principal, Role, Tenant
+from leave_assistant.domain.tenancy import Department, Employee, Principal, Role, Tenant
 from leave_assistant.seed.data import (
     APPROVAL_RULES,
     CARRYOVER_MAX_DAYS,
@@ -40,6 +44,9 @@ from leave_assistant.seed.data import (
     SeedCompany,
     SeedRequest,
 )
+
+CORPUS_FILES = Path(__file__).resolve().parent / "corpus" / "files"
+CORPUS_MIME = {"pdf": PDF, "docx": DOCX, "md": MARKDOWN, "txt": TEXT}
 
 SEED_ACTOR = "seed"
 SEED_ACTOR_EMPLOYEE_ID = UUID("00000000-0000-0000-0000-0000000005ee")
@@ -166,7 +173,56 @@ async def seed_company(services: Services, company: SeedCompany, password: str, 
     await seed_leave_catalogue(services, company, tenant, admin, report)
     await seed_grants(services, tenant, report)
     await seed_requests(services, company, tenant, employees, report)
+    await seed_documents(services, company, tenant, employees, departments, report)
     return tenant
+
+
+async def seed_documents(
+    services: Services,
+    company: SeedCompany,
+    tenant: Tenant,
+    employees: dict[str, Employee],
+    departments: dict[str, Department],
+    report: SeedReport,
+) -> None:
+    """Upload the corpus through DocumentService as the real uploader; processing jobs run in the worker
+    (`make ingest`). Idempotent by title + content hash: re-runs add nothing."""
+    for spec in company.documents:
+        principal = employee_principal(tenant, employees[spec.uploader_number])
+        department_id = departments[spec.department_code].id if spec.department_code else None
+        async with services.uow_factory(TenantContext.for_principal(principal)) as uow:
+            existing = await uow.documents.get_by_title(spec.title)
+        document_id = existing.id if existing else None
+        known: set[str] = set()
+        if existing is not None:
+            known = {v.sha256 for v in await services.documents.versions(principal, existing.id)}
+        for stem in (*spec.earlier_versions, spec.slug):
+            path = CORPUS_FILES / company.slug / f"{stem}.{spec.extension}"
+            label = f"document:{company.slug}/{stem}"
+            if sha256_of(path) in known:
+                report.unchanged.append(label)
+                continue
+            upload = Upload(
+                path=path,
+                filename=path.name,
+                declared_mime=CORPUS_MIME[spec.extension],
+                size_bytes=path.stat().st_size,
+            )
+            if document_id is None:
+                created = await services.documents.create(
+                    principal,
+                    CreateDocument(
+                        title=spec.title,
+                        category=spec.category,
+                        upload=upload,
+                        department_id=department_id,
+                        language_hint=spec.language_hint,
+                    ),
+                )
+                document_id = created.document.id
+            else:
+                await services.documents.add_version(principal, document_id, upload)
+            report.created.append(label)
 
 
 class _FixedClock:
@@ -179,13 +235,7 @@ class _FixedClock:
 
 def _services_as_of(services: Services, day: date) -> Services:
     """The same adapters with a clock set to `day` (sample requests are submitted 'in the past')."""
-    return Services.build(
-        uow_factory=services.uow_factory,
-        identity=services.identity,
-        verifier=services.verifier,
-        clock=_FixedClock(datetime.combine(day, time(9, 0), tzinfo=UTC)),
-        ids=services.ids,
-    )
+    return services.with_clock(_FixedClock(datetime.combine(day, time(9, 0), tzinfo=UTC)))
 
 
 def employee_principal(tenant: Tenant, employee: Employee) -> Principal:

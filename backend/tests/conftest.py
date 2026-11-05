@@ -6,12 +6,15 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from leave_assistant.application.container import Services
+from leave_assistant.application.container import DocumentAdapters, DocumentOptions, Services
 from leave_assistant.application.health import CheckResult
 from leave_assistant.config import Settings
 from leave_assistant.domain.tenancy import Employee, Principal, Role
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
+from leave_assistant.infrastructure.ml.language import ScriptLanguageDetector
+from leave_assistant.infrastructure.scanning.noop import NoPiiScanner, NoRiskScanner
 from leave_assistant.main import create_app
+from tests.fakes.documents import FakeEmbedder, FakeParser, MemoryDocumentStorage, WordTokenizer
 from tests.fakes.identity import FakeIdentityAdmin
 from tests.fakes.leave_world import seed_leave_catalogue
 from tests.fakes.memory import MemoryStore, MemoryUnitOfWorkFactory
@@ -86,9 +89,35 @@ def services(
     clock: FixedClock,
     ids: SequentialIds,
     test_keys: TestKeys,
+    document_adapters: DocumentAdapters,
 ) -> Services:
     verifier = TokenVerifier(test_keys.resolver(), issuer=ISSUER, audience=AUDIENCE, leeway_seconds=30)
-    return Services.build(uow_factory=uow_factory, identity=identity, verifier=verifier, clock=clock, ids=ids)
+    return Services.build(
+        uow_factory=uow_factory,
+        identity=identity,
+        verifier=verifier,
+        clock=clock,
+        ids=ids,
+        adapters=document_adapters,
+        options=DocumentOptions(max_upload_mb=1, job_stale_after_seconds=600),
+    )
+
+
+@pytest.fixture
+def document_adapters() -> DocumentAdapters:
+    return fake_document_adapters()
+
+
+def fake_document_adapters(dimension: int = 32) -> DocumentAdapters:
+    return DocumentAdapters(
+        storage=MemoryDocumentStorage(),
+        parser=FakeParser(),
+        tokenizer=WordTokenizer(),
+        embedder=FakeEmbedder(dimension),
+        language=ScriptLanguageDetector(),
+        risk_scanner=NoRiskScanner(),
+        pii_scanner=NoPiiScanner(),
+    )
 
 
 @pytest.fixture

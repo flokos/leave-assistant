@@ -1,0 +1,54 @@
+"""Enqueue `document.reindex` jobs for ACTIVE versions whose index generation is stale (`make reindex`)."""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+
+from leave_assistant.application.documents.ingestion import worker_context
+from leave_assistant.application.jobs.models import JOB_DOCUMENT_REINDEX
+from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.config import get_settings
+from leave_assistant.domain.documents.types import VersionStatus
+from leave_assistant.infrastructure.observability.logging import configure_logging
+from leave_assistant.infrastructure.runtime import build_runtime
+
+
+async def _main(force: bool) -> int:
+    settings = get_settings()
+    configure_logging(settings)
+    runtime = build_runtime(settings, role="worker")
+    services = runtime.services
+    generation = services.ingestion.generation
+    enqueued = 0
+    try:
+        async with services.uow_factory(
+            TenantContext(tenant_id=None, user_id="reindex", platform_admin=True)
+        ) as uow:
+            tenants = await uow.tenants.list(limit=200, after=None)
+        for tenant in tenants:
+            async with services.uow_factory(worker_context(tenant.id)) as uow:
+                for version in await uow.document_versions.list_by_status(frozenset({VersionStatus.ACTIVE})):
+                    if not force and version.index_generation == generation:
+                        continue
+                    await services.jobs.enqueue(
+                        uow,
+                        type=JOB_DOCUMENT_REINDEX,
+                        payload={
+                            "tenant_id": str(tenant.id),
+                            "document_id": str(version.document_id),
+                            "version_id": str(version.id),
+                        },
+                        tenant_id=tenant.id,
+                        dedupe_key=f"{JOB_DOCUMENT_REINDEX}:{version.id}",
+                    )
+                    enqueued += 1
+                await uow.commit()
+        sys.stdout.write(f"generation {generation}: {enqueued} reindex job(s) enqueued\n")
+        return 0
+    finally:
+        await runtime.aclose()
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(_main(force="--force" in sys.argv[1:])))

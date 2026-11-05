@@ -225,6 +225,34 @@ rejects the `supporting_document` category by construction (type system, not con
 All seed documents are fictional and written for the project; their facts are the ground truth for the
 evaluation dataset (doc 11 §6).
 
+## 10a. M4 implementation notes (2026-11-05)
+- Uploads (`POST /documents`, `POST /documents/{id}/versions`) are multipart; the API spools the part to a temporary
+  file while enforcing `MAX_UPLOAD_MB`, sniffs the type by magic bytes in pure Python (PDF header, ZIP container with
+  `word/document.xml`, UTF-8 text without NUL bytes), computes the SHA-256, stores the original under the ADR-0016 key,
+  then writes the document/version rows, the audit entry, the `document.uploaded` outbox event and the
+  `document.process` job in one transaction. Duplicate content within a document is refused (`document/duplicate-content`).
+- Jobs live in `platform.jobs` (no RLS; identifiers only in payloads); the worker claims across tenants with
+  `FOR UPDATE SKIP LOCKED` and every handler opens a tenant-scoped transaction. ML handlers run in a **child process**
+  (`python -m leave_assistant.worker.run_job <job_id>`) with a wall-clock timeout and heartbeat renewal, in both worker
+  modes; the API process loads only the e5 model (query embeddings).
+- The pipeline is implemented as specified: Docling (`TesseractCliOcrOptions(lang=["ell","eng"])`, table structure)
+  → `Block` tree → language (lingua restricted to EL/EN) → **no-op risk and PII scanners until M5** (tier `low`,
+  `content_llm_safe = content`) → structure-aware chunking with the e5 tokenizer → e5 passages → chunks + vectors +
+  generated tsvectors written and the version activated (previous active version `SUPERSEDED`, chunks flagged) in
+  one transaction. Failures retry up to three times with backoff; the final failure marks the version `FAILED`,
+  audits `document.failed` and notifies the uploader.
+- FTS: `tsv_simple` is generated over `app.f_unaccent(content)` (an IMMUTABLE wrapper around `unaccent`, required for
+  generated columns) so unaccented Greek queries match; `greek`/`english` configurations provide stemming.
+- Retrieval in M4 = vector leg (HNSW, `ef_search = 80`) + keyword leg, both with the visibility predicate inline,
+  RRF (k = 60) over the top 30 of each, ≤ 3 chunks per document; the reranker (ADR-0014) and the token-budget
+  context builder arrive with M9/M6. `GET /documents/search` exposes the fused hits; `GET /documents/citations/{chunk_id}`
+  serves the citation drawer.
+- Re-indexing: `index_generation = "{embedding_model_id}|{chunking_rules_version}"`; `document.reindex` jobs rebuild
+  chunks from the stored `extracted.json` without re-parsing (`make reindex`).
+- Seed corpus (§10) without the adversarial pair (M5): rendered from Markdown sources by `backend/scripts/build_corpus.py`
+  (PDF via fpdf2, DOCX via python-docx, scanned PDF as page images for the OCR path) and uploaded by the seed through
+  `DocumentService`; the Brightwater handbook has two versions (v1 "25 days" superseded by v2 "20 days").
+
 ## 11. Failure handling and limits
 | Situation | Behaviour |
 |-----------|-----------|

@@ -55,8 +55,12 @@ class IdempotentRoute(APIRoute):
             services = get_services(request)
             settings = get_settings(request)
             principal = await resolve_principal(request)
-            body = await request.body()
-            request_hash = hashlib.sha256(request.url.path.encode() + b"\n" + body).hexdigest()
+            if request.headers.get("content-type", "").lower().startswith("multipart/form-data"):
+                # key-only for uploads: the browser's multipart boundary differs on every retry (doc 09 §1 note)
+                request_hash = hashlib.sha256(request.url.path.encode() + b"\nmultipart").hexdigest()
+            else:
+                body = await request.body()
+                request_hash = hashlib.sha256(request.url.path.encode() + b"\n" + body).hexdigest()
             context = TenantContext.for_principal(principal)
             now = services.clock.now()
             async with services.uow_factory(context) as uow:

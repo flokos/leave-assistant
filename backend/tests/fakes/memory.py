@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import copy
+import math
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -18,20 +20,29 @@ from uuid import UUID
 from leave_assistant.application.audit.entry import AuditEntry
 from leave_assistant.application.errors import ConflictError
 from leave_assistant.application.idempotency import IdempotencyRecord
+from leave_assistant.application.jobs.models import Job, JobStatus
 from leave_assistant.application.leave.errors import VersionConflict
 from leave_assistant.application.notifications.models import IntegrationEvent, Notification
 from leave_assistant.application.ports import (
+    AclRepository,
     ApprovalRuleRepository,
     ApprovalStepRepository,
     AuditFilter,
     AuditRepository,
     BalanceRow,
+    ChunkRepository,
     DepartmentRepository,
+    DocumentFilter,
+    DocumentRepository,
+    DocumentVersionRepository,
     EmployeeFilter,
     EmployeeRepository,
     HolidayRepository,
     IdempotencyRepository,
+    IndexGenerationRepository,
     IntegrationEventRepository,
+    JobFilter,
+    JobRepository,
     LeavePolicyRepository,
     LeaveRequestRepository,
     LeaveTypeRepository,
@@ -39,9 +50,21 @@ from leave_assistant.application.ports import (
     NotificationRepository,
     RequestEventRepository,
     RequestFilter,
+    ReviewEventRepository,
     TenantRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.domain.documents.fusion import LegHit
+from leave_assistant.domain.documents.types import (
+    AclEntry,
+    Chunk,
+    Document,
+    DocumentVersion,
+    IndexGeneration,
+    ReviewEvent,
+    VersionStatus,
+)
+from leave_assistant.domain.documents.visibility import DocumentScope, Reader, can_read
 from leave_assistant.domain.leave.ledger import LedgerEntry
 from leave_assistant.domain.leave.request import ApprovalStep, LeaveRequest, RequestEventRecord, StepStatus
 from leave_assistant.domain.leave.state_machine import PENDING_STATUSES, RequestStatus
@@ -67,6 +90,13 @@ class MemoryStore:
     notifications: dict[UUID, Notification] = field(default_factory=dict)
     integration_events: list[IntegrationEvent] = field(default_factory=list)
     request_counters: dict[tuple[UUID, int], int] = field(default_factory=dict)
+    documents: dict[UUID, Document] = field(default_factory=dict)
+    document_versions: dict[UUID, DocumentVersion] = field(default_factory=dict)
+    chunks: dict[UUID, Chunk] = field(default_factory=dict)
+    document_acl: dict[UUID, AclEntry] = field(default_factory=dict)
+    review_events: list[ReviewEvent] = field(default_factory=list)
+    index_generations: dict[tuple[UUID, str], IndexGeneration] = field(default_factory=dict)
+    jobs: dict[UUID, Job] = field(default_factory=dict)
 
     def tables(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -598,6 +628,328 @@ class _IntegrationEvents:
         self._s.integration_events.append(event)
 
 
+# --- documents, chunks, jobs (M4) ------------------------------------------------------------------------------
+_QUERY_WORD = re.compile(r"[\w']+", re.UNICODE)
+
+
+def _scope(store: MemoryStore, document: Document) -> DocumentScope:
+    manager_id = None
+    if document.department_id is not None:
+        department = store.departments.get(document.department_id)
+        manager_id = department.manager_employee_id if department else None
+    return DocumentScope(
+        category=document.category,
+        owner_employee_id=document.owner_employee_id,
+        department_id=document.department_id,
+        department_manager_employee_id=manager_id,
+        acl=tuple(a for a in store.document_acl.values() if a.document_id == document.id),
+    )
+
+
+class _Documents:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._s = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[Document]:
+        return [d for d in self._s.documents.values() if d.tenant_id == self._tenant]
+
+    async def get(self, document_id: UUID) -> Document | None:
+        row = self._s.documents.get(document_id)
+        return copy.deepcopy(row) if row and row.tenant_id == self._tenant else None
+
+    async def get_by_title(self, title: str) -> Document | None:
+        for row in self._rows():
+            if row.title == title and row.deleted_at is None:
+                return copy.deepcopy(row)
+        return None
+
+    async def list(
+        self, *, reader: Reader, filters: DocumentFilter, limit: int, after: tuple[datetime, UUID] | None
+    ) -> list[Document]:
+        rows: list[Document] = []
+        for row in sorted(self._rows(), key=lambda d: (d.created_at, d.id)):
+            if row.deleted_at is not None or not _after((row.created_at, row.id), after):
+                continue
+            if not can_read(reader, _scope(self._s, row)):
+                continue
+            if filters.category is not None and row.category is not filters.category:
+                continue
+            if filters.query and filters.query.casefold() not in row.title.casefold():
+                continue
+            if filters.status is not None:
+                versions = [v for v in self._s.document_versions.values() if v.document_id == row.id]
+                current = next((v for v in versions if v.id == row.active_version_id), None) or (
+                    max(versions, key=lambda v: v.version_no) if versions else None
+                )
+                if current is None or current.status is not filters.status:
+                    continue
+            rows.append(copy.deepcopy(row))
+            if len(rows) >= limit:
+                break
+        return rows
+
+    async def add(self, document: Document) -> None:
+        if document.id in self._s.documents:
+            raise ConflictError("duplicate document id")
+        self._s.documents[document.id] = copy.deepcopy(document)
+
+    async def update(self, document: Document, *, expected_version: int) -> None:
+        stored = self._s.documents.get(document.id)
+        if stored is None or stored.tenant_id != self._tenant or stored.version != expected_version:
+            raise VersionConflict("the document was changed by someone else; reload and retry")
+        document.version = expected_version + 1
+        self._s.documents[document.id] = copy.deepcopy(document)
+
+
+class _Versions(_TenantTable[DocumentVersion]):
+    async def get(self, version_id: UUID) -> DocumentVersion | None:
+        row = self._rows_dict.get(version_id)
+        return copy.deepcopy(row) if row and row.tenant_id == self._tenant else None
+
+    async def get_by_number(self, document_id: UUID, version_no: int) -> DocumentVersion | None:
+        for row in self._rows():
+            if row.document_id == document_id and row.version_no == version_no:
+                return copy.deepcopy(row)
+        return None
+
+    async def list_for_document(self, document_id: UUID) -> list[DocumentVersion]:
+        return sorted(
+            (copy.deepcopy(r) for r in self._rows() if r.document_id == document_id),
+            key=lambda v: v.version_no,
+        )
+
+    async def list_for_documents(self, document_ids: Sequence[UUID]) -> dict[UUID, list[DocumentVersion]]:
+        wanted = set(document_ids)
+        result: dict[UUID, list[DocumentVersion]] = {}
+        for row in self._rows():
+            if row.document_id in wanted:
+                result.setdefault(row.document_id, []).append(copy.deepcopy(row))
+        return result
+
+    async def find_by_sha256(self, document_id: UUID, sha256: str) -> DocumentVersion | None:
+        for row in self._rows():
+            if row.document_id == document_id and row.sha256 == sha256:
+                return copy.deepcopy(row)
+        return None
+
+    async def list_by_status(self, statuses: frozenset[VersionStatus]) -> list[DocumentVersion]:
+        return [copy.deepcopy(r) for r in self._rows() if r.status in statuses]
+
+    async def add(self, version: DocumentVersion) -> None:
+        self._check(version)
+        if any(
+            r.document_id == version.document_id and r.version_no == version.version_no for r in self._rows()
+        ):
+            raise ConflictError("duplicate version number")
+        self._rows_dict[version.id] = copy.deepcopy(version)
+
+    async def update(self, version: DocumentVersion) -> None:
+        self._check(version)
+        self._rows_dict[version.id] = copy.deepcopy(version)
+
+
+def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    na = math.sqrt(sum(x * x for x in a)) or 1.0
+    nb = math.sqrt(sum(y * y for y in b)) or 1.0
+    return dot / (na * nb)
+
+
+class _Chunks:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._s = store
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[Chunk]:
+        return [c for c in self._s.chunks.values() if c.tenant_id == self._tenant]
+
+    async def replace_for_version(self, version_id: UUID, chunks: Sequence[Chunk]) -> None:
+        for chunk_id in [c.id for c in self._rows() if c.version_id == version_id]:
+            del self._s.chunks[chunk_id]
+        for chunk in chunks:
+            if chunk.tenant_id != self._tenant:
+                raise ConflictError("tenant mismatch (RLS would reject the row)")
+            self._s.chunks[chunk.id] = copy.deepcopy(chunk)
+
+    async def get(self, chunk_id: UUID) -> Chunk | None:
+        row = self._s.chunks.get(chunk_id)
+        return copy.deepcopy(row) if row and row.tenant_id == self._tenant else None
+
+    async def list_for_version(self, version_id: UUID) -> list[Chunk]:
+        return sorted(
+            (copy.deepcopy(c) for c in self._rows() if c.version_id == version_id), key=lambda c: c.ordinal
+        )
+
+    async def count_for_version(self, version_id: UUID) -> int:
+        return sum(1 for c in self._rows() if c.version_id == version_id)
+
+    async def set_retrievable(self, version_id: UUID, retrievable: bool) -> int:
+        count = 0
+        for chunk in self._rows():
+            if chunk.version_id == version_id and chunk.retrievable != retrievable:
+                chunk.retrievable = retrievable
+                count += 1
+        return count
+
+    def _candidates(self, reader: Reader) -> list[tuple[Chunk, Document]]:
+        out: list[tuple[Chunk, Document]] = []
+        for chunk in self._rows():
+            if not chunk.retrievable:
+                continue
+            version = self._s.document_versions.get(chunk.version_id)
+            if version is None or not version.retrievable:
+                continue
+            document = self._s.documents.get(version.document_id)
+            if document is None or document.deleted_at is not None:
+                continue
+            if can_read(reader, _scope(self._s, document)):
+                out.append((chunk, document))
+        return out
+
+    async def vector_search(self, embedding: Sequence[float], *, reader: Reader, limit: int) -> list[LegHit]:
+        scored = [
+            (_cosine(embedding, c.embedding or []), c, d) for c, d in self._candidates(reader) if c.embedding
+        ]
+        scored.sort(key=lambda t: (-t[0], str(t[1].id)))
+        return [
+            LegHit(c.id, d.id, c.version_id, rank, score)
+            for rank, (score, c, d) in enumerate(scored[:limit], 1)
+        ]
+
+    async def keyword_search(
+        self, query: str, *, language: str | None, reader: Reader, limit: int
+    ) -> list[LegHit]:
+        terms = {t for t in _QUERY_WORD.findall(query.casefold()) if len(t) > 1}
+        scored = []
+        for chunk, document in self._candidates(reader):
+            words = set(_QUERY_WORD.findall(chunk.content.casefold()))
+            hits = len(terms & words)
+            if hits:
+                scored.append((float(hits), chunk, document))
+        scored.sort(key=lambda t: (-t[0], str(t[1].id)))
+        return [
+            LegHit(c.id, d.id, c.version_id, rank, score)
+            for rank, (score, c, d) in enumerate(scored[:limit], 1)
+        ]
+
+
+class _Acl:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._s = store
+        self._tenant = tenant_id
+
+    async def list_for_document(self, document_id: UUID) -> list[AclEntry]:
+        return [
+            copy.deepcopy(a)
+            for a in self._s.document_acl.values()
+            if a.document_id == document_id and a.tenant_id == self._tenant
+        ]
+
+    async def replace_for_document(self, document_id: UUID, entries: Sequence[AclEntry]) -> None:
+        for key in [k for k, a in self._s.document_acl.items() if a.document_id == document_id]:
+            del self._s.document_acl[key]
+        for entry in entries:
+            self._s.document_acl[entry.id] = copy.deepcopy(entry)
+
+
+class _ReviewEvents:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._s = store
+        self._tenant = tenant_id
+
+    async def add(self, event: ReviewEvent) -> None:
+        self._s.review_events.append(copy.deepcopy(event))
+
+    async def list_for_version(self, version_id: UUID) -> list[ReviewEvent]:
+        return [
+            copy.deepcopy(e)
+            for e in self._s.review_events
+            if e.version_id == version_id and e.tenant_id == self._tenant
+        ]
+
+
+class _IndexGenerations:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._s = store
+        self._tenant = tenant_id
+
+    async def get(self, generation: str) -> IndexGeneration | None:
+        if self._tenant is None:
+            return None
+        return self._s.index_generations.get((self._tenant, generation))
+
+    async def upsert(self, generation: IndexGeneration) -> None:
+        self._s.index_generations[(generation.tenant_id, generation.generation)] = generation
+
+    async def list(self) -> list[IndexGeneration]:
+        return [g for (t, _), g in self._s.index_generations.items() if t == self._tenant]
+
+
+class _Jobs:
+    """Platform-level queue (no tenant filter), mirroring `platform.jobs` semantics incl. stale reclaim."""
+
+    def __init__(self, store: MemoryStore) -> None:
+        self._s = store
+
+    async def add(self, job: Job) -> None:
+        self._s.jobs[job.id] = copy.deepcopy(job)
+
+    async def get(self, job_id: UUID) -> Job | None:
+        row = self._s.jobs.get(job_id)
+        return copy.deepcopy(row) if row else None
+
+    async def find_active_by_dedupe(self, dedupe_key: str) -> Job | None:
+        for row in self._s.jobs.values():
+            if row.dedupe_key == dedupe_key and row.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+                return copy.deepcopy(row)
+        return None
+
+    async def claim(
+        self, *, now: datetime, worker_id: str, stale_before: datetime, types: Sequence[str] | None
+    ) -> Job | None:
+        candidates = []
+        for row in self._s.jobs.values():
+            if types is not None and row.type not in types:
+                continue
+            queued = row.status is JobStatus.QUEUED and (row.run_after is None or row.run_after <= now)
+            stale = (
+                row.status is JobStatus.RUNNING and (row.heartbeat_at or row.locked_at or now) < stale_before
+            )
+            if queued or stale:
+                candidates.append(row)
+        if not candidates:
+            return None
+        row = min(candidates, key=lambda r: (r.run_after or r.created_at, r.created_at, str(r.id)))
+        row.status = JobStatus.RUNNING
+        row.locked_by = worker_id
+        row.locked_at = now
+        row.heartbeat_at = now
+        row.attempts += 1
+        row.updated_at = now
+        return copy.deepcopy(row)
+
+    async def update(self, job: Job) -> None:
+        self._s.jobs[job.id] = copy.deepcopy(job)
+
+    async def list(self, *, filters: JobFilter, limit: int) -> list[Job]:
+        rows = [
+            r
+            for r in self._s.jobs.values()
+            if (filters.status is None or r.status is filters.status)
+            and (filters.type is None or r.type == filters.type)
+            and (filters.tenant_id is None or r.tenant_id == filters.tenant_id)
+        ]
+        rows.sort(key=lambda r: (r.created_at, str(r.id)), reverse=True)
+        return [copy.deepcopy(r) for r in rows[:limit]]
+
+    async def counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for row in self._s.jobs.values():
+            counts[row.status.value] = counts.get(row.status.value, 0) + 1
+        return counts
+
+
 class MemoryUnitOfWork:
     leave_types: LeaveTypeRepository
     leave_policies: LeavePolicyRepository
@@ -614,6 +966,13 @@ class MemoryUnitOfWork:
     employees: EmployeeRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
+    documents: DocumentRepository
+    document_versions: DocumentVersionRepository
+    chunks: ChunkRepository
+    document_acl: AclRepository
+    review_events: ReviewEventRepository
+    index_generations: IndexGenerationRepository
+    jobs: JobRepository
 
     def __init__(self, store: MemoryStore, context: TenantContext | None) -> None:
         self._shared = store
@@ -639,6 +998,13 @@ class MemoryUnitOfWork:
         self.ledger = _Ledger(self._work, tenant)
         self.notifications = _Notifications(self._work.notifications, tenant)
         self.integration_events = _IntegrationEvents(self._work, tenant)
+        self.documents = _Documents(self._work, tenant)
+        self.document_versions = _Versions(self._work.document_versions, tenant)
+        self.chunks = _Chunks(self._work, tenant)
+        self.document_acl = _Acl(self._work, tenant)
+        self.review_events = _ReviewEvents(self._work, tenant)
+        self.index_generations = _IndexGenerations(self._work, tenant)
+        self.jobs = _Jobs(self._work)
         return self
 
     async def __aexit__(

@@ -20,6 +20,7 @@ from leave_assistant.infrastructure.db.migrations import upgrade_to_head
 from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
 from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
+from tests.conftest import fake_document_adapters
 from tests.fakes.identity import FakeIdentityAdmin
 from tests.fakes.system import FixedClock, SequentialIds
 from tests.fakes.tokens import AUDIENCE, ISSUER, TestKeys
@@ -35,6 +36,13 @@ ADMIN_URL = os.environ.get("TEST_DATABASE_ADMIN_URL") or (
 OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PASSWORD', 'app-owner-dev')}@{HOST}:{PORT}/{TEST_DB}"
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
+    "platform.jobs",
+    "app.document_chunks",
+    "app.document_review_events",
+    "app.document_acl",
+    "app.index_generations",
+    "app.document_versions",
+    "app.documents",
     "app.integration_events",
     "app.notifications",
     "app.leave_ledger_entries",
@@ -121,5 +129,10 @@ def db_services(
 ) -> Services:
     verifier = TokenVerifier(test_keys.resolver(), issuer=ISSUER, audience=AUDIENCE)
     return Services.build(
-        uow_factory=sql_uow_factory, identity=identity, verifier=verifier, clock=clock, ids=ids
+        uow_factory=sql_uow_factory,
+        identity=identity,
+        verifier=verifier,
+        clock=clock,
+        ids=ids,
+        adapters=fake_document_adapters(dimension=384),
     )

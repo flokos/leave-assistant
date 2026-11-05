@@ -268,7 +268,18 @@ async def test_models_match_migration_including_leave_tables(migrated_database: 
                     else name not in {"alembic_version", "leave_balances"}
                 ),
                 "include_object": lambda obj, name, type_, reflected, compare_to: (
-                    not (type_ == "index" and name == "ex_leave_requests_no_overlap")
+                    not (
+                        type_ == "index"
+                        and name
+                        in {
+                            "ex_leave_requests_no_overlap",
+                            "ix_document_chunks_embedding",
+                            "ix_document_chunks_tsv_el",
+                            "ix_document_chunks_tsv_en",
+                            "ix_document_chunks_tsv_simple",
+                            "uq_jobs_active_dedupe",
+                        }
+                    )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),
             },
         )

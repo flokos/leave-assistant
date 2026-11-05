@@ -67,7 +67,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Exit: Playwright smoke (login as each role; submit → approve flow); Vitest for critical components; no business
   logic in the frontend (review checklist).
 
-### M4 — Document platform (L)
+### M4 — Document platform (L) — **done 2026-11-05** (worklog: `docs/development/worklog/M4.md`)
 - Storage port + SeaweedFS adapter + local adapter; upload endpoints with validation; document/version tables;
   jobs table + worker process (+ embedded mode); Docling parser with Tesseract CLI OCR (fixture PDFs incl. a scanned
   Greek page); structure normalisation; chunker (tests with EL/EN fixtures); e5 embeddings; pgvector + FTS indexing;

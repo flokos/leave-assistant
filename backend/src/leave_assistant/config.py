@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -50,6 +52,25 @@ class Settings(BaseSettings):
         5.0  # per dependency check; Keycloak's first response after start can be slow
     )
 
+    # Documents, ingestion and retrieval — M4 (doc 05, ADR-0013/0015/0016/0019)
+    max_upload_mb: int = 25
+    max_document_pages: int = 500
+    document_process_timeout_seconds: float = 900.0  # wall clock per job in the worker's child process
+    job_max_attempts: int = 3
+    job_heartbeat_seconds: float = 30.0
+    job_stale_after_seconds: float = 1800.0  # a running job without heartbeat for this long is reclaimed
+    worker_max_jobs_per_iteration: int = 10
+    embedding_model: str = "intfloat/multilingual-e5-small"
+    embedding_model_revision: str = "614241f622f53c4eeff9890bdc4f31cfecc418b3"  # pinned (ADR-0013)
+    embedding_batch_size: int = 32
+    docling_artifacts_path: str | None = None  # default: $HF_HOME/docling when HF_HOME is set
+    ocr_languages: str = "ell,eng"
+    torch_threads: int = 2  # the API embeds queries only
+    worker_torch_threads: int = 4
+    chunking_rules_version: str = "v1"
+    retrieval_k: int = 10
+    retrieval_leg_size: int = 30
+
     # Feature flags — doc 03 §7
     retrieval_backend: Literal["pgvector", "chroma"] = "pgvector"
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
@@ -61,6 +82,17 @@ class Settings(BaseSettings):
     @property
     def llm_providers(self) -> list[str]:
         return [p.strip() for p in self.llm_provider_order.split(",") if p.strip()]
+
+    @property
+    def ocr_language_list(self) -> list[str]:
+        return [lang.strip() for lang in self.ocr_languages.split(",") if lang.strip()]
+
+    @property
+    def docling_artifacts_dir(self) -> str | None:
+        if self.docling_artifacts_path:
+            return self.docling_artifacts_path
+        hf_home = os.environ.get("HF_HOME")
+        return str(Path(hf_home) / "docling") if hf_home else None
 
     @property
     def keycloak_issuer(self) -> str:

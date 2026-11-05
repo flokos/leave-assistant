@@ -1,4 +1,4 @@
-"""The application services wired by the composition root (main.py) and consumed by the API layer."""
+"""The application services wired by the composition root (main.py / worker) and consumed by the API layer."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from leave_assistant.application.audit.service import AuditService
+from leave_assistant.application.documents.ingestion import IngestionPipeline
+from leave_assistant.application.documents.service import DocumentLimits, DocumentService
 from leave_assistant.application.identity.claims import TokenClaims
+from leave_assistant.application.jobs.service import JobService
 from leave_assistant.application.leave.approvals import ApprovalService
 from leave_assistant.application.leave.catalog import LeaveCatalogService
 from leave_assistant.application.leave.ledger import LedgerService
@@ -15,14 +18,52 @@ from leave_assistant.application.leave.requests import LeaveRequestService, Requ
 from leave_assistant.application.leave.rollover import RolloverService
 from leave_assistant.application.leave.team import TeamService
 from leave_assistant.application.notifications.service import NotificationService
-from leave_assistant.application.ports import Clock, IdentityAdmin, IdGenerator, UnitOfWorkFactory
+from leave_assistant.application.ports import (
+    Clock,
+    DocumentParser,
+    DocumentStorage,
+    EmbeddingModel,
+    IdentityAdmin,
+    IdGenerator,
+    LanguageDetector,
+    PiiScanner,
+    RiskScanner,
+    Tokenizer,
+    UnitOfWorkFactory,
+)
+from leave_assistant.application.retrieval.service import RetrievalService
 from leave_assistant.application.tenancy.departments import DepartmentService
 from leave_assistant.application.tenancy.employees import EmployeeService
 from leave_assistant.application.tenancy.provisioning import TenantProvisioningService
+from leave_assistant.domain.documents.chunking import ChunkingRules
 
 
 class TokenVerifierPort(Protocol):
     async def verify(self, token: str) -> TokenClaims: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentAdapters:
+    """The M4 adapters (storage, parsing, ML, scanning) — real ones in the runtime, fakes in tests."""
+
+    storage: DocumentStorage
+    parser: DocumentParser
+    tokenizer: Tokenizer
+    embedder: EmbeddingModel
+    language: LanguageDetector
+    risk_scanner: RiskScanner
+    pii_scanner: PiiScanner
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentOptions:
+    max_upload_mb: int = 25
+    max_pages: int = 500
+    chunking_rules_version: str = "v1"
+    job_max_attempts: int = 3
+    job_stale_after_seconds: float = 1800.0
+    retrieval_leg_size: int = 30
+    retrieval_k: int = 10
 
 
 @dataclass(slots=True)
@@ -32,6 +73,8 @@ class Services:
     verifier: TokenVerifierPort
     clock: Clock
     ids: IdGenerator
+    adapters: DocumentAdapters
+    options: DocumentOptions
     audit: AuditService
     provisioning: TenantProvisioningService
     employees: EmployeeService
@@ -43,6 +86,10 @@ class Services:
     team: TeamService
     notifications: NotificationService
     rollover: RolloverService
+    jobs: JobService
+    documents: DocumentService
+    ingestion: IngestionPipeline
+    retrieval: RetrievalService
 
     @classmethod
     def build(
@@ -53,19 +100,32 @@ class Services:
         verifier: TokenVerifierPort,
         clock: Clock,
         ids: IdGenerator,
+        adapters: DocumentAdapters,
+        options: DocumentOptions | None = None,
     ) -> Services:
+        options = options or DocumentOptions()
         audit = AuditService(clock, ids)
         planner = RoutingPlanner(clock)
         notifications = NotificationService(uow_factory, ids, clock)
         ledger = LedgerService(uow_factory, ids, clock, audit)
         workflow = RequestWorkflow(ids, clock, audit, notifications, ledger, planner)
         leave_requests = LeaveRequestService(uow_factory, workflow)
+        jobs = JobService(
+            uow_factory,
+            ids,
+            clock,
+            max_attempts=options.job_max_attempts,
+            stale_after_seconds=options.job_stale_after_seconds,
+        )
+        rules = ChunkingRules(version=options.chunking_rules_version)
         return cls(
             uow_factory=uow_factory,
             identity=identity,
             verifier=verifier,
             clock=clock,
             ids=ids,
+            adapters=adapters,
+            options=options,
             audit=audit,
             provisioning=TenantProvisioningService(uow_factory, identity, ids, clock, audit),
             employees=EmployeeService(uow_factory, identity, ids, clock, audit),
@@ -77,4 +137,49 @@ class Services:
             team=TeamService(uow_factory),
             notifications=notifications,
             rollover=RolloverService(uow_factory, ids, clock, audit, ledger),
+            jobs=jobs,
+            documents=DocumentService(
+                uow_factory,
+                adapters.storage,
+                ids,
+                clock,
+                audit,
+                jobs,
+                limits=DocumentLimits(max_upload_mb=options.max_upload_mb, max_pages=options.max_pages),
+            ),
+            ingestion=IngestionPipeline(
+                uow_factory,
+                adapters.storage,
+                adapters.parser,
+                adapters.tokenizer,
+                adapters.embedder,
+                adapters.language,
+                adapters.risk_scanner,
+                adapters.pii_scanner,
+                ids,
+                clock,
+                audit,
+                notifications,
+                rules=rules,
+                max_pages=options.max_pages,
+            ),
+            retrieval=RetrievalService(
+                uow_factory,
+                adapters.embedder,
+                adapters.language,
+                leg_size=options.retrieval_leg_size,
+                default_k=options.retrieval_k,
+            ),
+        )
+
+    def with_clock(self, clock: Clock) -> Services:
+        """The same adapters with another clock (the seed submits sample data 'in the past')."""
+        return Services.build(
+            uow_factory=self.uow_factory,
+            identity=self.identity,
+            verifier=self.verifier,
+            clock=clock,
+            ids=self.ids,
+            adapters=self.adapters,
+            options=self.options,
         )
