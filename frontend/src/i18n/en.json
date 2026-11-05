@@ -1,40 +1,73 @@
 {
-  "app": {
-    "title": "Leave Assistant",
-    "language": "Language"
+  "app": { "title": "Leave Assistant", "language": "Language" },
+  "nav": {
+    "employee": "Employee", "manager": "Manager", "hr": "HR", "companyAdmin": "Company administration", "platform": "Platform", "system": "System",
+    "myLeave": "My leave", "notifications": "Notifications", "approvals": "Approvals", "teamAvailability": "Team availability", "teamRequests": "Team requests",
+    "employees": "Employees", "departments": "Departments", "leaveCatalog": "Leave types & policies", "holidays": "Public holidays", "approvalRules": "Approval rules",
+    "balances": "Balances", "audit": "Audit log", "tenants": "Companies", "platformAudit": "Platform audit", "status": "Status"
   },
-  "system": {
-    "title": "System status",
-    "liveness": "API liveness",
-    "readiness": "Readiness checks",
-    "ok": "OK",
-    "failed": "Failed",
-    "loading": "Checking…",
-    "unreachable": "The API is not reachable.",
-    "version": "Version",
-    "environment": "Environment"
+  "auth": { "signIn": "Sign in", "signOut": "Sign out", "loading": "Signing in…", "signInTitle": "Sign in to continue", "signInHint": "You will be redirected to the company login page." },
+  "me": { "title": "Signed-in identity", "signedOut": "Sign in to see your tenant, roles and employee record.", "user": "User", "roles": "Roles", "tenant": "Company", "employee": "Employee", "locale": "Locale", "noTenant": "No company (platform administrator)" },
+  "roles": { "employee": "Employee", "manager": "Manager", "hr_admin": "HR Administrator", "company_admin": "Company Administrator", "platform_admin": "Platform Administrator", "automation": "Automation" },
+  "system": { "title": "System status", "liveness": "API liveness", "readiness": "Readiness checks", "ok": "OK", "failed": "Failed", "loading": "Checking…", "unreachable": "The API is not reachable.", "version": "Version", "environment": "Environment" },
+  "errors": { "unexpected": "Something went wrong.", "requestId": "Request id", "forbiddenTitle": "Not available for your role", "forbiddenHint": "This area is reserved for other roles. Every action is checked by the server as well.", "notFound": "Not found" },
+  "common": {
+    "save": "Save", "cancel": "Cancel", "create": "Create", "edit": "Edit", "delete": "Delete", "close": "Close", "confirm": "Confirm", "yes": "Yes", "no": "No", "actions": "Actions",
+    "loading": "Loading…", "none": "None", "refresh": "Refresh", "search": "Search", "from": "From", "to": "To", "year": "Year", "all": "All", "submit": "Submit", "back": "Back", "next": "Next", "done": "Done",
+    "comment": "Comment", "reason": "Reason", "required": "Required", "optional": "Optional", "name": "Name", "code": "Code", "date": "Date", "status": "Status", "type": "Type", "days": "Days",
+    "version": "Version", "email": "E-mail", "firstName": "First name", "lastName": "Last name", "department": "Department", "employeeNumber": "Employee number", "locale": "Locale", "hireDate": "Hire date",
+    "active": "Active", "inactive": "Inactive", "created": "Created", "updated": "Updated", "priority": "Priority", "steps": "Steps", "copy": "Copy", "copied": "Copied", "details": "Details", "when": "When", "who": "Who", "what": "What", "outcome": "Outcome"
   },
-  "auth": {
-    "signIn": "Sign in",
-    "signOut": "Sign out",
-    "loading": "Signing in…"
+  "status": {
+    "DRAFT": "Draft", "SUBMITTED": "Submitted", "PENDING_MANAGER": "Pending manager", "PENDING_HR": "Pending HR", "APPROVED": "Approved", "ACTIVE": "Active", "COMPLETED": "Completed",
+    "REJECTED": "Rejected", "CANCELLED": "Cancelled", "WITHDRAWN": "Withdrawn", "MODIFICATION_PENDING": "Modification pending",
+    "pending": "Pending", "approved": "Approved", "rejected": "Rejected", "skipped": "Skipped", "cancelled": "Cancelled", "active": "Active", "inactive": "Inactive", "suspended": "Suspended"
   },
-  "me": {
-    "title": "Signed-in identity",
-    "signedOut": "Sign in to see your tenant, roles and employee record.",
-    "user": "User",
-    "roles": "Roles",
-    "tenant": "Company",
-    "employee": "Employee",
-    "locale": "Locale",
-    "noTenant": "No company (platform administrator)"
+  "leaveTypes": { "annual": "Annual leave", "sick": "Sick leave", "unpaid": "Unpaid leave" },
+  "stepRoles": { "manager": "Manager", "hr": "HR" },
+  "leave": {
+    "title": "My leave", "balances": "Balances {{year}}", "available": "Available", "pending": "Pending", "balance": "Balance", "newRequest": "New request", "history": "My requests",
+    "requestNumber": "Request", "workingDays": "Working days", "excludedDates": "Excluded dates", "approvalChain": "Approval chain", "autoAcknowledged": "Auto-acknowledged (no approval step)",
+    "balanceAfter": "Available after this request", "violations": "This request cannot be submitted", "warnings": "Notes", "validate": "Check", "submit": "Submit request", "submitted": "Request {{number}} submitted — status {{status}}.",
+    "modify": "Modify", "cancel": "Cancel request", "cancelConfirm": "Cancel this request?", "modifyTitle": "Modify dates", "details": "Request details", "stepsTitle": "Approval steps", "eventsTitle": "History",
+    "noRequests": "No requests yet.", "selectType": "Leave type", "selectDates": "Dates", "reasonPlaceholder": "Optional reason (visible to approvers for annual and unpaid leave only)",
+    "stepForm": "Details", "stepReview": "Check", "stepResult": "Result", "weekend": "weekend", "holiday": "holiday", "noBalance": "no balance (not balance-bearing)", "filterStatus": "Filter by status",
+    "manager": "Manager", "hr": "HR", "designatedTo": "Designated to", "decidedBy": "Decided by", "fallback": "HR fallback", "dates": "Dates", "requestedOn": "Requested on"
   },
-  "roles": {
-    "employee": "Employee",
-    "manager": "Manager",
-    "hr_admin": "HR Administrator",
-    "company_admin": "Company Administrator",
-    "platform_admin": "Platform Administrator",
-    "automation": "Automation"
+  "approvals": { "title": "Pending approvals", "noPending": "Nothing to approve.", "approve": "Approve", "reject": "Reject", "decisionTitle": "Decision on {{number}}", "commentRequired": "A comment is required when rejecting.", "fallbackTag": "HR fallback", "requester": "Requester", "step": "Step", "decided": "Decision recorded: {{status}}" },
+  "team": { "availability": "Team availability", "requests": "Team requests", "employees": "Employees", "noAbsences": "No absences in this period.", "absence": "Absence", "range": "Period", "employee": "Employee", "absenceOnly": "Absence" },
+  "notifications": {
+    "title": "Notifications", "unreadOnly": "Unread only", "markRead": "Mark read", "markAllRead": "Mark all read", "none": "No notifications.",
+    "types": {
+      "request.submitted": "Your request {{request_number}} was submitted ({{status}}).",
+      "approval.pending": "Request {{request_number}} ({{leave_type}}, {{start_date}} – {{end_date}}, {{working_days}} days) awaits your decision (step {{step_no}}, {{approver_role}}).",
+      "request.approved": "Request {{request_number}} was approved.",
+      "request.rejected": "Request {{request_number}} was rejected.",
+      "request.cancelled": "Request {{request_number}} was cancelled.",
+      "sick.auto_acknowledged": "Sick leave {{request_number}} ({{start_date}} – {{end_date}}) was acknowledged automatically."
+    }
+  },
+  "admin": {
+    "employees": "Employees", "newEmployee": "New employee", "editEmployee": "Edit employee", "deactivate": "Deactivate", "deactivateConfirm": "Deactivate this employee? The account is disabled immediately.", "rolesTitle": "Roles", "setRoles": "Set roles",
+    "temporaryPassword": "Temporary password", "temporaryPasswordHint": "Shown once — pass it to the employee; a password change is required at first login.", "managerOverride": "Manager override",
+    "departments": "Departments", "newDepartment": "New department", "editDepartment": "Edit department", "manager": "Manager", "setManager": "Set manager", "noManager": "No manager", "deleteDepartmentConfirm": "Delete this department? Only possible when it has no employees.",
+    "leaveTypes": "Leave types", "newLeaveType": "New leave type", "editLeaveType": "Edit leave type", "balanceBearing": "Balance-bearing", "retroactiveDays": "Retroactive days allowed", "documentAboveDays": "Document required above (days)", "nameEl": "Name (EL)", "nameEn": "Name (EN)",
+    "policies": "Policies", "newPolicy": "New policy", "editPolicy": "Edit policy", "entitlement": "Entitlement (days)", "carryoverMax": "Carry-over cap (days)", "carryoverExpires": "Carry-over expires on", "allowNegative": "Allow negative balance", "minNotice": "Minimum notice (days)", "maxConsecutive": "Max consecutive working days", "prorate": "Pro-rate on hire", "grantMode": "Grant mode",
+    "holidays": "Public holidays", "newHoliday": "New holiday", "importCsv": "Import CSV", "importHint": "Columns: date (YYYY-MM-DD), name_el, name_en[, recurring]. Existing dates are skipped.", "recurring": "Recurring", "imported": "{{count}} holidays imported.", "deleteHolidayConfirm": "Delete this holiday?",
+    "rules": "Approval rules", "newRule": "New rule", "editRule": "Edit rule", "minDays": "Min working days", "maxDays": "Max working days", "requiresDocument": "Requires document", "autoAcknowledge": "Auto-acknowledge", "anyType": "Any type", "simulate": "Simulate", "simulateTitle": "Simulate routing", "deleteRuleConfirm": "Delete this rule?",
+    "balances": "Balances", "adjustment": "Ledger adjustment", "postAdjustment": "Post adjustment", "quantity": "Quantity (days, signed)", "periodYear": "Period year", "effectiveDate": "Effective date", "adjustmentPosted": "Adjustment posted.",
+    "audit": "Audit log", "action": "Action", "actor": "Actor", "resource": "Resource", "noEntries": "No entries."
+  },
+  "platform": {
+    "tenants": "Companies", "newTenant": "New company", "slug": "Slug", "timezone": "Timezone", "defaultLocale": "Default language", "suspend": "Suspend", "resume": "Resume", "suspendConfirm": "Suspend this company? Its users cannot sign in until it is resumed.",
+    "bootstrap": "Create first administrator", "bootstrapTitle": "First Company Administrator for {{name}}", "bootstrapDone": "Administrator {{username}} created. Temporary password (shown once):", "audit": "Platform audit"
+  },
+  "problems": {
+    "leave/invalid-dates": "Invalid dates", "leave/overlap": "Overlapping request", "leave/insufficient-balance": "Insufficient balance", "leave/notice-period": "Notice period not respected",
+    "leave/max-consecutive": "Too many consecutive days", "leave/retroactive-not-allowed": "Past dates are not allowed for this leave type", "leave/document-required": "A supporting document is required",
+    "leave/invalid-state": "Not allowed in the current state", "leave/no-approval-rule": "No approval rule configured", "approval/step-not-pending": "This step is not awaiting a decision",
+    "approval/not-permitted": "You are not allowed to decide this step", "approval/segregation-of-duties": "The same person cannot decide both steps", "version-conflict": "The record changed in the meantime — reload and retry",
+    "idempotency-mismatch": "Duplicate request with different content", "authorization-denied": "Not permitted", "authentication-required": "Please sign in", "not-found": "Not found", "conflict": "Conflict",
+    "validation-error": "Validation error", "tenant/suspended": "The company is suspended", "department/not-empty": "The department still has employees", "service-unavailable": "A dependency is unavailable", "http": "Request failed"
   }
 }

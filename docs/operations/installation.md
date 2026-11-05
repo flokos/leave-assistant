@@ -21,7 +21,8 @@ make bootstrap      # applies the database migrations and seeds the two fictiona
 make smoke          # liveness + readiness through the frontend proxy (readyz reports `schema` until migrated)
 ```
 Then open:
-- http://localhost:8080 — the application: sign in with a seed user (below), the status page shows your principal
+- http://localhost:8080 — the application: sign in with a seed user (below); the workspace menu follows your roles
+  (`/system` shows the service status and your principal)
 - http://localhost:8081 — Keycloak admin console (`KC_BOOTSTRAP_ADMIN_USERNAME` / `KC_BOOTSTRAP_ADMIN_PASSWORD`);
   realm `leave-assistant` is imported from `deploy/keycloak/leave-assistant-realm.json`
 - http://localhost:8025 — Mailpit (captured e-mail)
@@ -41,6 +42,18 @@ Then open:
 
 The full list is in `backend/src/leave_assistant/seed/data.py`. `make token EMAIL=<user>` prints an access token for
 `curl` (dev realm: direct access grants are enabled on the SPA client for this purpose only).
+
+### What each role sees (M3)
+| Role | Workspace menu |
+|------|----------------|
+| Employee | *My leave* (balances, request wizard: check → submit, history, request detail with modify/cancel), *Notifications* |
+| Manager | + *Approvals* (approve/reject with comment), *Team availability*, *Team requests* |
+| HR Administrator | the manager pages (HR-fallback steps flagged) + *Balances* (with ledger adjustments) and *Audit log* |
+| Company Administrator | *Employees* (create → one-time temporary password, edit, roles, deactivate), *Departments* (manager designation), *Leave types & policies*, *Public holidays* (incl. CSV import), *Approval rules* (incl. routing simulation), *Balances*, *Audit log* |
+| Platform Administrator | *Companies* (create, suspend/resume, first administrator → one-time password), *Platform audit* |
+
+The menu is a convenience only: the API authorises every call (FR-UI-04), and opening a route of another role shows
+a polite notice. EN/EL is switched in the header; the choice is remembered per browser.
 
 ### Creating a company by hand (Platform Administrator)
 ```bash
@@ -97,8 +110,13 @@ make test-unit      # pytest with coverage + vitest (no infrastructure needed)
 make test-integration  # DB integration + security suites against the running stack (creates database `leave_test`)
 make rollover       # leave status rollover + ledger calendar for all tenants now
 make contract       # regenerate docs/api/openapi.json + frontend/src/api/schema.d.ts and fail on drift
+make test-e2e       # Playwright smoke (role logins, submit → approve → cancel, admin holiday) against the running stack
 make up-dev         # core profile with hot reload; api also published on http://localhost:8000
 ```
+`make test-e2e` needs the stack up and bootstrapped (`make up` or `make up-staged`, then `make bootstrap`) and a
+Playwright Chromium (`cd frontend && npx playwright install chromium`, once). Screenshots and traces land in
+`frontend/e2e/artifacts/` (gitignored). The suite leaves the seed data reusable (the request it creates is cancelled,
+the holiday it adds is deleted).
 Frontend dev server: `cd frontend && npm run dev` (proxies `/api` to `localhost:8000`; login redirects to
 `http://localhost:5173/`, which the realm allows). Migrations run with `make migrate` (inside the api container) or
 `cd backend && DATABASE_OWNER_URL=postgresql+psycopg://app_owner:app-owner-dev@127.0.0.1:5432/leave uv run alembic upgrade head`

@@ -60,7 +60,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   simulation endpoint matches the engine; idempotency tests; ledger invariants; seed includes balances and a few
   requests in various states.
 
-### M3 — Frontend foundation (M)
+### M3 — Frontend foundation (M) — **done 2026-11-05** (worklog: `docs/development/worklog/M3.md`)
 - Auth (PKCE), layout, role-based navigation, i18n (EL/EN), generated API client, error handling.
 - Employee: balance, request wizard (validate → submit), history; Manager: pending approvals, team availability;
   Company admin: employees, departments, holidays, approval rules, policies; Platform admin: tenants.

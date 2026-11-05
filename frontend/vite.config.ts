@@ -10,7 +10,9 @@ export default defineConfig({
     proxy: { '/api': { target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000', changeOrigin: true } },
   },
   test: {
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     environment: 'jsdom',
+    testTimeout: 20_000, // Ant Design tables/modals under jsdom take 4–6 s on the 4-core dev host
     setupFiles: ['./src/test-setup.ts'],
     globals: false,
   },

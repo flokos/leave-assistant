@@ -79,8 +79,8 @@ describe('MePanel', () => {
     })
     expect(await screen.findByText(/AEG-004/)).toBeInTheDocument()
     expect(screen.getByText('Aegean Logistics S.A. (aegean, Europe/Athens)')).toBeInTheDocument()
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-123')
+    const [request] = fetchMock.mock.calls[0] as [Request]
+    expect(request.headers.get('Authorization')).toBe('Bearer token-123')
   })
 
   it('shows the problem title on an API error', async () => {

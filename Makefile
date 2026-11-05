@@ -5,7 +5,7 @@ COMPOSE_DEV := $(COMPOSE) -f deploy/compose.dev.yaml
 UV := uv
 NPM := npm
 
-.PHONY: help setup env lint test-unit test-integration contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover token precommit clean
+.PHONY: help setup env lint test-unit test-integration test-e2e contract build up up-staged up-dev down ps logs smoke stats migrate seed bootstrap rollover token precommit clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -27,6 +27,9 @@ test-unit: ## backend pytest (with coverage) and frontend vitest
 
 test-integration: ## integration + security suites against the running stack (postgres 127.0.0.1:5432, keycloak :8081, api via :8080)
 	set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync pytest -m "integration or keycloak" --no-cov
+
+test-e2e: ## Playwright smoke against the running stack (make up-staged && make bootstrap first)
+	set -a && . ./deploy/.env && set +a && cd frontend && $(NPM) run --silent test:e2e
 
 contract: ## regenerate docs/api/openapi.json and the frontend types; fail if either changed
 	cd backend && $(UV) run --no-sync python -m leave_assistant.openapi > ../docs/api/openapi.json

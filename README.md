@@ -4,7 +4,7 @@ A multilingual (Greek/English), multi-tenant leave-management assistant that let
 and request leave in natural language, while deterministic backend services own identity, tenancy, business rules,
 approvals, execution and audit. The LLM coordinates; the backend decides.
 
-**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed) and M2 (leave domain) done; next M3 (frontend foundation).** The architecture package in
+**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed), M2 (leave domain) and M3 (frontend foundation) done; next M4 (document platform).** The architecture package in
 [`docs/`](docs/README.md) was completed first, as the project brief requires; code is added milestone by milestone
 (roadmap in [docs/12](docs/12-implementation-roadmap.md)).
 
@@ -38,7 +38,7 @@ Details, profiles and troubleshooting: [docs/operations/installation.md](docs/op
 ```
 docs/        architecture package, ADRs, (later) operations, evaluation and development logs
 backend/     FastAPI application, LangGraph agent, worker          (M0: skeleton, health endpoints, worker loop)
-frontend/    React + TypeScript SPA                                   (M0: shell, i18n, status page; M1: PKCE login, /me)
+frontend/    React + TypeScript SPA                                   (M0: shell, i18n; M1: PKCE login; M3: role workspaces, E2E)
 deploy/      Docker Compose, Keycloak realm export, init scripts      (M0: core profile)
 automation/  n8n workflows as JSON                                    (from M8)
 evaluation/  datasets and evaluation harness (own Python project)     (from M9)

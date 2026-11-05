@@ -1,6 +1,6 @@
 # ADR-0024 — Frontend: React 19 + TypeScript + Vite + Ant Design + react-oidc-context; no business logic
 
-**Status:** Accepted (baseline v0.1, 2026-11-04)
+**Status:** Accepted (baseline v0.1, 2026-11-04) · amended 2026-11-05 (M3: runtime client, session storage, E2E)
 
 ## Context
 Brief §11 selects React + TypeScript (over Streamlit), a professional enterprise interface with five role
@@ -13,8 +13,11 @@ Greek locale out of the box, and keeps the frontend a pure renderer of backend d
 ## Decision
 Vite 8 + React 19 + TypeScript; **Ant Design 6** (MIT; `el_GR`/`en_US` locales; peer React ≥18); `react-oidc-context`
 + `oidc-client-ts` for PKCE login and silent renew; TanStack Query for server state; `react-i18next` for i18n; a
-client generated from the backend OpenAPI document (`openapi-typescript`); SSE consumption via `fetch` streams.
-Role-based routing is cosmetic; every decision is re-checked by the backend. Node 24 LTS for builds (Vite requires
+client generated from the backend OpenAPI document (`openapi-typescript` for the types, `openapi-fetch` as the typed
+runtime over `fetch`, with middleware for the bearer token, a fresh `Idempotency-Key` per state-changing call and
+RFC 9457 problem mapping); SSE consumption via `fetch` streams. Role-based routing is cosmetic; every decision is
+re-checked by the backend. Route-level code splitting (`React.lazy` per workspace). E2E smoke with `@playwright/test`
+against the Compose stack (`make test-e2e`, Chromium; not in CI — Q-13). Node 24 LTS for builds (Vite requires
 ≥ 20.19/22.12); production image = nginx serving the build and proxying `/api`.
 
 ## Alternatives considered
@@ -29,7 +32,9 @@ Fast delivery of admin UIs; typed API client prevents drift; one OIDC configurat
 Ant Design's bundle size (acceptable locally); design customisation requires theme tokens.
 
 ## Security implications
-Tokens in memory (no localStorage persistence of access tokens); same-origin API; CSP headers from nginx.
+The OIDC session (tokens) is kept by `oidc-client-ts` in **`sessionStorage`** — per tab, cleared when the tab closes,
+never `localStorage`; the API client reads the access token through an in-memory getter and never persists it
+itself. Same-origin API; CSP headers from nginx. A 401 from the API triggers a new sign-in redirect.
 
 ## Operational complexity
 Build stage in Docker; no runtime Node process.
