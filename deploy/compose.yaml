@@ -67,6 +67,10 @@ x-backend-env: &backend-env
   MOCK_CALENDAR_FAIL_MODE: ${MOCK_CALENDAR_FAIL_MODE:-none}
   MAIL_FROM_DOMAIN: ${MAIL_FROM_DOMAIN:-leave.local}
   PLATFORM_ALERT_EMAIL: ${PLATFORM_ALERT_EMAIL:-platform-alerts@leave.local}
+  # M9 — evaluation and observability (doc 11, ADR-0011/0014/0022)
+  RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
+  CHROMA_URL: http://chroma:8000
+  LANGFUSE_HOST: http://langfuse-web:3000
 
 # n8n (automation profile, M8 — doc 06). Execution-data hygiene per doc 06 §2: rendered e-mails are not kept.
 x-n8n-env: &n8n-env
@@ -87,6 +91,36 @@ x-n8n-env: &n8n-env
   EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
   EXECUTIONS_DATA_PRUNE: "true"
   EXECUTIONS_DATA_MAX_AGE: "168"
+
+# Langfuse (observability profile, M9 — ADR-0022): shared by web and worker.
+x-langfuse-env: &langfuse-env
+  DATABASE_URL: postgresql://langfuse:${LANGFUSE_DB_PASSWORD}@postgres:5432/langfuse
+  SALT: ${LANGFUSE_SALT:-}
+  ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-}
+  TELEMETRY_ENABLED: "false"
+  LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+  CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: langfuse
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  REDIS_HOST: valkey
+  REDIS_PORT: "6379"
+  REDIS_AUTH: ${VALKEY_PASSWORD:-}
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY:-}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_KEY:-}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://seaweedfs:8333
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: us-east-1
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY:-}
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_KEY:-}
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://seaweedfs:8333
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
 
 services:
   postgres:
@@ -166,6 +200,8 @@ services:
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
+      LANGFUSE_S3_ACCESS_KEY: ${LANGFUSE_S3_ACCESS_KEY:-}   # M9: Langfuse's own identity, bucket `langfuse` only
+      LANGFUSE_S3_SECRET_KEY: ${LANGFUSE_S3_SECRET_KEY:-}
     volumes:
       - seaweed:/data
       - ./seaweedfs/entrypoint.sh:/config/entrypoint.sh:ro
@@ -340,6 +376,143 @@ services:
           memory: ${N8N_MEMORY_LIMIT:-1G}
     networks: [edge, internal]
 
+  # --- eval profile (M9, ADR-0011): Chroma for the retrieval comparison only ------------------------------------
+  chroma:
+    image: chromadb/chroma:1.5.9
+    profiles: [eval]
+    ports:
+      - "127.0.0.1:${CHROMA_PORT:-8100}:8000"   # the host-side harness (make eval-offline)
+    volumes:
+      - chroma:/data
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    networks: [internal, edge]
+
+  # --- observability profile (M9, ADR-0022): Langfuse v4 ------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.3.62.3
+    profiles: [observability]
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./clickhouse/low-memory-config.xml:/etc/clickhouse-server/config.d/low-memory.xml:ro
+      - ./clickhouse/low-memory-users.xml:/etc/clickhouse-server/users.d/low-memory.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${CLICKHOUSE_MEMORY_LIMIT:-1G}
+    networks: [internal]
+
+  valkey:
+    image: valkey/valkey:8.1.11-alpine
+    profiles: [observability]
+    command: ["sh", "-c", "exec valkey-server --requirepass \"$$VALKEY_PASSWORD\" --maxmemory 96mb --maxmemory-policy noeviction"]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks: [internal]
+
+  langfuse-bucket:   # one-shot: the S3 bucket for Langfuse events and media (backend image: boto3 is there)
+    image: leave-assistant/backend:dev
+    profiles: [observability]
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import os, boto3
+        s3 = boto3.client("s3", endpoint_url="http://seaweedfs:8333", region_name="us-east-1",
+                          aws_access_key_id=os.environ["KEY"], aws_secret_access_key=os.environ["SECRET"])
+        existing = {b["Name"] for b in s3.list_buckets().get("Buckets", [])}
+        if "langfuse" not in existing:
+            s3.create_bucket(Bucket="langfuse")
+        print("bucket langfuse ready")
+    environment:
+      KEY: ${LANGFUSE_S3_ACCESS_KEY:-}
+      SECRET: ${LANGFUSE_S3_SECRET_KEY:-}
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    networks: [internal]
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:4.76.0
+    profiles: [observability]
+    environment:
+      <<: *langfuse-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      langfuse-bucket:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${LANGFUSE_WORKER_MEMORY_LIMIT:-640M}
+    networks: [internal]
+
+  langfuse-web:
+    image: langfuse/langfuse:4.76.0
+    profiles: [observability]
+    environment:
+      <<: *langfuse-env
+      NEXTAUTH_URL: http://localhost:${LANGFUSE_PORT:-3000}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:8333
+      LANGFUSE_S3_MEDIA_UPLOAD_INTERNAL_ENDPOINT: http://seaweedfs:8333
+      AUTH_DISABLE_SIGNUP: "true"
+      NODE_OPTIONS: --max-old-space-size=${LANGFUSE_WEB_HEAP_MB:-1024}   # the default heap ran out at start (M9)
+      HOSTNAME: 0.0.0.0   # Next.js binds to $HOSTNAME; the container's own name resolves to one of its two networks
+      # headless initialisation: organisation, project, API keys (the backend's LANGFUSE_PUBLIC/SECRET_KEY), owner
+      LANGFUSE_INIT_ORG_ID: leave-assistant
+      LANGFUSE_INIT_ORG_NAME: Leave Assistant
+      LANGFUSE_INIT_PROJECT_ID: leave-assistant
+      LANGFUSE_INIT_PROJECT_NAME: Leave Assistant
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-observability@leave.local}
+      LANGFUSE_INIT_USER_NAME: Observability
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${LANGFUSE_PORT:-3000}:3000"   # UI and public API on localhost only (ADR-0022)
+    depends_on:
+      langfuse-worker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/public/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${LANGFUSE_WEB_MEMORY_LIMIT:-1280M}
+    networks: [internal, edge]
+
 networks:
   edge:
   internal:
@@ -350,3 +523,6 @@ volumes:
   models:
   mailpit:
   n8n:
+  chroma:
+  clickhouse-data:
+  clickhouse-logs:

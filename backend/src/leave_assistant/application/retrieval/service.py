@@ -1,5 +1,6 @@
 """RetrievalService: `search` (hybrid + RRF, the documents page), `retrieve` (+ cross-encoder reranking, the agent —
-M6) and `citation` (readers only)."""
+M6) and `citation` (readers only). The vector leg is a `VectorIndex` (pgvector; Chroma in the M9 comparison) and the
+keyword leg can be switched off (`hybrid=False`, vector-only) for the same comparison."""
 
 from __future__ import annotations
 
@@ -10,7 +11,14 @@ from uuid import UUID
 from leave_assistant.application.documents.policy import reader_for, require_tenant_user, scope_for
 from leave_assistant.application.documents.views import RetrievalBundle, SearchHit
 from leave_assistant.application.errors import ApplicationError, InvalidInputError, NotFoundError
-from leave_assistant.application.ports import EmbeddingModel, LanguageDetector, Reranker, UnitOfWorkFactory
+from leave_assistant.application.ports import (
+    EmbeddingModel,
+    LanguageDetector,
+    Reranker,
+    UnitOfWorkFactory,
+    VectorIndex,
+)
+from leave_assistant.application.retrieval.vector_index import PgVectorIndex
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.documents.fusion import FusedHit, reciprocal_rank_fusion
 from leave_assistant.domain.documents.types import Chunk, Citation, Document, DocumentVersion
@@ -42,6 +50,8 @@ class RetrievalService:
         max_per_document: int = 3,
         reranker: Reranker | None = None,
         rerank_candidates: int = 20,
+        vector_index: VectorIndex | None = None,
+        hybrid: bool = True,
     ) -> None:
         self._uow = uow_factory
         self._embedder = embedder
@@ -51,6 +61,8 @@ class RetrievalService:
         self._max_per_document = max_per_document
         self._reranker = reranker
         self._rerank_candidates = rerank_candidates
+        self._vector_index = vector_index or PgVectorIndex()
+        self._hybrid = hybrid  # False = vector-only (M9 comparison; production is hybrid)
 
     async def search(self, principal: Principal, query: str, *, k: int | None = None) -> RetrievalBundle:
         require_tenant_user(principal, action="document.search")
@@ -65,9 +77,11 @@ class RetrievalService:
         vector = await asyncio.to_thread(self._embedder.embed_query, text)
         reader = reader_for(principal)
         async with self._uow(TenantContext.for_principal(principal)) as uow:
-            vector_hits = await uow.chunks.vector_search(vector, reader=reader, limit=self._leg_size)
-            keyword_hits = await uow.chunks.keyword_search(
-                text, language=language, reader=reader, limit=self._leg_size
+            vector_hits = await self._vector_index.search(uow, vector, reader=reader, limit=self._leg_size)
+            keyword_hits = (
+                await uow.chunks.keyword_search(text, language=language, reader=reader, limit=self._leg_size)
+                if self._hybrid
+                else []
             )
             fused = reciprocal_rank_fusion(
                 vector_hits, keyword_hits, limit=limit, max_per_document=self._max_per_document
@@ -96,6 +110,14 @@ class RetrievalService:
         """Agent retrieval (doc 05 §6): up to `rerank_candidates` fused candidates under the principal's visibility,
         rescored by the cross-encoder on the LLM-safe text (query and passages are both pseudonymised)."""
         bundle = await self.search(principal, query, k=self._rerank_candidates)
+        return await self.rescore(bundle)
+
+    @property
+    def rerank_candidates(self) -> int:
+        return self._rerank_candidates
+
+    async def rescore(self, bundle: RetrievalBundle) -> list[ScoredHit]:
+        """The cross-encoder step of `retrieve`, separately callable (M9 harness times both stages)."""
         if not bundle.hits:
             return []
         if self._reranker is None:

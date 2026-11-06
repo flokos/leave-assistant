@@ -10,6 +10,8 @@ and PyTorch computes sigmoid with its own vectorised kernel, not MKL's VML.
 from __future__ import annotations
 
 import types
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import torch
@@ -49,3 +51,18 @@ def avoid_mkl_tanh(model: nn.Module) -> int:
             parent.forward = types.MethodType(_classification_head_forward, parent)
             replaced += 1
     return replaced
+
+
+@contextmanager
+def patched_tanh() -> Iterator[None]:
+    """For code that builds its own model copy (the ONNX export via optimum traces a fresh PyTorch model): while active,
+    `torch.tanh` and `nn.Tanh` compute the sigmoid form, so the trace never reaches MKL's kernel and the exported graph
+    contains Sigmoid instead of Tanh (M9)."""
+    original_tanh, original_forward = torch.tanh, nn.Tanh.forward
+    torch.tanh = sigmoid_tanh  # type: ignore[assignment]
+    nn.Tanh.forward = lambda self, x: sigmoid_tanh(x)  # type: ignore[assignment,method-assign]
+    try:
+        yield
+    finally:
+        torch.tanh = original_tanh
+        nn.Tanh.forward = original_forward  # type: ignore[method-assign]

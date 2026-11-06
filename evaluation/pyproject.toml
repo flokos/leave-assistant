@@ -1,0 +1,35 @@
+[project]
+name = "leave-eval"
+version = "0.1.0"
+description = "Enterprise Leave Management AI Assistant — RAGAS scoring and Langfuse datasets/experiments (doc 11, ADR-0023)"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "ragas==0.4.3",
+  "langchain-community>=0.3,<0.4",   # ragas 0.4.3 imports chat_models.vertexai, removed in 0.4 (doc 02 §9)
+  "langfuse==5.1.0",                 # same SDK as the backend
+  "langchain-mistralai>=1.1.6",      # judge + embeddings (M9: Mistral replaced Groq, worklog M6)
+  "langchain-google-genai>=4.4",
+  "datasets",
+  "pandas",
+  "pyyaml",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/leave_eval"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

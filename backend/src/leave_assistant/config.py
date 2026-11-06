@@ -110,6 +110,10 @@ class Settings(BaseSettings):
         10  # doc 05 §6.3 allows ≤ 20; 10 keeps NFR-PERF-01 reachable on a 2-core CPU (worklog M6)
     )
     rerank_max_length: int = 256  # tokens per (query, passage) pair; chunks put headings and key facts first
+    # M9 (ADR-0014): the reranker's runtime; ONNX models are exported once into $HF_HOME/onnx (`make models`)
+    reranker_backend: Literal["torch", "onnx", "onnx-int8"] = "torch"
+    chroma_url: str = "http://chroma:8000"  # RETRIEVAL_BACKEND=chroma only (eval profile, ADR-0011)
+    retrieval_hybrid: bool = True  # vector + full-text (RRF); False = vector-only, for the M9 comparison only
     retrieval_tau: float = 0.5  # candidate B, calibrated on S01–S09 + off-topic probes (worklog M6)
     min_evidence_chunks: int = 1
     conversation_retention_days: int = 90

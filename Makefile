@@ -61,6 +61,39 @@ n8n-export: ## export the workflows edited in the n8n UI back into automation/n8
 	$(COMPOSE) --profile automation exec -T n8n n8n export:workflow --all --separate --pretty --output=/tmp/export
 	$(COMPOSE) --profile automation cp n8n:/tmp/export/. automation/n8n/workflows/
 
+up-observability: env ## add Langfuse (observability profile: web, worker, ClickHouse, Valkey; UI http://localhost:3000)
+	$(COMPOSE) --profile core --profile observability up -d --wait langfuse-bucket clickhouse valkey langfuse-worker langfuse-web
+
+eval-session: env ## evaluation session on the 7 GB machine (Q-05, doc 11 §8): stop frontend/n8n/worker/api/keycloak, start Chroma + Langfuse
+	$(COMPOSE) --profile core --profile automation stop frontend n8n worker api keycloak
+	$(COMPOSE) --profile core --profile eval --profile observability up -d --wait postgres seaweedfs chroma langfuse-bucket clickhouse valkey langfuse-worker langfuse-web
+	@docker stats --no-stream --format '{{.Name}} {{.MemUsage}}' | grep leave-assistant
+
+eval-session-end: ## stop Chroma and Langfuse, back to the staged core stack
+	$(COMPOSE) --profile eval --profile observability --profile core stop chroma langfuse-web langfuse-worker clickhouse valkey
+	$(MAKE) up-staged
+
+EVAL_RUN = set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync python -m
+
+eval-offline: ## retrieval grid (pgvector/Chroma × rerankers × hybrid/vector), reranker runtimes, τ, security figures → docs/evaluation/results
+	$(EVAL_RUN) leave_assistant.evaluation.retrieval grid
+	$(EVAL_RUN) leave_assistant.evaluation.retrieval runtimes
+	$(EVAL_RUN) leave_assistant.evaluation.security
+
+EVAL_CONFIGS ?= --config pgvector+B+hybrid:0.5
+EVAL_PROVIDERS ?= gemini,mistral
+
+eval-live: ## live answers for RAGAS (EVAL_CONFIGS="--config backend+A|B+mode:τ …") + live agent scenarios (EVAL_PROVIDERS); budget EVAL_MAX_CALLS
+	$(EVAL_RUN) leave_assistant.evaluation.answers $(EVAL_CONFIGS)
+	$(EVAL_RUN) leave_assistant.evaluation.agent_live --providers $(EVAL_PROVIDERS)
+
+eval-ragas: ## RAGAS scoring (judge: Mistral) and the Langfuse dataset + experiments (separate evaluation/ project)
+	set -a && . ./deploy/.env && set +a && cd evaluation && $(UV) run python -m leave_eval.ragas_run $(ARGS)
+	set -a && . ./deploy/.env && set +a && cd evaluation && $(UV) run python -m leave_eval.langfuse_sync $(ARGS)
+
+eval-report: ## performance figures (stage latency, ingestion times) from the results and the job history
+	$(EVAL_RUN) leave_assistant.evaluation.perf $(ARGS)
+
 down: ## stop everything (volumes are kept; add -v manually to wipe data)
 	$(COMPOSE) --profile core down
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -19,7 +19,7 @@ from leave_assistant.application.container import (
 from leave_assistant.application.llm.health import HealthTracker
 from leave_assistant.application.llm.ports import ChatModel
 from leave_assistant.application.llm.router import ProviderEvent, ProviderRouter
-from leave_assistant.application.ports import Clock, IdentityAdmin, UnitOfWorkFactory
+from leave_assistant.application.ports import Clock, IdentityAdmin, UnitOfWorkFactory, VectorIndex
 from leave_assistant.application.retrieval.context import EvidencePolicy
 from leave_assistant.config import Settings
 from leave_assistant.domain.agent.budget import TokenBudgets
@@ -65,7 +65,9 @@ class Runtime:
 
     checkpoint_pool: Any | None = None
 
-    async def start_agent(self) -> bool:
+    async def start_agent(
+        self, *, extra_sink: Callable[[ProviderEvent], Awaitable[None]] | None = None
+    ) -> bool:
         """Attach the LangGraph agent (M6): providers from `LLM_PROVIDER_ORDER` with configured keys, the Postgres
         checkpointer pool, the router and the knowledge dependencies. Without providers chat answers 503."""
         settings = self.settings
@@ -90,6 +92,8 @@ class Runtime:
         services.chat.budgets = budgets
 
         async def log_event(event: ProviderEvent) -> None:
+            if extra_sink is not None:  # M9: the evaluation harness counts calls against its budget
+                await extra_sink(event)
             if event.event != "selected":
                 log.info(
                     "llm.provider_event",
@@ -237,6 +241,7 @@ def document_options(settings: Settings) -> DocumentOptions:
         download_token_ttl_seconds=settings.download_token_ttl_seconds,
         rerank_candidates=settings.rerank_candidates,
         conversation_retention_days=settings.conversation_retention_days,
+        retrieval_hybrid=settings.retrieval_hybrid,
     )
 
 
@@ -285,9 +290,22 @@ def build_document_adapters(
         input_classifier=SimilarityClassifier(embedder, benign_path=USER_BENIGN_PATH),
         judge=UnavailableLlmJudge(),
         reranker=CrossEncoderReranker(
-            settings.reranker_model, threads=threads, max_length=settings.rerank_max_length
+            settings.reranker_model,
+            threads=threads,
+            max_length=settings.rerank_max_length,
+            backend=settings.reranker_backend,
         ),
+        vector_index=build_vector_index(settings),
     )
+
+
+def build_vector_index(settings: Settings) -> VectorIndex | None:
+    """pgvector (None → the default) unless `RETRIEVAL_BACKEND=chroma` (evaluation only, ADR-0011)."""
+    if settings.retrieval_backend != "chroma":
+        return None
+    from leave_assistant.infrastructure.retrieval.chroma import ChromaVectorIndex, connect
+
+    return ChromaVectorIndex(connect(settings.chroma_url))
 
 
 def build_calendar_adapters(

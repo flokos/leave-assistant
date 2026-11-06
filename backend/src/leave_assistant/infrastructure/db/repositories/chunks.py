@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from leave_assistant.application.ports import IndexRow
 from leave_assistant.domain.documents.fusion import LegHit
 from leave_assistant.domain.documents.types import Chunk, ChunkType
 from leave_assistant.domain.documents.visibility import Reader
@@ -151,6 +152,39 @@ class SqlChunkRepository:
         return [
             LegHit(chunk_id=r[0], document_id=r[2], version_id=r[1], rank=rank, score=float(r[3]))
             for rank, r in enumerate(rows, 1)
+        ]
+
+    async def visible_version_ids(self, *, reader: Reader) -> builtins.list[UUID]:
+        if self._tenant is None:
+            return []
+        visible = self._searchable(reader).subquery()
+        stmt = select(visible.c.version_id).distinct()
+        return list((await self._s.execute(stmt)).scalars())
+
+    async def index_rows(self) -> builtins.list[IndexRow]:
+        if self._tenant is None:
+            return []
+        stmt = (
+            select(
+                DocumentChunkRow.id,
+                DocumentVersionRow.document_id,
+                DocumentChunkRow.version_id,
+                DocumentChunkRow.embedding,
+            )
+            .join(DocumentVersionRow, DocumentVersionRow.id == DocumentChunkRow.version_id)
+            .join(DocumentRow, DocumentRow.id == DocumentVersionRow.document_id)
+            .where(
+                DocumentChunkRow.tenant_id == self._tenant,
+                DocumentChunkRow.retrievable.is_(True),
+                DocumentVersionRow.retrievable.is_(True),
+                DocumentRow.deleted_at.is_(None),
+                DocumentChunkRow.embedding.is_not(None),
+            )
+            .order_by(DocumentChunkRow.id)
+        )
+        return [
+            IndexRow(chunk_id=r[0], document_id=r[1], version_id=r[2], embedding=[float(x) for x in r[3]])
+            for r in (await self._s.execute(stmt)).all()
         ]
 
     async def keyword_search(

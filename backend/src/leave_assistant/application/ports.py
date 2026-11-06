@@ -703,6 +703,31 @@ class ChunkRepository(Protocol):
     async def keyword_search(
         self, query: str, *, language: str | None, reader: Reader, limit: int
     ) -> builtins.list[LegHit]: ...
+    async def visible_version_ids(self, *, reader: Reader) -> builtins.list[UUID]:
+        """Versions whose chunks the reader may retrieve — the same predicate as both legs (M9: Chroma filter)."""
+        ...
+
+    async def index_rows(self) -> builtins.list[IndexRow]:
+        """Every retrievable chunk of the tenant with its embedding (M9: copying the vectors into Chroma)."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class IndexRow:
+    chunk_id: UUID
+    document_id: UUID
+    version_id: UUID
+    embedding: builtins.list[float]
+
+
+class VectorIndex(Protocol):
+    """The vector leg of retrieval (ADR-0011): pgvector by default; Chroma for the M9 comparison only."""
+
+    name: str
+
+    async def search(
+        self, uow: UnitOfWork, embedding: Sequence[float], *, reader: Reader, limit: int
+    ) -> builtins.list[LegHit]: ...
 
 
 class AclRepository(Protocol):
