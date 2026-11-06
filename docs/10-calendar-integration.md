@@ -139,3 +139,44 @@ calendar), `UNKNOWN` (treated as transient twice, then dead).
 ## 8. Limits and quotas
 Google Calendar API quotas are far above this application's volume (tens of events per day); no batching is needed.
 The worker processes calendar jobs with concurrency 2 to stay polite under retries.
+
+## 9. M8 notes (2026-11-06) — as implemented
+- **Outbox on the worker queue.** The four places where a request becomes or stops being an approved absence
+  write `calendar_sync_jobs` rows in their own transaction: auto-acknowledgement (`RequestWorkflow.route`), final
+  approval (`ApprovalService._decide`), cancellation of APPROVED/ACTIVE requests and the supersede of an original
+  by an approved modification (delete old, create new). Each row enqueues a single-shot `calendar.sync` job on
+  `platform.jobs` (dedupe per sync job and attempt); the handler owns the state machine and re-enqueues itself
+  with `run_after` = backoff. No second claimer. A withdrawal writes a `delete` only where something was (or is
+  being) written. A connection that is `expired` gets its new jobs `parked` straight away.
+- **States**: `pending | running | succeeded | parked | dead` (no `failed`); `error_class` and `unknown_errors`
+  are stored; a manual retry of a `dead` job resets the attempt budget; parked jobs resume on re-authorisation.
+- **Idempotency key** = SHA-256 over request, connection, operation and payload hash; reconciliation adds its
+  run id so a deliberate re-create (an event deleted by hand) is a new job. The payload hash also travels in
+  `extendedProperties.private.payload_hash`; a 409 on create compares it and patches only on a difference.
+- **OAuth state** is a random nonce stored **hashed** in `platform.oauth_states` (10 minutes, consumed
+  atomically like the M5 download tokens) instead of a signed blob: the callback has no bearer token, the
+  initiating principal comes from the stored row and must still be active (and still a company administrator for
+  the company calendar). **PKCE** is kept without storing a verifier: verifier = HMAC-SHA256(client secret,
+  state). Granted scopes must include the requested or the fallback scope, else the token is revoked and the
+  callback reports `insufficient_scope`. Refresh tokens are encrypted with the M5 `FileCipher` (`APP_KEK`,
+  AAD = connection id). The callback redirects to `/calendar?status=connected|error&reason=…&kind=…`.
+- **Google adapter**: `google-auth-oauthlib` `Flow` (consent URL, code exchange), `google-auth` credentials
+  (refresh in memory), `google-api-python-client` Calendar v3 with the bundled discovery document, all in worker
+  threads. Recorded-response tests use the library's own `HttpMockSequence` instead of `respx` (§6), because the
+  client library uses httplib2, which respx does not intercept. Classification as §4.1, plus rate-limit 403s as
+  transient and `Retry-After` honoured.
+- **Mock adapter** (`MOCK_CALENDAR_FAIL_MODE`): `transient_once` fails the first call per event and operation;
+  `permanent` fails every write with a 403; `auth_expired` rejects refresh tokens issued **before the process
+  started**, so "expire → park → re-authorise → resume" works live without a restart (a re-authorisation issues a
+  newer token). The per-request override header of §6 is not implemented (unit tests switch the mode directly).
+  The mock consent redirects straight to the callback with a code, so the UI flow works without Google.
+- **Reconciliation** stores its findings in `app.calendar_reconciliation_items` (the report table of §5); items
+  resolved automatically are recorded with their action (`enqueued_create|update|delete`); open items offer
+  `relink` (lost mapping), `delete-orphan` (deleted directly at the provider) and `ignore`. The window is −30/+365
+  days; expected = approved, active, completed and modification-pending requests.
+- **Backfill through reconciliation**: a newly connected company calendar (a new app-created calendar) holds none of
+  the absences approved earlier; the next reconciliation finds them `missing` and re-creates them (seen live in
+  M8). The explicit backfill of doc 10 §4 (P2) is therefore not needed for the company calendar; for a personal
+  calendar it happens the same way.
+- **API**: `GET /calendar/sync-jobs` returns request numbers and the connection kind; company administrators
+  retry; employees see the jobs of their own requests (new permission `calendar.read_sync`, doc 08).

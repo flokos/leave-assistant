@@ -223,8 +223,11 @@ async def test_processing_status_and_watchdog(
     url = f"/api/v1/internal/documents/{version.id}/processing?tenant_id={tenant}"
     status = (await api.get(url, headers=auth)).json()
     assert status["processing"] is True and status["stalled"] is False and "title" not in status
+    assert (await api.get("/api/v1/internal/documents/stalled", headers=auth)).json()["items"] == []
     clock.tick(31 * 60)
     assert (await api.get(url, headers=auth)).json()["stalled"] is True
+    swept = (await api.get("/api/v1/internal/documents/stalled", headers=auth)).json()["items"]
+    assert swept == [{"tenant_id": str(tenant), "version_id": str(version.id)}]
     body = {"tenant_id": str(tenant), "type": "document.processing_stalled", "subject_id": str(version.id)}
     assert (await api.post("/api/v1/internal/notifications", json=body, headers=auth)).json() == {
         "created": 2

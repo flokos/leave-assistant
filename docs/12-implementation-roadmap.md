@@ -113,12 +113,18 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   way: the M6 history duplication in subgraphs, the unscheduled M6 conversation cleanup, request numbers detected as
   phone numbers, and "New conversation" falling back to the latest conversation in the chat page.
 
-### M8 — Integrations and automation (M)
+### M8 — Integrations and automation (M) — **done 2026-11-06** (worklog: `docs/development/worklog/M8.md`)
 - Calendar port, mock + Google adapters, OAuth flows, sync outbox + worker handler, reconciliation + UI; n8n Compose
   profile with init import; workflows W0–W7 as JSON; Mailpit; notification rendering/dispatch; retention and
   housekeeping schedules; provider health digest.
 - Exit: mock-based calendar tests (retry/parking/dead/reconcile); manual Google end-to-end checklist completed and
   recorded; Compose E2E: upload → process → e-mail captured in Mailpit; n8n JSON validated; licence note re-verified.
+- Delivered as planned except: the manual Google checklist is **pending** (no OAuth client was provided; the adapter
+  is covered by recorded-response tests); the outbox is delivered with a lease instead of a cursor; the backend
+  creates all business notifications and n8n adds e-mail, reminders, schedules and the digest; W1 is a scheduled
+  sweep instead of a per-upload wait (the fire-and-forget sub-workflow call failed on n8n 2.46.6); the OAuth state is
+  a hashed single-use nonce. Found and fixed on the way: the outbox grant, notification dedupe, the n8n heap, W4
+  ending without output, document notifications without e-mail, and the M6 tanh test reaching MKL itself.
 
 ### M9 — Observability and evaluation (M)
 - Langfuse profile (ClickHouse, Valkey, SeaweedFS blobs) documented and tested in the evaluation-session

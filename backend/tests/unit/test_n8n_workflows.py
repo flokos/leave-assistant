@@ -24,7 +24,8 @@ NODE_VERSIONS = {  # from `n8n export:nodes` on n8nio/n8n:2.46.6
     "n8n-nodes-base.if": {1, 2, 2.1, 2.2, 2.3, 2.4},
     "n8n-nodes-base.splitOut": {1, 1.1},
     "n8n-nodes-base.errorTrigger": {1},
-    "n8n-nodes-base.wait": {1, 1.1},
+    "n8n-nodes-base.noOp": {1},
+    "n8n-nodes-base.manualTrigger": {1},
 }
 INTERNAL = "http://api:8000/api/v1/internal"
 SECRET_PATTERNS = re.compile(
@@ -98,7 +99,7 @@ def test_every_event_is_acknowledged_by_the_poller() -> None:
         link["node"] for out in poller["connections"].values() for branch in out["main"] for link in branch
     }
     acks = [n for n in poller["nodes"] if n["name"].startswith("Ack ")]
-    assert len(acks) == 3 and all(a["name"] in targets for a in acks)
+    assert len(acks) == 2 and all(a["name"] in targets for a in acks)
     switch = next(n for n in poller["nodes"] if n["type"].endswith(".switch"))
     assert switch["parameters"]["options"]["fallbackOutput"] == "extra"  # unknown types are acknowledged too
 
@@ -110,3 +111,11 @@ def test_credentials_template_holds_placeholders_only() -> None:
     oauth = next(c for c in creds if c["type"] == "oAuth2Api")["data"]
     assert oauth["grantType"] == "clientCredentials" and oauth["clientSecret"] == "${N8N_CLIENT_SECRET}"
     assert "n8n-automation-dev" not in text
+
+
+def test_sub_workflows_return_an_item_on_every_path() -> None:
+    """W0 acknowledges per item returned by W4; a branch ending without output would never be acknowledged
+    (found live in M8: notifications without an e-mail due were re-leased until dead)."""
+    w4 = load(ROOT / "workflows" / "W4-notification-email.json")
+    branch = w4["connections"]["E-mail due?"]["main"]
+    assert len(branch) == 2 and all(branch), "both IF outputs must lead somewhere"

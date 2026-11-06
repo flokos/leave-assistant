@@ -122,6 +122,13 @@ async def dead(body: IdsIn, principal: Automation, services: CurrentServices) ->
     return CountOut(count=await services.ops.ack_events(principal, body.ids, dead=True))
 
 
+@router.get("/documents/stalled")
+async def stalled(
+    principal: Automation, services: CurrentServices, older_than_minutes: Annotated[float, Query(ge=1)] = 30
+) -> dict[str, Any]:
+    return {"items": await services.ops.stalled_documents(principal, older_than_minutes=older_than_minutes)}
+
+
 @router.get("/documents/pending-review")
 async def pending_review(
     principal: Automation, services: CurrentServices, older_than_hours: Annotated[float, Query(ge=0)] = 48

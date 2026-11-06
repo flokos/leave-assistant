@@ -193,6 +193,20 @@ class InternalOpsService:
             "stalled": version.status in PROCESSING and minutes >= self.options.stalled_after_minutes,
         }
 
+    async def stalled_documents(
+        self, principal: Principal, *, older_than_minutes: float = 30
+    ) -> list[dict[str, Any]]:
+        """Versions still uploaded/processing after `older_than_minutes` (W1's scheduled watchdog; ids only)."""
+        self._require(principal)
+        cutoff = self._clock.now() - timedelta(minutes=older_than_minutes)
+        out: list[dict[str, Any]] = []
+        for tenant in await self._tenants():
+            async with self._uow(system(tenant.id)) as uow:
+                for version in await uow.document_versions.list_by_status(PROCESSING):
+                    if version.created_at <= cutoff:
+                        out.append({"tenant_id": str(tenant.id), "version_id": str(version.id)})
+        return out
+
     async def pending_review(
         self, principal: Principal, *, older_than_hours: float = 48
     ) -> list[dict[str, Any]]:

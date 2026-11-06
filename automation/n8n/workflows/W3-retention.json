@@ -144,6 +144,17 @@
           "name": "Leave API (automation)"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "963b3a62-090b-5f14-9187-a0c5d742c28b",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
     }
   ],
   "connections": {
@@ -185,6 +196,22 @@
         [
           {
             "node": "Remind HR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Scan all tenants",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pending over 7 days",
             "type": "main",
             "index": 0
           }

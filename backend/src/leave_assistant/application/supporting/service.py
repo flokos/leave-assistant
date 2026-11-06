@@ -228,7 +228,7 @@ class SupportingDocumentService:
                     "filename": document.original_filename,
                 },
                 dedupe_key=f"supporting.uploaded:{document.id}",
-                channels=("in_app",),
+                channels=("in_app",),  # sick-leave evidence: never by e-mail (M8)
             )
             await uow.commit()
         return document

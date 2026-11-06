@@ -127,6 +127,17 @@
           "name": "Leave API (automation)"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "ef0df19a-9ec2-5b41-8d8b-4d9f2960f2fa",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
     }
   ],
   "connections": {
@@ -168,6 +179,17 @@
         [
           {
             "node": "Remind reviewers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Maintenance",
             "type": "main",
             "index": 0
           }

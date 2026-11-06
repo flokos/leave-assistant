@@ -107,6 +107,17 @@
           "name": "Mailpit SMTP"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "1cdece7e-0556-55b0-a307-23c5aef81e7f",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
     }
   ],
   "connections": {
@@ -137,6 +148,17 @@
         [
           {
             "node": "Alert platform admins",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Provider health",
             "type": "main",
             "index": 0
           }

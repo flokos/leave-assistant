@@ -263,3 +263,19 @@ with Keycloak client credentials (`automation` role) and additionally restricted
 - Schemathesis-style property tests run against the OpenAPI document for 4xx/5xx consistency (P2).
 - `openapi-typescript` generates the frontend client at build time; CI fails on drift between the committed
   snapshot and the generated document.
+
+M8 notes (2026-11-06): §2.7 calendar endpoints and the doc 06 §5 internal endpoints implemented (OpenAPI: 104
+paths).
+- `GET /calendar/connections` → `{provider, items}` (the caller's personal connection; C also the company one;
+  never tokens). `POST /calendar/connections/google/start {kind}` → `{authorization_url}` (the path keeps
+  "google" for both providers). `GET …/google/callback` takes no bearer token and no `Idempotency-Key`; it answers
+  `303` to `{PUBLIC_BASE_URL}/calendar?status=connected|error&reason=…&kind=…`.
+- `GET /calendar/sync-jobs?status=&request_id=` → `{items}` with `request_number` and `connection_kind`;
+  `POST …/{id}/retry` (C) only for `dead` jobs (`409 calendar/not-retryable`; `409 calendar/connection-expired`
+  when the connection is not active). `POST /calendar/reconcile` and `GET /calendar/reconciliation` →
+  `{run_id, run_at, counts, errors, items}`; `POST /calendar/reconciliation/items/{id}/{relink|ignore|delete-orphan}`.
+- Problem types: `calendar/connection-expired` (409), `calendar/not-connected` (404),
+  `calendar/oauth-state-invalid` (422), `calendar/not-retryable` (409), `calendar/insufficient-scope` (422).
+- `GET /platform/health` (P): per tenant `events_dead`, `events_undelivered`, `calendar_dead`, `calendar_parked`;
+  queue counts; provider health. Counts only.
+- Internal endpoints: doc 06 §9; no `Idempotency-Key`; role `automation` only.

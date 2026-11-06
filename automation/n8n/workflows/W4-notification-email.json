@@ -170,6 +170,17 @@
           "name": "Leave API (automation)"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "b542b71d-d8d2-5705-8357-61065d0fd1dd",
+      "name": "No e-mail due",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        660,
+        120
+      ]
     }
   ],
   "connections": {
@@ -200,6 +211,13 @@
         [
           {
             "node": "Send via SMTP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No e-mail due",
             "type": "main",
             "index": 0
           }

@@ -109,6 +109,17 @@
           "name": "Leave API (automation)"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "961a95e5-28c0-51b1-b61b-66cbed01c06b",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
     }
   ],
   "connections": {
@@ -139,6 +150,17 @@
         [
           {
             "node": "Re-index stale versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Index status",
             "type": "main",
             "index": 0
           }

@@ -35,3 +35,9 @@ One small container.
 ## Consequences
 Notification templates are i18n keys with parameters; the renderer decides what each recipient may see (e.g., no
 leave type in calendar-style notices).
+
+## M8 notes (2026-11-06)
+Rendering is in the backend (`application/notifications/render.py`): one EL/EN template per type (subject, text,
+escaped HTML, a link into the SPA) for the recipient's locale, sender `no-reply@{tenant-slug}.{MAIL_FROM_DOMAIN}`.
+n8n W4 sends through Mailpit (SMTP 1025, UI on :8025) and reports the delivery state. No template engine was
+added.

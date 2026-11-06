@@ -10905,6 +10905,52 @@
         ]
       }
     },
+    "/api/v1/internal/documents/stalled": {
+      "get": {
+        "operationId": "stalled_api_v1_internal_documents_stalled_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "older_than_minutes",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "minimum": 1,
+              "title": "Older Than Minutes",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stalled Api V1 Internal Documents Stalled Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stalled",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
     "/api/v1/internal/documents/{version_id}/processing": {
       "get": {
         "operationId": "processing_api_v1_internal_documents__version_id__processing_get",

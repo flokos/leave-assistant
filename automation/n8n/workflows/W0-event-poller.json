@@ -99,30 +99,6 @@
               },
               "renameOutput": true,
               "outputKey": "email"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "8f916224-e9ee-5540-803c-6781845d5aeb",
-                    "leftValue": "={{ $json.type }}",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "rightValue": "document.uploaded"
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "watchdog"
             }
           ]
         },
@@ -158,28 +134,7 @@
       "typeVersion": 1.2,
       "position": [
         900,
-        -160
-      ]
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "laW1Documents001",
-          "mode": "id"
-        },
-        "mode": "each",
-        "options": {
-          "waitForSubWorkflow": false
-        }
-      },
-      "id": "60717bbb-4b72-5251-8553-4eeaa2f48b16",
-      "name": "W1 start watchdog",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        900,
-        0
+        -80
       ]
     },
     {
@@ -201,35 +156,7 @@
       "typeVersion": 4.5,
       "position": [
         1120,
-        -160
-      ],
-      "credentials": {
-        "oAuth2Api": {
-          "id": "laKeycloakAuto01",
-          "name": "Leave API (automation)"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://api:8000/api/v1/internal/events/ack",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "oAuth2Api",
-        "options": {
-          "timeout": 30000
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ ids: [$(\"Split events\").item.json.id] }) }}"
-      },
-      "id": "17c1585d-11ff-5098-bb3d-8e60ea919090",
-      "name": "Ack watchdog",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        1120,
-        0
+        -80
       ],
       "credentials": {
         "oAuth2Api": {
@@ -257,7 +184,7 @@
       "typeVersion": 4.5,
       "position": [
         1120,
-        160
+        80
       ],
       "credentials": {
         "oAuth2Api": {
@@ -312,13 +239,6 @@
         ],
         [
           {
-            "node": "W1 start watchdog",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Ack informational",
             "type": "main",
             "index": 0
@@ -331,17 +251,6 @@
         [
           {
             "node": "Ack e-mail",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "W1 start watchdog": {
-      "main": [
-        [
-          {
-            "node": "Ack watchdog",
             "type": "main",
             "index": 0
           }

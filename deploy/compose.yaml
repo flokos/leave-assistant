@@ -315,6 +315,7 @@ services:
       N8N_INSTANCE_OWNER_FIRST_NAME: Automation
       N8N_INSTANCE_OWNER_LAST_NAME: Owner
       N8N_OWNER_PASSWORD: ${N8N_OWNER_PASSWORD:-}
+      NODE_OPTIONS: --max-old-space-size=${N8N_HEAP_MB:-768}   # 2.x needs > 256 MB heap at start (worklog M8)
     ports:
       - "127.0.0.1:${N8N_PORT:-5678}:5678"   # UI on localhost only (doc 06 §7)
     volumes:
@@ -336,7 +337,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: ${N8N_MEMORY_LIMIT:-1G}
     networks: [edge, internal]
 
 networks:

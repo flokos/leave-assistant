@@ -93,6 +93,17 @@
           "name": "Leave API (automation)"
         }
       }
+    },
+    {
+      "parameters": {},
+      "id": "c8bbaf58-bdd9-5ecd-8bd4-e015c028002c",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
     }
   ],
   "connections": {
@@ -110,6 +121,22 @@
     "Daily 04:00": {
       "main": [
         [
+          {
+            "node": "Reconcile all calendars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Retry due sync jobs",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "Reconcile all calendars",
             "type": "main",
