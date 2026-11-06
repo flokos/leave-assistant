@@ -119,7 +119,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   housekeeping schedules; provider health digest.
 - Exit: mock-based calendar tests (retry/parking/dead/reconcile); manual Google end-to-end checklist completed and
   recorded; Compose E2E: upload → process → e-mail captured in Mailpit; n8n JSON validated; licence note re-verified.
-- Delivered as planned except: the manual Google checklist is **pending** (no OAuth client was provided; the adapter
+- Delivered as planned except: the manual Google checklist is **deferred to M10** (user decision 2026-11-06; the adapter
   is covered by recorded-response tests); the outbox is delivered with a lease instead of a cursor; the backend
   creates all business notifications and n8n adds e-mail, reminders, schedules and the digest; W1 is a scheduled
   sweep instead of a per-upload wait (the fire-and-forget sub-workflow call failed on n8n 2.46.6); the OAuth state is
@@ -135,6 +135,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   evidence; known weaknesses listed.
 
 ### M10 — Hardening and documentation completion (M)
+- Carried over from M8 (user decision): the manual Google Calendar end-to-end checklist (doc 10 §2, worklog M8).
 - Platform admin UI completion, security policy UI, audit export, backup/restore script and test, resource limits
   and `WORKER_MODE=embedded` validation on the 7 GB machine, troubleshooting guide, final ADR sync, README.
 - Exit: clean-clone install test following only the docs; all suites green; documentation review against brief §13.
