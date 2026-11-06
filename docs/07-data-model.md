@@ -165,6 +165,17 @@ placeholder, and `outcome`; `agent_runs` gains `details jsonb` (retrieval scores
 `provider_events` carries `run_id`. Schema `langgraph` is created by the migration (owner `app_owner`, `USAGE,
 CREATE` for `langgraph_rw`); the saver's `setup()` runs in `make migrate` as `langgraph_rw`.
 
+M7 note (migration `0006_agent_operations`): `action_proposals` also stores `created_at`, `run_id` (the run that
+prepared it), `claimed_by_run` and `claimed_at` (the run that claimed it for execution) and `decided_at`; `status`
+`confirmed` means *claimed for execution* (exactly one winner of the atomic `UPDATE … WHERE status = 'pending' AND
+expires_at > now() RETURNING`). Text columns with CHECK constraints for `kind` and `status`, forced RLS.
+`pending_interrupts` is keyed by `conversation_id` (one open interrupt per conversation). `conversation_messages`
+gains `proposal_id` (the card a message carries, rendered at read time with the proposal's current status). Two
+exactly-once guards: a partial unique index on `leave_requests (tenant_id, employee_id, idempotency_key)` (submit
+returns the existing request for a known key; agent executions use `proposal:{id}`), and an expression index on
+`leave_request_events (tenant_id, payload->>'proposal_id')` for stale-claim recovery. Request events and audit
+entries written by an agent execution carry `{"via": "agent", "proposal_id": …}`; the actor stays the human.
+
 ### 4.7 Integrations, jobs, notifications, retention (`app`)
 | Table | Columns | Notes |
 |-------|---------|-------|

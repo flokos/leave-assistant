@@ -374,7 +374,11 @@
     "chat/run-in-progress": "Please wait for the current answer",
     "chat/provider-unavailable": "The assistant is temporarily unavailable",
     "chat/content-blocked": "The provider refused to answer this",
-    "chat/invalid-output": "The assistant could not produce a valid answer"
+    "chat/invalid-output": "The assistant could not produce a valid answer",
+    "chat/proposal-expired": "The proposal expired — ask again to prepare a new one",
+    "chat/proposal-hash-mismatch": "The proposal changed since it was shown — reload the conversation",
+    "chat/no-pending-proposal": "This proposal is no longer waiting for a decision",
+    "chat/proposal-in-progress": "This proposal is already being carried out"
   },
   "documents": {
     "title": "Documents",
@@ -529,7 +533,7 @@
     "sources": "Sources",
     "source": "Source",
     "section": "Section",
-    "disclaimer": "Answers come from the company's documents only and may be incomplete. The assistant cannot submit or approve requests yet.",
+    "disclaimer": "Answers come from the company's documents and your leave data. Nothing is submitted, approved or cancelled until you confirm it on a card.",
     "stages": {
       "thinking": "Thinking",
       "classifying": "Understanding the question",
@@ -537,13 +541,75 @@
       "summarising": "Summarising the conversation",
       "retrieving": "Searching the documents",
       "generating": "Writing the answer",
-      "verifying": "Checking the sources"
+      "verifying": "Checking the sources",
+      "planning": "Working on it",
+      "executing": "Carrying it out",
+      "awaiting_confirmation": "Preparing the card"
     },
     "outcomes": {
       "insufficient_evidence": "Not in the documents",
       "blocked": "Refused",
       "clarify": "Needs clarification",
-      "scope": "General"
+      "scope": "General",
+      "executed": "Done",
+      "failed": "Not done",
+      "rejected": "Cancelled",
+      "interrupted": "Waiting for confirmation"
+    },
+    "tools": {
+      "get_my_balance": "Balance",
+      "get_my_requests": "Your requests",
+      "get_leave_types_and_rules": "Leave rules",
+      "calculate_working_days": "Working days",
+      "validate_leave_request": "Checking the request",
+      "prepare_leave_request": "Preparing the request",
+      "prepare_modification": "Preparing the change",
+      "prepare_cancellation": "Preparing the cancellation",
+      "get_team_availability": "Team absences",
+      "list_pending_approvals": "Pending approvals",
+      "get_request_details": "Request details",
+      "prepare_approval_decision": "Preparing the decision",
+      "search_policies": "Searching the policies"
+    },
+    "card": {
+      "kinds": {
+        "submit": "New leave request",
+        "modify": "Change of dates",
+        "cancel": "Cancellation",
+        "approve": "Approval",
+        "reject": "Rejection"
+      },
+      "status": {
+        "pending": "Waiting for you",
+        "confirmed": "Running",
+        "executed": "Done",
+        "rejected": "Not done",
+        "expired": "Expired",
+        "failed": "Failed"
+      },
+      "roles": {
+        "manager": "Manager",
+        "hr": "HR"
+      },
+      "leaveType": "Leave type",
+      "period": "Dates",
+      "workingDays": "Working days",
+      "balance": "Available days (before → after)",
+      "approvalChain": "Approval",
+      "autoAcknowledged": "Recorded without approval",
+      "holidays": "Public holidays excluded",
+      "request": "Request",
+      "from": "Current dates",
+      "to": "New dates",
+      "requester": "Employee",
+      "step": "Your step",
+      "comment": "Comment",
+      "expires": "Valid until {{time}}",
+      "done": "Request {{number}}",
+      "confirm": "Confirm",
+      "reject": "Not now",
+      "edit": "Change",
+      "prepareAgain": "Prepare again"
     }
   }
 }

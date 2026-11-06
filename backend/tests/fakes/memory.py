@@ -17,6 +17,7 @@ from types import TracebackType
 from typing import Self
 from uuid import UUID
 
+from leave_assistant.application.assistant.models import ActionProposal, PendingInterrupt
 from leave_assistant.application.audit.entry import AuditEntry
 from leave_assistant.application.chat.models import (
     AgentRun,
@@ -62,6 +63,8 @@ from leave_assistant.application.ports import (
     LedgerRepository,
     MessageRepository,
     NotificationRepository,
+    PendingInterruptRepository,
+    ProposalRepository,
     ProviderEventRepository,
     RequestEventRepository,
     RequestFilter,
@@ -83,6 +86,7 @@ from leave_assistant.application.ports import (
     VaultRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.domain.agent.proposals import ProposalStatus
 from leave_assistant.domain.documents.fusion import LegHit
 from leave_assistant.domain.documents.types import (
     AclEntry,
@@ -142,6 +146,8 @@ class MemoryStore:
     messages: list[ConversationMessage] = field(default_factory=list)
     agent_runs: list[AgentRun] = field(default_factory=list)
     provider_events: list[ProviderEventRecord] = field(default_factory=list)
+    proposals: dict[UUID, ActionProposal] = field(default_factory=dict)
+    pending_interrupts: dict[UUID, PendingInterrupt] = field(default_factory=dict)
 
     def tables(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -515,6 +521,14 @@ class _LeaveRequests(_TenantTable[LeaveRequest]):
         self._s.request_counters[(self._tenant, year)] = seq
         return f"LR-{year}-{seq:06d}"
 
+    async def get_by_number(self, request_number: str) -> LeaveRequest | None:
+        return copy.deepcopy(next((r for r in self._rows() if r.request_number == request_number), None))
+
+    async def find_by_idempotency_key(self, employee_id: UUID, key: str) -> LeaveRequest | None:
+        return copy.deepcopy(
+            next((r for r in self._rows() if r.employee_id == employee_id and r.idempotency_key == key), None)
+        )
+
 
 class _ApprovalSteps(_TenantTable[ApprovalStep]):
     async def get(self, step_id: UUID) -> ApprovalStep | None:
@@ -565,6 +579,16 @@ class _RequestEvents:
         return [
             e for e in self._s.request_events if e.tenant_id == self._tenant and e.request_id == request_id
         ]
+
+    async def find_by_proposal(self, proposal_id: UUID) -> RequestEventRecord | None:
+        return next(
+            (
+                e
+                for e in self._s.request_events
+                if e.tenant_id == self._tenant and e.payload.get("proposal_id") == str(proposal_id)
+            ),
+            None,
+        )
 
 
 class _Ledger:
@@ -1261,6 +1285,10 @@ class _Conversations:
         self._store.conversations.pop(conversation_id, None)
         self._store.messages = [m for m in self._store.messages if m.conversation_id != conversation_id]
         self._store.agent_runs = [r for r in self._store.agent_runs if r.conversation_id != conversation_id]
+        self._store.proposals = {
+            k: v for k, v in self._store.proposals.items() if v.conversation_id != conversation_id
+        }
+        self._store.pending_interrupts.pop(conversation_id, None)
 
 
 class _Messages:
@@ -1299,6 +1327,14 @@ class _AgentRuns:
             ]
         )
 
+    async def list_for_conversation(self, conversation_id: UUID) -> list[AgentRun]:
+        rows = [
+            r
+            for r in self._store.agent_runs
+            if r.tenant_id == self._tenant and r.conversation_id == conversation_id
+        ]
+        return sorted(rows, key=lambda r: (r.created_at, r.turn))
+
 
 class _ProviderEvents:
     def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
@@ -1307,6 +1343,80 @@ class _ProviderEvents:
 
     async def add_many(self, events: Sequence[ProviderEventRecord]) -> None:
         self._store.provider_events.extend(events)
+
+
+class _Proposals:
+    """`claim` reads and writes the shared store directly — the in-memory stand-in for `UPDATE … WHERE
+    status = 'pending' RETURNING`, so two concurrent units of work cannot both claim one proposal."""
+
+    def __init__(self, work: MemoryStore, shared: MemoryStore, tenant_id: UUID | None) -> None:
+        self._work = work
+        self._shared = shared
+        self._tenant = tenant_id
+
+    def _rows(self) -> list[ActionProposal]:
+        return [p for p in self._work.proposals.values() if p.tenant_id == self._tenant]
+
+    async def add(self, proposal: ActionProposal) -> None:
+        if proposal.tenant_id != self._tenant:
+            raise ConflictError("RLS: WITH CHECK failed")
+        if proposal.conversation_id not in self._work.conversations:
+            raise ConflictError("unknown conversation")
+        self._work.proposals[proposal.id] = copy.deepcopy(proposal)
+
+    async def get(self, proposal_id: UUID) -> ActionProposal | None:
+        return copy.deepcopy(next((p for p in self._rows() if p.id == proposal_id), None))
+
+    async def update(self, proposal: ActionProposal) -> None:
+        if proposal.tenant_id != self._tenant or proposal.id not in self._work.proposals:
+            return
+        self._work.proposals[proposal.id] = copy.deepcopy(proposal)
+
+    async def claim(self, proposal_id: UUID, *, run_id: UUID, now: datetime) -> ActionProposal | None:
+        current = self._shared.proposals.get(proposal_id)
+        if (
+            current is None
+            or current.tenant_id != self._tenant
+            or current.status is not ProposalStatus.PENDING
+            or current.expires_at <= now
+        ):
+            return None
+        for store in (self._shared, self._work):
+            row = store.proposals.get(proposal_id)
+            if row is not None:
+                row.status, row.claimed_by_run, row.claimed_at = ProposalStatus.CONFIRMED, run_id, now
+        return copy.deepcopy(self._work.proposals.get(proposal_id) or current)
+
+    async def list_for_conversation(self, conversation_id: UUID) -> list[ActionProposal]:
+        rows = [p for p in self._rows() if p.conversation_id == conversation_id]
+        return [copy.deepcopy(p) for p in sorted(rows, key=lambda p: (p.created_at, p.id))]
+
+    async def due_for_expiry(self, now: datetime) -> list[ActionProposal]:
+        return [
+            copy.deepcopy(p)
+            for p in self._rows()
+            if p.status is ProposalStatus.PENDING and p.expires_at <= now
+        ]
+
+
+class _PendingInterrupts:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._store = store
+        self._tenant = tenant_id
+
+    async def put(self, interrupt: PendingInterrupt) -> None:
+        if interrupt.tenant_id != self._tenant:
+            raise ConflictError("RLS: WITH CHECK failed")
+        self._store.pending_interrupts[interrupt.conversation_id] = interrupt
+
+    async def get(self, conversation_id: UUID) -> PendingInterrupt | None:
+        row = self._store.pending_interrupts.get(conversation_id)
+        return row if row is not None and row.tenant_id == self._tenant else None
+
+    async def delete(self, conversation_id: UUID) -> None:
+        row = self._store.pending_interrupts.get(conversation_id)
+        if row is not None and row.tenant_id == self._tenant:
+            del self._store.pending_interrupts[conversation_id]
 
 
 class MemoryUnitOfWork:
@@ -1345,6 +1455,8 @@ class MemoryUnitOfWork:
     messages: MessageRepository
     agent_runs: AgentRunRepository
     provider_events: ProviderEventRepository
+    proposals: ProposalRepository
+    pending_interrupts: PendingInterruptRepository
 
     def __init__(self, store: MemoryStore, context: TenantContext | None) -> None:
         self._shared = store
@@ -1390,6 +1502,8 @@ class MemoryUnitOfWork:
         self.messages = _Messages(self._work, tenant)
         self.agent_runs = _AgentRuns(self._work, tenant)
         self.provider_events = _ProviderEvents(self._work, tenant)
+        self.proposals = _Proposals(self._work, self._shared, tenant)
+        self.pending_interrupts = _PendingInterrupts(self._work, tenant)
         return self
 
     async def __aexit__(

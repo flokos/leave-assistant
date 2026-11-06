@@ -1,4 +1,5 @@
-"""Chat (doc 09 §2.2/§3, M6 subset): conversations and an SSE answer stream. `resume` and `runs` arrive with M7."""
+"""Chat (doc 09 §2.2/§3): conversations, the SSE answer stream, resuming a paused run with a decision (M7) and the
+redacted run history (M7)."""
 
 from __future__ import annotations
 
@@ -12,7 +13,15 @@ from sse_starlette.sse import EventSourceResponse
 
 from leave_assistant.api.deps import CurrentPrincipal, CurrentServices
 from leave_assistant.api.idempotency import NO_IDEMPOTENCY, IdempotentRoute
-from leave_assistant.api.schemas.chat import ConversationOut, MessageOut, SendMessageIn, sse_examples
+from leave_assistant.api.schemas.chat import (
+    ConversationOut,
+    MessageOut,
+    ResumeIn,
+    RunOut,
+    SendMessageIn,
+    resume_examples,
+    sse_examples,
+)
 from leave_assistant.api.schemas.common import PageOut
 from leave_assistant.application.chat.service import ChatEvent
 
@@ -85,3 +94,46 @@ async def send_message(
     return EventSourceResponse(
         stream(), ping=15, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
     )
+
+
+def _sse(events: AsyncIterator[ChatEvent]) -> EventSourceResponse:
+    async def stream() -> AsyncIterator[dict[str, str]]:
+        async for event in events:
+            yield {"event": event.name, "data": json.dumps(event.data, ensure_ascii=False)}
+
+    return EventSourceResponse(
+        stream(), ping=15, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+    )
+
+
+# The proposal id is the idempotency key of a resume (doc 04 §6): a decided proposal streams its stored outcome.
+@router.post(
+    "/{conversation_id}/resume",
+    response_class=EventSourceResponse,
+    responses={200: {"content": resume_examples(), "description": "SSE stream (doc 09 §3)"}},
+    openapi_extra=NO_IDEMPOTENCY,
+)
+async def resume_conversation(
+    conversation_id: UUID,
+    body: ResumeIn,
+    request: Request,
+    principal: CurrentPrincipal,
+    services: CurrentServices,
+) -> EventSourceResponse:
+    events = await services.chat.resume(
+        principal,
+        conversation_id,
+        proposal_id=body.proposal_id,
+        decision=body.decision,
+        payload_hash=body.payload_hash,
+        edits=body.edits.model_dump(mode="json") if body.edits else None,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return _sse(events)
+
+
+@router.get("/{conversation_id}/runs", response_model=list[RunOut])
+async def list_runs(
+    conversation_id: UUID, principal: CurrentPrincipal, services: CurrentServices
+) -> list[RunOut]:
+    return [RunOut.from_view(v) for v in await services.chat.runs(principal, conversation_id)]

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { signIn, signOut, USERS } from './helpers'
+import { findRow, signIn, signOut, USERS } from './helpers'
 
 const TITLE = `E2E γονική άδεια ${Date.now()}`
 
@@ -15,7 +15,7 @@ test('HR uploads a document, it becomes searchable; employees never see HR-restr
   await page.getByTestId('document-title').fill(TITLE)
   await page.getByTestId('document-file').locator('input[type="file"]').setInputFiles(fileURLToPath(new URL('./fixtures/faq-e2e.md', import.meta.url)))
   await page.getByRole('dialog').getByRole('button', { name: /upload document|ανέβασμα/i }).click()
-  const row = page.getByTestId('documents-table').locator('tr', { hasText: TITLE })
+  const row = await findRow(page, 'documents-table', TITLE)
   await expect(row).toBeVisible()
   await expect(row.getByTestId('status-ACTIVE')).toBeVisible({ timeout: 180_000 })
   await page.screenshot({ path: 'e2e/artifacts/documents-active.png', fullPage: true })
@@ -46,7 +46,7 @@ test('HR uploads a document, it becomes searchable; employees never see HR-restr
   // --- HR: delete the E2E document so the seed stays reusable -------------------------------------------
   await signIn(page, USERS.hr)
   await page.goto('/documents')
-  await page.getByTestId('documents-table').locator('tr', { hasText: TITLE }).click()
+  await (await findRow(page, 'documents-table', TITLE)).click()
   await page.getByTestId('delete-document').click()
   await page.getByRole('button', { name: /^(ok|yes|ναι)$/i }).click()
   await expect(page.getByTestId('documents-table')).not.toContainText(TITLE)

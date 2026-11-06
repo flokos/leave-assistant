@@ -47,6 +47,7 @@ class ConversationMessage:
     provenance: dict[str, dict[str, Any]] = field(default_factory=dict)  # placeholder → {kind, id}
     run_id: UUID | None = None
     outcome: str | None = None
+    proposal_id: UUID | None = None  # M7: the confirmation card this message carries
 
 
 @dataclass(frozen=True, slots=True)

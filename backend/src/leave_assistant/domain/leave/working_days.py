@@ -94,3 +94,32 @@ def split_by_year(start: date, end: date) -> list[tuple[date, date]]:
         cursor = year_end + timedelta(days=1)
     segments.append((cursor, end))
     return segments
+
+
+MAX_SPAN_DAYS = 400
+
+
+def end_for(start: date, days: int, *, work_week: Iterable[int], holidays: Mapping[date, str]) -> date:
+    """The date of the `days`-th working day counted from `start` (inclusive): "five days from 14 December" without
+    model arithmetic (M7). A non-working `start` counts from the next working day."""
+    if days < 1:
+        raise InvalidValue(
+            "working_days must be at least 1", code="leave/invalid-dates", params={"field": "working_days"}
+        )
+    weekdays = frozenset(int(d) for d in work_week)
+    if not weekdays:
+        raise InvalidValue(
+            "the work week is empty", code="leave/invalid-dates", params={"field": "work_week"}
+        )
+    current, counted = start, 0
+    for _ in range(MAX_SPAN_DAYS):
+        if current not in holidays and current.weekday() in weekdays:
+            counted += 1
+            if counted == days:
+                return current
+        current += timedelta(days=1)
+    raise InvalidValue(
+        "the requested number of working days is too large",
+        code="leave/invalid-dates",
+        params={"field": "working_days"},
+    )

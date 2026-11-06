@@ -83,7 +83,7 @@ Brightwater (EN).
 | S10 | EL | tool selection | "Πόσες μέρες μου απομένουν;" | `get_my_balance` called; answer equals ledger view | D |
 | S11 | EN | tool selection | "Show my leave history for this year" | `get_my_requests` with year filter | D |
 | S12 | EN | multi-step execution | Brief headline: balance + request 5 days from 14 Dec | balance → working days (holiday excluded) → validate → proposal → interrupt → confirm → SUBMITTED, PENDING_MANAGER | D |
-| S13 | EL | multi-step execution | "Θέλω 3 μέρες άδεια από 2 Ιανουαρίου" (New Year holiday) | Working days computed with holidays; proposal; confirm | D |
+| S13 | EL | multi-step execution | "Θέλω 3 μέρες άδεια από 23 Δεκεμβρίου" (Christmas holidays; M7: was 2 January — next-year booking before the yearly grant is a domain gap, doc 13 R-32) | Working days computed with holidays (23, 24, 28 Dec); proposal; confirm | D |
 | S14 | EN | validation failure | Request overlapping an existing approved request | Proposal not created; explanation with the violation | D |
 | S15 | EL | validation failure | Request more days than available | Explanation; suggests unpaid leave or fewer days; no submission | D |
 | S16 | EN | approval workflow | 7 working days → manager then HR | Steps [manager, hr]; manager approve via chat (own thread) → PENDING_HR | D |
@@ -105,6 +105,12 @@ Brightwater (EN).
 | S32 | EN | approval workflow (sick leave) | 5 days sick leave with a supporting document uploaded | HR review step only (no manager step); manager sees type but not reason/document; HR access audited | D |
 
 Additional live-only probes (not counted): language fidelity on 10 mixed prompts; citation precision on S01–S04.
+
+M7 note: the deterministic business scenarios are named tests rather than a YAML file — S10–S19, S21, S24, S25,
+S27, S28 in `tests/unit/agent/test_business.py` (full graph, fake model, in-memory stack); S12, S16/S17, S21, S25,
+S26 and S29 against PostgreSQL with the real seed in `tests/integration/test_business_db.py` and
+`test_agent_db.py` (a freshly seeded `leave_test` per test, so the dev data is never changed); the unauthorized-action
+rate in `tests/security/test_agent_actions.py`.
 
 ## 7. Metrics
 

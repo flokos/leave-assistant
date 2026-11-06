@@ -40,6 +40,8 @@ OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PAS
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
     "platform.jobs",
+    "app.pending_interrupts",
+    "app.action_proposals",
     "app.provider_events",
     "app.agent_runs",
     "app.conversation_messages",

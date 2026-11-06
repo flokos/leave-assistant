@@ -8,7 +8,7 @@ import random
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -19,8 +19,11 @@ from leave_assistant.application.llm.ports import (
     Prompt,
     PromptMessage,
     TokenCounter,
+    ToolSpec,
+    ToolStep,
     Usage,
     prompt_text,
+    tool_schema_text,
 )
 from leave_assistant.domain.agent.budget import TokenBudgets, estimate
 from leave_assistant.domain.agent.types import (
@@ -36,6 +39,11 @@ REPAIR = LlmSafeText(
     "Your previous reply did not match the required JSON schema. Reply again with valid JSON only, "
     "following the schema exactly."
 )
+REPAIR_TOOLS = LlmSafeText(
+    "Your previous reply was not a valid tool call. Call one of the available tools with valid arguments, "
+    "or answer in plain text."
+)
+Invoke = Callable[[ChatModel, Prompt, float], Awaitable[tuple[Any, Usage]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,8 +110,11 @@ class ProviderRouter:
     def count(self, prompt: Prompt) -> int:
         return estimate(self._counter.count(prompt_text(prompt.messages)))
 
-    def check_budget(self, prompt: Prompt) -> int:
-        tokens = self.count(prompt)
+    def count_tools(self, tools: Sequence[ToolSpec]) -> int:
+        return estimate(self._counter.count(tool_schema_text(tools))) if tools else 0
+
+    def check_budget(self, prompt: Prompt, extra_tokens: int = 0) -> int:
+        tokens = self.count(prompt) + extra_tokens
         if tokens > self.budgets.total:
             raise BudgetExceeded(f"{prompt.id}: {tokens} input tokens > {self.budgets.total}")
         return tokens
@@ -118,8 +129,43 @@ class ProviderRouter:
     async def structured(
         self, prompt: Prompt, schema: type[T], *, role: ModelRole, record: CallRecord | None = None
     ) -> T:
+        async def invoke(provider: ChatModel, current: Prompt, deadline: float) -> tuple[Any, Usage]:
+            return await provider.structured(current, schema, role=role, deadline_seconds=deadline)
+
+        value: T = await self._route(prompt, role, record, invoke, repair=REPAIR)
+        return value
+
+    async def tool_step(
+        self,
+        prompt: Prompt,
+        tools: Sequence[ToolSpec],
+        *,
+        role: ModelRole,
+        record: CallRecord | None = None,
+    ) -> ToolStep:
+        """One planning step with `tools` bound natively (M7). Same budget, retry, failover and repair rules."""
+        tools = tuple(tools)
+
+        async def invoke(provider: ChatModel, current: Prompt, deadline: float) -> tuple[Any, Usage]:
+            return await provider.tool_step(current, tools, role=role, deadline_seconds=deadline)
+
+        step: ToolStep = await self._route(
+            prompt, role, record, invoke, repair=REPAIR_TOOLS, extra_tokens=self.count_tools(tools)
+        )
+        return step
+
+    async def _route(
+        self,
+        prompt: Prompt,
+        role: ModelRole,
+        record: CallRecord | None,
+        invoke: Invoke,
+        *,
+        repair: LlmSafeText,
+        extra_tokens: int = 0,
+    ) -> Any:
         record = record if record is not None else CallRecord()
-        tokens = self.check_budget(prompt)
+        tokens = self.check_budget(prompt, extra_tokens)
         errors: list[ProviderError] = []
         tried = 0
         for provider in self._providers:
@@ -136,7 +182,9 @@ class ProviderRouter:
                 )
             tried += 1
             try:
-                value, usage = await self._call_provider(provider, model, prompt, schema, role, record)
+                value, usage = await self._call_provider(
+                    provider, model, prompt, invoke, record, repair=repair, extra_tokens=extra_tokens
+                )
             except ProviderError as error:
                 errors.append(error)
                 if error.kind in (ProviderErrorKind.CONTENT_BLOCKED, ProviderErrorKind.INVALID_OUTPUT):
@@ -168,10 +216,12 @@ class ProviderRouter:
         provider: ChatModel,
         model: str,
         prompt: Prompt,
-        schema: type[T],
-        role: ModelRole,
+        invoke: Invoke,
         record: CallRecord,
-    ) -> tuple[T, Usage]:
+        *,
+        repair: LlmSafeText,
+        extra_tokens: int,
+    ) -> tuple[Any, Usage]:
         """Retries transient errors on this provider; repairs invalid output once; raises the final error."""
         repaired = False
         current = prompt
@@ -182,8 +232,7 @@ class ProviderRouter:
             await self._event(record, ProviderEvent(provider.name, model, "selected", prompt.id))
             try:
                 value, usage = await asyncio.wait_for(
-                    provider.structured(current, schema, role=role, deadline_seconds=self._timeout),
-                    timeout=self._timeout,
+                    invoke(provider, current, self._timeout), timeout=self._timeout
                 )
                 record.latency_ms += int((time.monotonic() - started) * 1000)
                 return value, usage
@@ -198,10 +247,10 @@ class ProviderRouter:
                 await self._event(record, ProviderEvent(provider.name, model, "repair", error.detail[:120]))
                 current = Prompt(
                     id=prompt.id,
-                    messages=(*prompt.messages, PromptMessage("user", REPAIR)),
+                    messages=(*prompt.messages, PromptMessage("user", repair)),
                     max_output_tokens=prompt.max_output_tokens,
                 )
-                self.check_budget(current)
+                self.check_budget(current, extra_tokens)
                 continue
             if error.kind is ProviderErrorKind.TRANSIENT and attempt < self._max_retries:
                 attempt += 1

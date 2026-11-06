@@ -172,6 +172,23 @@ The api warms up the embedder, reranker, Presidio and the input screen in the ba
 question right after `make up` can take longer until that finishes. Conversations are deleted automatically after
 90 days (`CONVERSATION_RETENTION_DAYS`), together with their checkpoints.
 
+### Assistant actions (M7)
+The assistant now acts, but only after you confirm. Ask in Greek or English, for example "How many days do I have
+left? Can I request five days off starting December 14?". It reads your balance with a tool and prepares the request,
+then shows a **card** with the dates, working days, balance before and after, and the approval chain. Nothing is
+submitted until you press **Confirm**. **Not now** discards the card; **Change** lets you pick other dates or another
+leave type and prepares a new card. A card expires after the tenant's `proposal_ttl_minutes` (default 15). A new
+message discards an open card.
+
+Managers ask "What is waiting for my approval?" and "Approve LR-2026-000123" (or "#1"); HR does the same for HR
+steps. The approver confirms their own card in their own conversation. Executions go through the same services and
+rules as the pages, so they create the same notifications and audit entries, marked `via: agent`.
+
+| Command | What it does |
+|---------|--------------|
+| `make chat-smoke ARGS="--business"` | live business flow: balance in Greek, the headline request with confirmation, the manager's approval in chat; the created request is cancelled at the end |
+| `GET /api/v1/chat/conversations/{id}/runs` | redacted run history (stages, tools, provider, timings) for the owner, or HR for audit |
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged
@@ -228,6 +245,7 @@ fast at start-up.
 | `readyz` reports `s3` failing | The bucket is created by the API at start-up; check SeaweedFS logs and `S3_ACCESS_KEY/S3_SECRET_KEY` in `deploy/.env`. |
 | Port already in use | Change `FRONTEND_PORT`, `KEYCLOAK_PORT`, `MAILPIT_PORT` (or `API_PORT` for `up-dev`) in `deploy/.env`. |
 | `api` exits with code 132 (illegal instruction) | An AVX-only CPU hit MKL's vector `tanh` (doc 13 R-27). The models already avoid that kernel; also set `MKL_CBWR=AVX` in `deploy/.env` and restart. |
+| A card says it expired, or Confirm answers `409 chat/proposal-expired` | Cards are valid for the tenant's `proposal_ttl_minutes` (default 15); ask again for a new card. `409 chat/no-pending-proposal` means a newer message replaced it. |
 | Chat answers `503 chat/provider-unavailable`, or the stream ends with that error | HTTP 503: no provider is configured (no key). Stream error: every provider failed or its circuit breaker is open (60 s; 10 min after a bad key or model). Check `make logs SERVICE=api` for `provider` events. |
 | `api` OOM-killed | Raise the memory limit in `deploy/compose.yaml` or use `make up-staged`. |
 | Build fails downloading wheels | Retry; the uv cache mount keeps already-downloaded packages. |

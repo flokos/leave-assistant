@@ -7,6 +7,7 @@ inside the caller's unit of work so chunks and vault rows commit together. Missi
 from __future__ import annotations
 
 import builtins
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -32,6 +33,8 @@ from leave_assistant.domain.privacy.types import (
     format_placeholder,
     merge_findings,
 )
+
+REQUEST_NUMBER = re.compile(r"\bLR-\d{4}-\d{6}\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,8 +71,14 @@ class PseudonymisationService:
     def detect(
         self, text: str, *, language: str | None, known: Sequence[KnownEntity]
     ) -> builtins.list[Finding]:
+        # request numbers (LR-2026-000123) are business identifiers the user and the tools must see as they are;
+        # Presidio's phone pattern otherwise takes their digits (found in M7)
+        reserved = [(m.start(), m.end()) for m in REQUEST_NUMBER.finditer(text)]
         findings = [
-            f for f in self._engine.detect(text, language=language, known=known) if f.score >= self._threshold
+            f
+            for f in self._engine.detect(text, language=language, known=known)
+            if f.score >= self._threshold
+            and not any(f.start < end and start < f.end for start, end in reserved)
         ]
         return merge_findings(findings)
 
@@ -129,6 +138,24 @@ class PseudonymisationService:
             source_kind=source_kind,
             source_id=source_id,
         )
+
+    async def placeholder_for_employee(
+        self, uow: UnitOfWork, tenant_id: UUID, employee_id: UUID, display_name: str, *, source_kind: str
+    ) -> str:
+        """Structured tool results (M7) need no NER: an employee reference maps to the identity's stable placeholder
+        (`employee:{id}`, the same one the directory layer gives every spelling of that name)."""
+        if not self._cipher.configured:
+            raise SecurityNotConfigured("vault keys are not configured; refusing to produce LLM-safe text")
+        finding = Finding(
+            entity_type=EntityType.PERSON,
+            start=0,
+            end=len(display_name),
+            score=1.0,
+            source="known_entity",
+            text=display_name,
+            subject_employee_id=employee_id,
+        )
+        return (await self._entry_for(uow, tenant_id, finding, source_kind)).placeholder
 
     async def resolve(
         self, uow: UnitOfWork, tenant_id: UUID, placeholder: str

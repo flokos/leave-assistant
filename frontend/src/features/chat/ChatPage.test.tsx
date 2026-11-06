@@ -110,3 +110,115 @@ describe('ChatPage', () => {
     expect(await screen.findByTestId('chat-error')).toHaveTextContent('The assistant is temporarily unavailable')
   })
 })
+
+const card = {
+  proposal_id: 'p1',
+  kind: 'submit',
+  status: 'pending',
+  payload_hash: 'a'.repeat(64),
+  expires_at: '2026-11-05T09:15:00Z',
+  summary: {
+    leave_type: 'annual',
+    leave_type_name: { el: 'Κανονική άδεια', en: 'Annual leave' },
+    start_date: '2026-12-14',
+    end_date: '2026-12-18',
+    working_days: 5,
+    available_before: '20',
+    available_after: '15',
+    approval_chain: ['manager'],
+    excluded: [],
+  },
+  actions: ['confirm', 'reject', 'edit'],
+  outcome: {},
+}
+
+describe('Business chat (M7)', () => {
+  it('shows tool chips and the confirmation card, then confirms through resume', async () => {
+    let stage: 'empty' | 'card' | 'done' = 'empty'
+    const mock = installFetchMock({
+      'GET /api/v1/me': () => employeeMe,
+      'GET /api/v1/leave/types': () => [],
+      'GET /api/v1/chat/conversations': () => ({ items: [conversation], next_cursor: null }),
+      'GET /api/v1/chat/conversations/conv1/messages': () =>
+        stage === 'empty'
+          ? []
+          : [
+              { id: 'm1', role: 'user', text: 'Five days from 14 December', citations: [], outcome: null, created_at: '2026-11-05T09:00:00Z', card: null },
+              { id: 'm2', role: 'assistant', text: 'I have prepared the leave request.', citations: [], outcome: 'interrupted', created_at: '2026-11-05T09:00:01Z', card: stage === 'card' ? card : { ...card, status: 'executed', actions: [], outcome: { request_number: 'LR-2026-000042' } } },
+              ...(stage === 'done' ? [{ id: 'm3', role: 'assistant', text: 'Request LR-2026-000042 was submitted.', citations: [], outcome: 'executed', created_at: '2026-11-05T09:00:05Z', card: null }] : []),
+            ],
+      'POST /api/v1/chat/conversations/conv1/messages': () => {
+        stage = 'card'
+        return sse([
+          ['run_started', { run_id: 'r1', turn: 1 }],
+          ['status', { stage: 'planning' }],
+          ['tool_call', { name: 'get_my_balance', status: 'started' }],
+          ['tool_call', { name: 'get_my_balance', status: 'ok' }],
+          ['tool_call', { name: 'prepare_leave_request', status: 'ok' }],
+          ['token', { text: 'I have prepared the leave request.' }],
+          ['interrupt', { proposal_id: 'p1', kind: 'submit', card, expires_at: card.expires_at }],
+        ])
+      },
+      'POST /api/v1/chat/conversations/conv1/resume': async (request) => {
+        expect(await request.clone().json()).toEqual({ proposal_id: 'p1', decision: 'confirm', payload_hash: card.payload_hash })
+        stage = 'done'
+        return sse([
+          ['run_started', { run_id: 'r2', turn: 2 }],
+          ['status', { stage: 'executing' }],
+          ['token', { text: 'Request LR-2026-000042 was submitted.' }],
+          ['done', { run_id: 'r2', outcome: 'executed', usage: {} }],
+        ])
+      },
+    })
+    setAccessTokenGetter(() => 't')
+    renderWithProviders(<ChatPage />, { auth })
+    await screen.findByTestId('conversation-item')
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'Five days from 14 December' } })
+    fireEvent.click(screen.getByTestId('chat-send'))
+    const proposal = await screen.findByTestId('proposal-card')
+    expect(proposal).toHaveTextContent('2026-12-14 – 2026-12-18')
+    expect(proposal).toHaveTextContent('20 → 15')
+    expect(within(proposal).getByTestId('card-status')).toHaveTextContent('Waiting for you')
+    fireEvent.click(within(proposal).getByTestId('card-confirm'))
+    await waitFor(() => expect(mock.requestsTo('POST /api/v1/chat/conversations/conv1/resume')).toHaveLength(1))
+    await waitFor(() => expect(screen.getByTestId('card-status')).toHaveTextContent('Done'))
+    expect(screen.getByText('Request LR-2026-000042 was submitted.')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-confirm')).not.toBeInTheDocument()
+  })
+
+  it('shows a decided card from history without actions', async () => {
+    installFetchMock({
+      'GET /api/v1/me': () => employeeMe,
+      'GET /api/v1/leave/types': () => [],
+      'GET /api/v1/chat/conversations': () => ({ items: [conversation], next_cursor: null }),
+      'GET /api/v1/chat/conversations/conv1/messages': () => [
+        { id: 'm2', role: 'assistant', text: 'Prepared.', citations: [], outcome: 'interrupted', created_at: '2026-11-05T09:00:01Z', card: { ...card, status: 'expired', actions: [] } },
+      ],
+    })
+    setAccessTokenGetter(() => 't')
+    renderWithProviders(<ChatPage />, { auth })
+    expect(await screen.findByTestId('card-status')).toHaveTextContent('Expired')
+    expect(screen.queryByTestId('card-confirm')).not.toBeInTheDocument()
+  })
+})
+
+describe('New conversation', () => {
+  it('stays new instead of falling back to the latest conversation', async () => {
+    const mock = installFetchMock({
+      'GET /api/v1/me': () => employeeMe,
+      'GET /api/v1/chat/conversations': () => ({ items: [conversation], next_cursor: null }),
+      'GET /api/v1/chat/conversations/conv1/messages': () => [],
+      'POST /api/v1/chat/conversations': () => new Response(JSON.stringify({ ...conversation, id: 'conv2' }), { status: 201, headers: { 'content-type': 'application/json' } }),
+      'GET /api/v1/chat/conversations/conv2/messages': () => [],
+      'POST /api/v1/chat/conversations/conv2/messages': () => sse([['done', { run_id: 'r', outcome: 'answered', usage: {} }]]),
+    })
+    setAccessTokenGetter(() => 't')
+    renderWithProviders(<ChatPage />, { auth })
+    await screen.findByTestId('conversation-item')
+    fireEvent.click(screen.getByTestId('new-conversation'))
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'Γεια' } })
+    fireEvent.click(screen.getByTestId('chat-send'))
+    await waitFor(() => expect(mock.requestsTo('POST /api/v1/chat/conversations/conv2/messages')).toHaveLength(1))
+    expect(mock.requestsTo('POST /api/v1/chat/conversations/conv1/messages')).toHaveLength(0)
+  })
+})

@@ -39,7 +39,10 @@ from leave_assistant.infrastructure.parsing.docling_parser import DoclingParser
 from leave_assistant.infrastructure.privacy.presidio_engine import PresidioEngine
 from leave_assistant.infrastructure.privacy.vault_crypto import VaultCrypto, decode_key
 from leave_assistant.infrastructure.security.llm_judge import UnavailableLlmJudge
-from leave_assistant.infrastructure.security.similarity_classifier import SimilarityClassifier
+from leave_assistant.infrastructure.security.similarity_classifier import (
+    USER_BENIGN_PATH,
+    SimilarityClassifier,
+)
 from leave_assistant.infrastructure.storage.crypto import EnvelopeCipher
 from leave_assistant.infrastructure.storage.s3 import S3DocumentStorage, make_s3_client
 from leave_assistant.infrastructure.system import SystemClock, Uuid7IdGenerator
@@ -101,17 +104,21 @@ class Runtime:
             max_retries=settings.llm_max_retries,
             sink=log_event,
         )
+        evidence = EvidencePolicy(
+            tau=settings.retrieval_tau,
+            min_evidence_chunks=settings.min_evidence_chunks,
+            budget_tokens=settings.llm_budget_context,
+        )
+        services.tools.evidence = evidence  # search_policies uses the same τ as the knowledge path
         deps = AgentDeps(
             router=router,
             retrieval=services.retrieval,
             security=services.security,
             language=services.adapters.language,
             counter=services.adapters.tokenizer,
-            evidence=EvidencePolicy(
-                tau=settings.retrieval_tau,
-                min_evidence_chunks=settings.min_evidence_chunks,
-                budget_tokens=settings.llm_budget_context,
-            ),
+            evidence=evidence,
+            tools=services.tools,
+            proposals=services.proposals,
         )
         tracer = None
         if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
@@ -271,6 +278,7 @@ def build_document_adapters(
         vault_cipher=build_vault_cipher(settings),
         file_cipher=build_file_cipher(settings),
         classifier=SimilarityClassifier(embedder),
+        input_classifier=SimilarityClassifier(embedder, benign_path=USER_BENIGN_PATH),
         judge=UnavailableLlmJudge(),
         reranker=CrossEncoderReranker(
             settings.reranker_model, threads=threads, max_length=settings.rerank_max_length

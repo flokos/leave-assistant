@@ -157,6 +157,7 @@ class SqlMessageRepository:
                 run_id=message.run_id,
                 outcome=message.outcome,
                 created_at=message.created_at,
+                proposal_id=message.proposal_id,
             )
         )
         await flush_or_conflict(self._s)
@@ -184,6 +185,7 @@ class SqlMessageRepository:
                 provenance=dict(r.provenance or {}),
                 run_id=r.run_id,
                 outcome=r.outcome,
+                proposal_id=r.proposal_id,
             )
             for r in (await self._s.execute(stmt)).scalars()
         ]
@@ -226,6 +228,38 @@ class SqlAgentRunRepository:
             AgentRunRow.tenant_id == self._tenant, AgentRunRow.conversation_id == conversation_id
         )
         return int((await self._s.execute(stmt)).scalar_one())
+
+    async def list_for_conversation(self, conversation_id: UUID) -> builtins.list[AgentRun]:
+        if self._tenant is None:
+            return []
+        stmt = (
+            select(AgentRunRow)
+            .where(AgentRunRow.tenant_id == self._tenant, AgentRunRow.conversation_id == conversation_id)
+            .order_by(AgentRunRow.created_at, AgentRunRow.turn)
+        )
+        return [
+            AgentRun(
+                id=r.id,
+                tenant_id=r.tenant_id,
+                conversation_id=r.conversation_id,
+                turn=r.turn,
+                intent=r.intent,
+                language=r.language,
+                route=r.route,
+                provider_used=r.provider_used,
+                model_used=r.model_used,
+                failovers=r.failovers,
+                input_tokens=r.input_tokens,
+                output_tokens=r.output_tokens,
+                latency_ms=r.latency_ms,
+                outcome=r.outcome,
+                created_at=r.created_at,
+                tool_trace=list(r.tool_trace or []),
+                details=dict(r.details or {}),
+                langfuse_trace_id=r.langfuse_trace_id,
+            )
+            for r in (await self._s.execute(stmt)).scalars()
+        ]
 
 
 class SqlProviderEventRepository:

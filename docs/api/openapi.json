@@ -762,6 +762,16 @@
             "title": "Last Activity At",
             "type": "string"
           },
+          "pending_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalCardOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -2706,6 +2716,16 @@
       "MessageOut": {
         "additionalProperties": false,
         "properties": {
+          "card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalCardOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/CitationItem"
@@ -3405,6 +3425,82 @@
         "title": "PolicyUpdate",
         "type": "object"
       },
+      "ProposalCardOut": {
+        "additionalProperties": false,
+        "description": "The confirmation card (doc 09 §4 ProposalCard): rendered from the stored proposal for its owner.",
+        "properties": {
+          "actions": {
+            "items": {
+              "enum": [
+                "confirm",
+                "reject",
+                "edit"
+              ],
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "submit",
+              "modify",
+              "cancel",
+              "approve",
+              "reject"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "additionalProperties": true,
+            "title": "Outcome",
+            "type": "object"
+          },
+          "payload_hash": {
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "executed",
+              "rejected",
+              "expired",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "kind",
+          "status",
+          "payload_hash",
+          "expires_at",
+          "summary",
+          "actions"
+        ],
+        "title": "ProposalCardOut",
+        "type": "object"
+      },
       "ReadAllOut": {
         "additionalProperties": false,
         "properties": {
@@ -3465,6 +3561,94 @@
           "department_id"
         ],
         "title": "RequesterOut",
+        "type": "object"
+      },
+      "ResumeEditsIn": {
+        "additionalProperties": false,
+        "description": "Structured edits only (dates, leave type): the proposal is re-prepared deterministically.",
+        "properties": {
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "pattern": "^[a-z_]{2,32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "title": "ResumeEditsIn",
+        "type": "object"
+      },
+      "ResumeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "confirm",
+              "reject",
+              "edit"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "edits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeEditsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload_hash": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "decision",
+          "payload_hash"
+        ],
+        "title": "ResumeIn",
         "type": "object"
       },
       "RetentionDecisionIn": {
@@ -4147,6 +4331,167 @@
           }
         },
         "title": "RuleUpdate",
+        "type": "object"
+      },
+      "RunOut": {
+        "additionalProperties": false,
+        "description": "Redacted run history (doc 04 §7): stages, tool trace, provider and timings — no prompts, no arguments.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failovers": {
+            "title": "Failovers",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/RunProposalOut"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "stages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "tool_trace": {
+            "items": {
+              "$ref": "#/components/schemas/ToolTraceItem"
+            },
+            "title": "Tool Trace",
+            "type": "array"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "turn",
+          "intent",
+          "route",
+          "outcome",
+          "language",
+          "provider",
+          "model",
+          "failovers",
+          "input_tokens",
+          "output_tokens",
+          "latency_ms",
+          "stages",
+          "tool_trace",
+          "proposals",
+          "created_at"
+        ],
+        "title": "RunOut",
+        "type": "object"
+      },
+      "RunProposalOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status"
+        ],
+        "title": "RunProposalOut",
         "type": "object"
       },
       "SearchHitOut": {
@@ -5340,6 +5685,41 @@
           }
         },
         "title": "TenantUpdate",
+        "type": "object"
+      },
+      "ToolTraceItem": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "duration_ms"
+        ],
+        "title": "ToolTraceItem",
         "type": "object"
       },
       "ValidationError": {
@@ -8317,6 +8697,108 @@
           "chat"
         ],
         "x-idempotency": "none"
+      }
+    },
+    "/api/v1/chat/conversations/{conversation_id}/resume": {
+      "post": {
+        "operationId": "resume_conversation_api_v1_chat_conversations__conversation_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "example": "event: status\ndata: {\"stage\": \"executing\"}\n\nevent: done\ndata: {\"outcome\": \"executed\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "SSE stream (doc 09 §3)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Conversation",
+        "tags": [
+          "chat"
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/chat/conversations/{conversation_id}/runs": {
+      "get": {
+        "operationId": "list_runs_api_v1_chat_conversations__conversation_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunOut"
+                  },
+                  "title": "Response List Runs Api V1 Chat Conversations  Conversation Id  Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "chat"
+        ]
       }
     },
     "/api/v1/documents": {

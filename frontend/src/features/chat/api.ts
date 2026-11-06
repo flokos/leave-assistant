@@ -5,6 +5,7 @@ import { useApiMutation } from '../../shared/useApiMutation'
 export type ConversationOut = Schemas['ConversationOut']
 export type MessageOut = Schemas['MessageOut']
 export type CitationItem = Schemas['CitationItem']
+export type ProposalCardOut = Schemas['ProposalCardOut']
 
 export function useConversations() {
   return useQuery({ queryKey: ['chat', 'conversations'], queryFn: async () => unwrap(await api.GET('/api/v1/chat/conversations', { params: { query: { limit: 50 } } })) })

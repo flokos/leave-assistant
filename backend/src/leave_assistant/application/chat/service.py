@@ -8,12 +8,15 @@ import builtins
 import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from leave_assistant.application.assistant.models import ActionProposal
+from leave_assistant.application.assistant.proposals import ProposalCard, ProposalService, card_json
 from leave_assistant.application.audit.service import AuditService
-from leave_assistant.application.authz.policy import Action, require
+from leave_assistant.application.authz.policy import Action, ResourceRef, authorize, require
 from leave_assistant.application.chat.context import RunContext
 from leave_assistant.application.chat.models import (
     AgentRun,
@@ -23,7 +26,14 @@ from leave_assistant.application.chat.models import (
     MessageRole,
     ProviderEventRecord,
 )
-from leave_assistant.application.chat.ports import AgentRunner, FinalEvent, StatusEvent
+from leave_assistant.application.chat.ports import (
+    AgentEvent,
+    AgentRunner,
+    FinalEvent,
+    InterruptEvent,
+    StatusEvent,
+    ToolEvent,
+)
 from leave_assistant.application.documents.policy import reader_for, scope_for
 from leave_assistant.application.errors import (
     ApplicationError,
@@ -44,6 +54,7 @@ from leave_assistant.application.privacy.service import PseudonymisationService
 from leave_assistant.application.security.policy import SecurityPolicyService
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.agent.budget import TokenBudgets
+from leave_assistant.domain.agent.proposals import ProposalStatus
 from leave_assistant.domain.agent.streaming import PLACEHOLDER, BufferedReidentifier
 from leave_assistant.domain.agent.types import AllProvidersFailed, Outcome, ProviderError
 from leave_assistant.domain.documents.visibility import can_read
@@ -72,12 +83,30 @@ class ChatEvent:
 class MessageView:
     message: ConversationMessage
     text: str  # re-identified for the principal
+    card: ProposalCard | None = (
+        None  # M7: the confirmation card this message carries, with its current status
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class ConversationView:
     conversation: Conversation
     title: str  # re-identified
+    pending: ProposalCard | None = None  # M7: the open confirmation card, if any
+
+
+@dataclass(frozen=True, slots=True)
+class RunView:
+    """Redacted run history (doc 04 §7): what happened, never prompt bodies or arguments."""
+
+    run: AgentRun
+    proposals: tuple[ActionProposal, ...] = ()
+
+
+REPLAYED = {
+    "el": "Αυτή η πρόταση έχει ήδη αποφασιστεί· δεν έγινε νέα ενέργεια.",
+    "en": "This proposal was already decided; nothing new was done.",
+}
 
 
 class ChatService:
@@ -93,6 +122,7 @@ class ChatService:
         language: LanguageDetector,
         agent: AgentRunner | None,
         *,
+        proposals: ProposalService | None = None,
         budgets: TokenBudgets | None = None,
         retention_days: int = 90,
     ) -> None:
@@ -105,6 +135,7 @@ class ChatService:
         self._policies = policies
         self._language = language
         self.agent = agent
+        self.proposals = proposals
         self.budgets = budgets or TokenBudgets()
         self._retention_days = retention_days
 
@@ -161,7 +192,13 @@ class ChatService:
         self._user(principal)
         async with self._uow(TenantContext.for_principal(principal)) as uow:
             conversation = await self._owned(uow, principal, conversation_id)
-            return ConversationView(conversation, await self._reid_own(uow, principal, conversation.title))
+            title = await self._reid_own(uow, principal, conversation.title)
+        pending = None
+        if self.proposals is not None:
+            proposal = await self.proposals.pending(principal, conversation_id)
+            if proposal is not None:
+                pending = await self.proposals.card(principal, proposal.id)
+        return ConversationView(conversation, title, pending)
 
     async def archive(self, principal: Principal, conversation_id: UUID) -> None:
         self._user(principal)
@@ -196,9 +233,57 @@ class ChatService:
                     authored_sources=frozenset({str(conversation_id)}),
                 )
                 views.append(MessageView(message, text))
+        if self.proposals is not None:
+            ids = [v.message.proposal_id for v in views if v.message.proposal_id is not None]
+            if ids:
+                cards = await self.proposals.cards(principal, [i for i in ids if i is not None])
+                views = [
+                    MessageView(v.message, v.text, cards.get(v.message.proposal_id))
+                    if v.message.proposal_id is not None and v.message.outcome == Outcome.INTERRUPTED.value
+                    else v
+                    for v in views
+                ]
         return views
 
+    async def runs(self, principal: Principal, conversation_id: UUID) -> builtins.list[RunView]:
+        """The owner sees their runs; HR and company administrators may read any conversation's runs for audit
+        (doc 09 §2.2), which is itself audited. Others get 404 — the conversation is invisible."""
+        require(principal, Action.CHAT)
+        if principal.tenant_id is None:
+            raise NotFoundError("conversation not found")
+        async with self._uow(TenantContext.for_principal(principal)) as uow:
+            conversation = await uow.conversations.get(conversation_id)
+            if conversation is None:
+                raise NotFoundError("conversation not found")
+            if conversation.employee_id != principal.employee_id:
+                resource = ResourceRef(
+                    "conversation",
+                    conversation.id,
+                    tenant_id=conversation.tenant_id,
+                    owner_employee_id=conversation.employee_id,
+                )
+                if not authorize(principal, Action.READ_RUN_HISTORY, resource).allowed:
+                    raise NotFoundError("conversation not found")
+                await self._audit.record(
+                    uow,
+                    principal,
+                    "chat.runs.viewed",
+                    resource_type="conversation",
+                    resource_id=conversation.id,
+                )
+            runs = await uow.agent_runs.list_for_conversation(conversation_id)
+            proposals = await uow.proposals.list_for_conversation(conversation_id)
+            await uow.commit()
+        return [RunView(r, tuple(p for p in proposals if r.id in (p.run_id, p.claimed_by_run))) for r in runs]
+
     # --- a turn ----------------------------------------------------------------------------------------------
+    @staticmethod
+    def _today(now: datetime, timezone: str | None) -> date:
+        try:
+            return now.astimezone(ZoneInfo(timezone or "UTC")).date()
+        except ZoneInfoNotFoundError:
+            return now.date()
+
     async def send(
         self, principal: Principal, conversation_id: UUID, text: str, *, request_id: str | None
     ) -> AsyncIterator[ChatEvent]:
@@ -221,28 +306,113 @@ class ChatService:
             if not await uow.conversations.try_lock(conversation.id, until=now + RUN_LOCK, now=now):
                 raise RunInProgress("another message is still being answered in this conversation")
             policy = await self._policies.policy_for(uow, tenant_id)
+            tenant = await uow.tenants.get(tenant_id)
             known = await _known_entities(uow)
             turn = await uow.agent_runs.count_for_conversation(conversation.id) + 1
             await uow.commit()
+        today = self._today(now, tenant.timezone if tenant else None)
         language = self._language.detect(cleaned)
         try:
+            if self.proposals is not None:
+                # a new message starts a fresh graph run, which drops an open interrupt: its proposal follows
+                await self.proposals.supersede_pending(principal, conversation.id)
             findings = await asyncio.to_thread(self._privacy.detect, cleaned, language=language, known=known)
         except Exception:
             await self._unlock(context_t, conversation.id)
             raise
-        return self._stream(
-            principal, conversation, cleaned, findings, turn, policy.user_input_block_threshold, request_id
+        return self._run(
+            principal,
+            conversation,
+            turn=turn,
+            block_threshold=policy.user_input_block_threshold,
+            request_id=request_id,
+            today=today,
+            user=(cleaned, findings),
         )
 
-    async def _stream(  # noqa: PLR0915 - one linear protocol
+    async def resume(
+        self,
+        principal: Principal,
+        conversation_id: UUID,
+        *,
+        proposal_id: UUID,
+        decision: str,
+        payload_hash: str,
+        edits: dict[str, Any] | None,
+        request_id: str | None,
+    ) -> AsyncIterator[ChatEvent]:
+        """Continue a paused run with the user's decision (doc 09 §2.2). The proposal id is the idempotency key: a
+        decided proposal replays its stored outcome without running anything (S25)."""
+        tenant_id, _ = self._user(principal)
+        if self.agent is None or self.proposals is None:
+            raise ApplicationError(
+                "the assistant is not configured", problem_type="chat/provider-unavailable"
+            )
+        now = self._clock.now()
+        context_t = TenantContext.for_principal(principal)
+        async with self._uow(context_t) as uow:
+            conversation = await self._owned(uow, principal, conversation_id)
+        proposal = await self.proposals.check_resumable(principal, conversation_id, proposal_id, payload_hash)
+        if proposal.status is not ProposalStatus.PENDING:
+            return self._replay(principal, conversation, proposal)
+        async with self._uow(context_t) as uow:
+            if not await uow.conversations.try_lock(conversation.id, until=now + RUN_LOCK, now=now):
+                raise RunInProgress("another message is still being answered in this conversation")
+            policy = await self._policies.policy_for(uow, tenant_id)
+            tenant = await uow.tenants.get(tenant_id)
+            turn = await uow.agent_runs.count_for_conversation(conversation.id) + 1
+            await uow.commit()
+        payload = {
+            "proposal_id": str(proposal_id),
+            "decision": decision,
+            "payload_hash": payload_hash,
+            "edits": {k: v for k, v in (edits or {}).items() if v not in (None, "")},
+        }
+        return self._run(
+            principal,
+            conversation,
+            turn=turn,
+            block_threshold=policy.user_input_block_threshold,
+            request_id=request_id,
+            today=self._today(now, tenant.timezone if tenant else None),
+            decision=payload,
+            proposal_id=proposal_id,
+        )
+
+    async def _replay(
+        self, principal: Principal, conversation: Conversation, proposal: ActionProposal
+    ) -> AsyncIterator[ChatEvent]:
+        async with self._uow(TenantContext.for_principal(principal)) as uow:
+            stored = [
+                m
+                for m in await uow.messages.list_for_conversation(conversation.id)
+                if m.proposal_id == proposal.id and m.outcome != Outcome.INTERRUPTED.value
+            ]
+            text = REPLAYED.get(principal.locale.value, REPLAYED["en"])
+            if stored:
+                last = stored[-1]
+                text = await self._reid.reidentify(
+                    uow, principal, LlmSafeText(last.content), _occurrences(last.provenance)
+                )
+        outcome = {
+            ProposalStatus.EXECUTED: Outcome.EXECUTED,
+            ProposalStatus.FAILED: Outcome.FAILED,
+        }.get(proposal.status, Outcome.REJECTED)
+        yield ChatEvent("token", {"text": text})
+        yield ChatEvent("done", {"run_id": None, "outcome": outcome.value, "replayed": True, "usage": {}})
+
+    async def _run(  # noqa: PLR0912, PLR0915 - one linear protocol
         self,
         principal: Principal,
         conversation: Conversation,
-        raw: str,
-        findings: Sequence[Any],
+        *,
         turn: int,
         block_threshold: float,
         request_id: str | None,
+        today: date,
+        user: tuple[str, Sequence[Any]] | None = None,
+        decision: dict[str, Any] | None = None,
+        proposal_id: UUID | None = None,
     ) -> AsyncIterator[ChatEvent]:
         assert (
             principal.tenant_id is not None and principal.employee_id is not None and self.agent is not None
@@ -259,51 +429,72 @@ class ChatService:
             request_id=request_id,
             block_threshold=block_threshold,
             budgets=self.budgets,
+            run_id=run_id,
+            today=today,
         )
         final: FinalEvent | None = None
+        paused: InterruptEvent | None = None
         outcome = Outcome.ERROR.value
         user_occurrences: tuple[PlaceholderOccurrence, ...] = ()
         try:
-            async with self._uow(context_t) as uow:
-                pseudo = await self._privacy.apply(
-                    uow,
-                    principal.tenant_id,
-                    raw,
-                    findings,
-                    source_kind="user_message",
-                    source_id=str(conversation.id),
-                )
-                user_occurrences = pseudo.occurrences
-                now = self._clock.now()
-                await uow.messages.add(
-                    ConversationMessage(
-                        id=self._ids.new_id(),
-                        tenant_id=principal.tenant_id,
-                        conversation_id=conversation.id,
-                        role=MessageRole.USER,
-                        content=str(pseudo.safe),
-                        created_at=now,
-                        provenance=_provenance(pseudo.occurrences),
-                        run_id=run_id,
+            events: AsyncIterator[AgentEvent]
+            if user is not None:
+                raw, findings = user
+                async with self._uow(context_t) as uow:
+                    pseudo = await self._privacy.apply(
+                        uow,
+                        principal.tenant_id,
+                        raw,
+                        findings,
+                        source_kind="user_message",
+                        source_id=str(conversation.id),
                     )
-                )
-                current = await self._owned(uow, principal, conversation.id)
-                if not current.title:
-                    current.title = _title(str(pseudo.safe))
-                current.last_activity_at = now
-                await uow.conversations.update(current)
-                await uow.commit()
+                    user_occurrences = pseudo.occurrences
+                    now = self._clock.now()
+                    await uow.messages.add(
+                        ConversationMessage(
+                            id=self._ids.new_id(),
+                            tenant_id=principal.tenant_id,
+                            conversation_id=conversation.id,
+                            role=MessageRole.USER,
+                            content=str(pseudo.safe),
+                            created_at=now,
+                            provenance=_provenance(pseudo.occurrences),
+                            run_id=run_id,
+                        )
+                    )
+                    current = await self._owned(uow, principal, conversation.id)
+                    if not current.title:
+                        current.title = _title(str(pseudo.safe))
+                    current.last_activity_at = now
+                    await uow.conversations.update(current)
+                    await uow.commit()
+                events = self.agent.run(run, pseudo.safe)
+            else:
+                assert decision is not None
+                events = self.agent.resume(run, decision)
             yield ChatEvent("run_started", {"run_id": str(run_id), "turn": turn})
-            async for event in self.agent.run(run, pseudo.safe):
+            async for event in events:
                 if isinstance(event, StatusEvent):
                     yield ChatEvent("status", {"stage": event.stage})
+                elif isinstance(event, ToolEvent):
+                    yield ChatEvent("tool_call", {"name": event.name, "status": event.status})
+                elif isinstance(event, InterruptEvent):
+                    paused = event
                 else:
                     final = event
+            if paused is not None:
+                outcome = Outcome.INTERRUPTED.value
+                async for chat_event in self._emit_interrupt(principal, conversation, paused, run_id):
+                    yield chat_event
+                return  # doc 09 §3: the stream ends after the interrupt event
             if final is None:
                 raise RuntimeError("the agent produced no answer")
             outcome = final.answer.outcome.value
+            if final.answer.outcome is Outcome.BLOCKED:
+                await self._audit_blocked(principal, conversation, run)
             async for chat_event in self._emit_answer(
-                principal, conversation, final, user_occurrences, run_id
+                principal, conversation, final, user_occurrences, run_id, proposal_id=proposal_id
             ):
                 yield chat_event
             yield ChatEvent(
@@ -345,7 +536,63 @@ class ChatService:
                 "error", {"type": "internal-error", "title": "Something went wrong", "request_id": request_id}
             )
         finally:
-            await self._finish(principal, conversation, run, run_id, turn, final, outcome, started)
+            if proposal_id is not None and self.proposals is not None:
+                try:  # a claim this run still holds after its retries gave up → failed (or executed, if it was)
+                    await self.proposals.release(principal, proposal_id, run_id=run_id)
+                except Exception as exc:  # noqa: BLE001 - never mask the run's own outcome
+                    run.metrics.details["release_error"] = type(exc).__name__
+            await self._finish(principal, conversation, run, run_id, turn, final, outcome, started, paused)
+
+    async def _audit_blocked(self, principal: Principal, conversation: Conversation, run: RunContext) -> None:
+        async with self._uow(TenantContext.for_principal(principal)) as uow:
+            await self._audit.record(
+                uow,
+                principal,
+                "agent.input.blocked",
+                resource_type="conversation",
+                resource_id=conversation.id,
+                details={
+                    "score": run.metrics.details.get("input_risk_score"),
+                    "families": run.metrics.details.get("blocked_families", []),
+                },
+            )
+            await uow.commit()
+
+    async def _emit_interrupt(
+        self, principal: Principal, conversation: Conversation, paused: InterruptEvent, run_id: UUID
+    ) -> AsyncIterator[ChatEvent]:
+        assert principal.tenant_id is not None and self.proposals is not None
+        proposal = await self.proposals.open_interrupt(principal, paused.proposal_id)
+        occurrences = [o for o in _occurrences(paused.placeholders) if o.placeholder in paused.text]
+        async with self._uow(TenantContext.for_principal(principal)) as uow:
+            await uow.messages.add(
+                ConversationMessage(
+                    id=self._ids.new_id(),
+                    tenant_id=principal.tenant_id,
+                    conversation_id=conversation.id,
+                    role=MessageRole.ASSISTANT,
+                    content=paused.text,
+                    created_at=self._clock.now(),
+                    provenance=_provenance(occurrences),
+                    run_id=run_id,
+                    outcome=Outcome.INTERRUPTED.value,
+                    proposal_id=proposal.id,
+                )
+            )
+            text = await self._reid.reidentify(uow, principal, LlmSafeText(paused.text), occurrences)
+            await uow.commit()
+        for start in range(0, len(text), TOKEN_CHUNK):
+            yield ChatEvent("token", {"text": text[start : start + TOKEN_CHUNK]})
+        card = await self.proposals.card(principal, proposal.id)
+        yield ChatEvent(
+            "interrupt",
+            {
+                "proposal_id": str(proposal.id),
+                "kind": proposal.kind.value,
+                "card": card_json(card),
+                "expires_at": proposal.expires_at.isoformat(),
+            },
+        )
 
     async def _emit_answer(
         self,
@@ -354,11 +601,13 @@ class ChatService:
         final: FinalEvent,
         user_occurrences: Sequence[PlaceholderOccurrence],
         run_id: UUID,
+        *,
+        proposal_id: UUID | None = None,
     ) -> AsyncIterator[ChatEvent]:
         assert principal.tenant_id is not None
         answer = final.answer
         versions = set(final.source_version_ids)
-        occurrences = _answer_occurrences(answer.text, user_occurrences, versions)
+        occurrences = _answer_occurrences(answer.text, user_occurrences, versions, final.placeholders)
         async with self._uow(TenantContext.for_principal(principal)) as uow:
             resolved: dict[str, str] = {}
             for placeholder in dict.fromkeys(m.group(0) for m in PLACEHOLDER.finditer(answer.text)):
@@ -382,6 +631,7 @@ class ChatService:
                     provenance=_provenance(occurrences),
                     run_id=run_id,
                     outcome=answer.outcome.value,
+                    proposal_id=proposal_id or final.proposal_id,
                 )
             )
             await uow.commit()
@@ -406,11 +656,14 @@ class ChatService:
         final: FinalEvent | None,
         outcome: str,
         started: float,
+        paused: InterruptEvent | None = None,
     ) -> None:
         assert principal.tenant_id is not None
         tenant_id = principal.tenant_id
         now = self._clock.now()
         metrics = run.metrics
+        tool_trace = list(metrics.details.pop("tool_trace", []))
+        head = final or paused
         async with self._uow(TenantContext.for_principal(principal)) as uow:
             await uow.agent_runs.add(
                 AgentRun(
@@ -418,9 +671,9 @@ class ChatService:
                     tenant_id=tenant_id,
                     conversation_id=conversation.id,
                     turn=turn,
-                    intent=final.intent if final else None,
-                    language=final.language if final else None,
-                    route=final.route if final else None,
+                    intent=head.intent if head else None,
+                    language=head.language if head else None,
+                    route=final.route if final else ("approval" if paused else None),
                     provider_used=metrics.provider,
                     model_used=metrics.model,
                     failovers=metrics.failovers,
@@ -429,6 +682,7 @@ class ChatService:
                     latency_ms=int((time.monotonic() - started) * 1000),
                     outcome=outcome,
                     created_at=now,
+                    tool_trace=tool_trace,
                     details={
                         **metrics.details,
                         "llm_latency_ms": metrics.llm_latency_ms,
@@ -561,16 +815,27 @@ def _occurrences(provenance: dict[str, dict[str, Any]]) -> list[PlaceholderOccur
 
 
 def _answer_occurrences(
-    text: str, user: Sequence[PlaceholderOccurrence], versions: set[str]
+    text: str,
+    user: Sequence[PlaceholderOccurrence],
+    versions: set[str],
+    tools: dict[str, dict[str, Any]] | None = None,
 ) -> list[PlaceholderOccurrence]:
-    """Placeholders the user typed keep their provenance; the rest came from the retrieved documents (readable by
-    construction); anything else is model-invented and resolves to `[unavailable]` (no vault entry or no source)."""
+    """Placeholders the user typed keep their provenance; tool results carry their own (M7: the doc 08 §7.4 matrix
+    decides, e.g. a manager sees their own department's names); the rest came from the retrieved documents
+    (readable by construction); anything else is model-invented and resolves to `[unavailable]`."""
     own = {o.placeholder: o for o in user}
+    tool_sources = tools or {}
     source = sorted(versions)[0] if versions else None
     out: list[PlaceholderOccurrence] = []
     for placeholder in dict.fromkeys(m.group(0) for m in PLACEHOLDER.finditer(text)):
         if placeholder in own:
             out.append(own[placeholder])
+        elif placeholder in tool_sources:
+            origin = tool_sources[placeholder]
+            try:
+                out.append(_occurrence(placeholder, str(origin.get("kind", "tool_result")), origin.get("id")))
+            except ValueError:
+                continue
         elif source is not None:
             try:
                 out.append(_occurrence(placeholder, "document_version", source))

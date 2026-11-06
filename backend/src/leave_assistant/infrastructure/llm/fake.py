@@ -9,12 +9,22 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict, deque
+from collections.abc import Sequence
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from leave_assistant.application.llm.ports import ModelRole, Prompt, Usage, prompt_text
+from leave_assistant.application.llm.ports import (
+    ModelRole,
+    Prompt,
+    ToolCall,
+    ToolSpec,
+    ToolStep,
+    Usage,
+    prompt_text,
+)
 from leave_assistant.domain.agent.types import ProviderError
+from leave_assistant.infrastructure.llm.fake_planner import default_plan
 
 T = TypeVar("T", bound=BaseModel)
 DOCUMENT = re.compile(r'<document id="(\d+)" title="([^"]*)" section="([^"]*)">\n?(.*?)\n?</document>', re.S)
@@ -23,10 +33,10 @@ GREEK_LETTERS = re.compile(r"[\u0370-\u03ff\u1f00-\u1fff]")
 LATIN_LETTERS = re.compile(r"[A-Za-z]")
 USER = re.compile(r"<user>\n?(.*?)\n?</user>", re.S)
 BUSINESS = {
-    "balance": ("υπόλοιπο", "απομένουν", "balance", "how many days do i have", "days left"),
+    "balance": ("υπόλοιπο", "απομένουν", "balance", "how many days do i have", "days left", "remaining"),
     "history": ("ιστορικό", "history", "my requests"),
     "availability": ("ποιος λείπει", "availability", "who is away", "who is off"),
-    "request": ("θέλω άδεια", "θέλω", "request leave", "book", "i want to take"),
+    "request": ("θέλω άδεια", "θέλω", "request leave", "book", "i want to take", "days off", "άρρωστος"),
     "cancel": ("ακύρωσ", "cancel"),
     "approval_action": ("έγκρισ", "approve", "εκκρεμεί για έγκριση"),
 }
@@ -55,6 +65,7 @@ class FakeChatModel:
         )
         self.faults: deque[ProviderError] = deque()
         self.calls: list[tuple[str, ModelRole, str]] = []
+        self.tools_seen: list[tuple[str, ...]] = []
 
     @property
     def name(self) -> str:
@@ -81,6 +92,27 @@ class FakeChatModel:
             value = item if isinstance(item, BaseModel) else schema.model_validate(item)
             return value, Usage(len(text) // 4, 20)  # type: ignore[return-value]
         return schema.model_validate(self._default(schema, text)), Usage(len(text) // 4, 40)
+
+    async def tool_step(
+        self, prompt: Prompt, tools: Sequence[ToolSpec], *, role: ModelRole, deadline_seconds: float
+    ) -> tuple[ToolStep, Usage]:
+        """Scripted steps (`plan` key: ToolStep, `{"calls": [...], "text": ...}` or an exception) or the deterministic
+        default planner. `tools_seen` records which tool names were bound on every call."""
+        text = prompt_text(prompt.messages)
+        self.calls.append((prompt.id, role, text))
+        self.tools_seen.append(tuple(t.name for t in tools))
+        if self.faults:
+            raise self.faults.popleft()
+        key = prompt.id.split("@", 1)[0]
+        if self.script.get(key):
+            item = self.script[key].popleft()
+            if isinstance(item, Exception):
+                raise item
+            if isinstance(item, ToolStep):
+                return item, Usage(len(text) // 4, 20)
+            calls = tuple(ToolCall(c["name"], dict(c.get("arguments", {}))) for c in item.get("calls", []))
+            return ToolStep(calls=calls, text=str(item.get("text", ""))), Usage(len(text) // 4, 20)
+        return default_plan(text, list(tools)), Usage(len(text) // 4, 30)
 
     def _default(self, schema: type[BaseModel], text: str) -> dict[str, Any]:
         fields = set(schema.model_fields)

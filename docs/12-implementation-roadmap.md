@@ -100,11 +100,18 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   the second provider because the Groq signup was blocked (user decision; Groq stays selectable, untested live); the
   live smoke and the forced failover ran on Gemini and Mistral; Langfuse traces need the M9 `observability` profile.
 
-### M7 — Agentic operations: business + approval (L)
+### M7 — Agentic operations: business + approval (L) — **done 2026-11-06** (worklog: `docs/development/worklog/M7.md`)
 - Tool catalogue + gateway; Business Operations subgraph; proposals; Approval subgraph with interrupts; resume API;
   execution via services; notifications; manager/HR chat flows; confirmation card UI; run history endpoint.
 - Exit: S10–S21, S24–S29 pass with the fake provider; unauthorized-action rate 0 in the security suite; duplicate
   and restart scenarios green; headline scenario demonstrated live.
+- Delivered as planned except: tools are bound per intent group as well as per role (JSON schemas cost ≈ 1,300
+  e5 tokens for the self-service set; the tool-schema budget is 1,300, not 200); `validate_leave_request` stays in
+  the catalogue but is not bound (prepare validates); S13 uses the Christmas holidays instead of New Year (next-year
+  booking before rollover, R-32); the business scenarios run on the freshly seeded integration database instead of
+  the dev database; user input is screened against its own benign set (`benign_user_v1`). Found and fixed on the
+  way: the M6 history duplication in subgraphs, the unscheduled M6 conversation cleanup, request numbers detected as
+  phone numbers, and "New conversation" falling back to the latest conversation in the chat page.
 
 ### M8 — Integrations and automation (M)
 - Calendar port, mock + Google adapters, OAuth flows, sync outbox + worker handler, reconciliation + UI; n8n Compose
