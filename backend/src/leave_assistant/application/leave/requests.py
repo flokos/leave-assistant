@@ -412,6 +412,21 @@ class LeaveRequestService:
             tenant = await load_tenant(uow, tenant_id)
             employee = await load_employee(uow, employee_id)
             leave_type = await load_leave_type(uow, cmd.leave_type_code)
+            if cmd.idempotency_key:
+                # a replayed submit (agent proposal id or an Idempotency-Key past its stored response) returns the
+                # request it already created; a different body under the same key is a mismatch (M7)
+                existing = await uow.leave_requests.find_by_idempotency_key(employee_id, cmd.idempotency_key)
+                if existing is not None:
+                    if (existing.leave_type_id, existing.start_date, existing.end_date) != (
+                        leave_type.id,
+                        cmd.start_date,
+                        cmd.end_date,
+                    ):
+                        raise ConflictError(
+                            "this idempotency key was already used for a different request",
+                            problem_type="idempotency-mismatch",
+                        )
+                    return await self._wf.detail(uow, principal, existing)
             plan = await self._wf.planner.plan(
                 uow,
                 tenant=tenant,
@@ -492,6 +507,49 @@ class LeaveRequestService:
             return await self._wf.detail(uow, principal, request)
 
     # -- modify ---------------------------------------------------------------------------------------------
+    async def validate_modification(
+        self, principal: Principal, request_id: UUID, start: date, end: date
+    ) -> tuple[LeaveRequest, ValidationReport]:
+        """What `modify` would decide, without writing (M7 `prepare_modification`)."""
+        tenant_id, employee_id = tenant_user(principal)
+        async with self._uow(TenantContext.for_principal(principal)) as uow:
+            request = await uow.leave_requests.get(request_id)
+            if request is None or request.employee_id != employee_id:
+                raise NotFoundError("request not found")
+            require(
+                principal,
+                Action.MODIFY_OWN_REQUEST,
+                ResourceRef(
+                    "leave_request", request.id, tenant_id=tenant_id, owner_employee_id=request.employee_id
+                ),
+            )
+            tenant = await load_tenant(uow, tenant_id)
+            employee = await load_employee(uow, employee_id)
+            leave_type = await uow.leave_types.get(request.leave_type_id)
+            assert leave_type is not None
+            today = self._wf.clock.now().date()
+            credit: dict[int, Decimal] | None = None
+            if request.status in PENDING_STATUSES:
+                pass
+            elif request.status is RequestStatus.APPROVED and request.start_date > today:
+                if leave_type.balance_bearing:
+                    credit = {
+                        p.year: Decimal(p.working_days) for p in await self._wf.periods(uow, tenant, request)
+                    }
+            else:
+                raise InvalidTransition(request.status, RequestEvent.MODIFY)
+            plan = await self._wf.planner.plan(
+                uow,
+                tenant=tenant,
+                employee=employee,
+                leave_type=leave_type,
+                start=start,
+                end=end,
+                exclude_request_id=request.id,
+                credit_days_by_year=credit,
+            )
+            return request, plan.report
+
     async def modify(self, principal: Principal, request_id: UUID, cmd: ModifyRequest) -> RequestDetail:
         tenant_id, employee_id = tenant_user(principal)
         async with self._uow(TenantContext.for_principal(principal)) as uow:

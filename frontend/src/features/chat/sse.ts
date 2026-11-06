@@ -37,10 +37,10 @@ export class SseParser {
   }
 }
 
-/** POSTs a message and calls `onEvent` for every SSE event; resolves when the stream ends. */
-export async function streamMessage(
-  conversationId: string,
-  text: string,
+/** POSTs JSON and calls `onEvent` for every SSE event; resolves when the stream ends. */
+async function streamPost(
+  path: string,
+  body: unknown,
   onEvent: (event: ChatStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -48,15 +48,10 @@ export async function streamMessage(
   const token = currentAccessToken()
   if (token) headers.Authorization = `Bearer ${token}`
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const response = await globalThis.fetch(`${origin}/api/v1/chat/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ text }),
-    signal,
-  })
+  const response = await globalThis.fetch(`${origin}${path}`, { method: 'POST', headers, body: JSON.stringify(body), signal })
   if (!response.ok || !response.body) {
-    const body: unknown = await response.json().catch(() => undefined)
-    throw new ApiError(problemFrom(body, response), response.status)
+    const problem: unknown = await response.json().catch(() => undefined)
+    throw new ApiError(problemFrom(problem, response), response.status)
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -67,4 +62,21 @@ export async function streamMessage(
     for (const event of parser.feed(decoder.decode(value, { stream: true }))) onEvent(event)
   }
   for (const event of parser.feed('\n\n')) onEvent(event)
+}
+
+/** POSTs a message and calls `onEvent` for every SSE event; resolves when the stream ends. */
+export function streamMessage(conversationId: string, text: string, onEvent: (event: ChatStreamEvent) => void, signal?: AbortSignal): Promise<void> {
+  return streamPost(`/api/v1/chat/conversations/${conversationId}/messages`, { text }, onEvent, signal)
+}
+
+export interface ResumeBody {
+  proposal_id: string
+  decision: 'confirm' | 'reject' | 'edit'
+  payload_hash: string
+  edits?: { start_date?: string; end_date?: string; leave_type?: string }
+}
+
+/** Continues a paused run with the user's decision on a confirmation card (doc 09 §2.2 `resume`). */
+export function streamResume(conversationId: string, body: ResumeBody, onEvent: (event: ChatStreamEvent) => void, signal?: AbortSignal): Promise<void> {
+  return streamPost(`/api/v1/chat/conversations/${conversationId}/resume`, body, onEvent, signal)
 }

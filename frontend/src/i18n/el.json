@@ -374,7 +374,11 @@
     "chat/run-in-progress": "Περιμένετε να ολοκληρωθεί η τρέχουσα απάντηση",
     "chat/provider-unavailable": "Ο βοηθός δεν είναι διαθέσιμος προσωρινά",
     "chat/content-blocked": "Ο πάροχος αρνήθηκε να απαντήσει",
-    "chat/invalid-output": "Ο βοηθός δεν μπόρεσε να δώσει έγκυρη απάντηση"
+    "chat/invalid-output": "Ο βοηθός δεν μπόρεσε να δώσει έγκυρη απάντηση",
+    "chat/proposal-expired": "Η πρόταση έληξε — ζητήστε την ξανά για να ετοιμαστεί νέα",
+    "chat/proposal-hash-mismatch": "Η πρόταση άλλαξε από τότε που εμφανίστηκε — ανανεώστε τη συνομιλία",
+    "chat/no-pending-proposal": "Η πρόταση δεν περιμένει πλέον απόφαση",
+    "chat/proposal-in-progress": "Η πρόταση εκτελείται ήδη"
   },
   "documents": {
     "title": "Έγγραφα",
@@ -529,7 +533,7 @@
     "sources": "Πηγές",
     "source": "Πηγή",
     "section": "Ενότητα",
-    "disclaimer": "Οι απαντήσεις βασίζονται μόνο στα έγγραφα της εταιρείας και μπορεί να είναι ελλιπείς. Ο βοηθός δεν υποβάλλει ούτε εγκρίνει αιτήσεις ακόμη.",
+    "disclaimer": "Οι απαντήσεις βασίζονται στα έγγραφα της εταιρείας και στα στοιχεία των αδειών σας. Τίποτα δεν υποβάλλεται, εγκρίνεται ή ακυρώνεται πριν το επιβεβαιώσετε σε κάρτα.",
     "stages": {
       "thinking": "Σκέφτομαι",
       "classifying": "Κατανοώ την ερώτηση",
@@ -537,13 +541,75 @@
       "summarising": "Συνοψίζω τη συνομιλία",
       "retrieving": "Αναζητώ στα έγγραφα",
       "generating": "Συντάσσω την απάντηση",
-      "verifying": "Ελέγχω τις πηγές"
+      "verifying": "Ελέγχω τις πηγές",
+      "planning": "Επεξεργασία",
+      "executing": "Εκτέλεση",
+      "awaiting_confirmation": "Προετοιμασία κάρτας"
     },
     "outcomes": {
       "insufficient_evidence": "Δεν υπάρχει στα έγγραφα",
       "blocked": "Απορρίφθηκε",
       "clarify": "Χρειάζεται διευκρίνιση",
-      "scope": "Γενικό"
+      "scope": "Γενικό",
+      "executed": "Ολοκληρώθηκε",
+      "failed": "Δεν έγινε",
+      "rejected": "Ακυρώθηκε",
+      "interrupted": "Περιμένει επιβεβαίωση"
+    },
+    "tools": {
+      "get_my_balance": "Υπόλοιπο",
+      "get_my_requests": "Οι αιτήσεις σας",
+      "get_leave_types_and_rules": "Κανόνες αδειών",
+      "calculate_working_days": "Εργάσιμες ημέρες",
+      "validate_leave_request": "Έλεγχος αίτησης",
+      "prepare_leave_request": "Προετοιμασία αίτησης",
+      "prepare_modification": "Προετοιμασία αλλαγής",
+      "prepare_cancellation": "Προετοιμασία ακύρωσης",
+      "get_team_availability": "Απουσίες ομάδας",
+      "list_pending_approvals": "Εκκρεμείς εγκρίσεις",
+      "get_request_details": "Στοιχεία αίτησης",
+      "prepare_approval_decision": "Προετοιμασία απόφασης",
+      "search_policies": "Αναζήτηση πολιτικών"
+    },
+    "card": {
+      "kinds": {
+        "submit": "Νέα αίτηση άδειας",
+        "modify": "Αλλαγή ημερομηνιών",
+        "cancel": "Ακύρωση",
+        "approve": "Έγκριση",
+        "reject": "Απόρριψη"
+      },
+      "status": {
+        "pending": "Περιμένει εσάς",
+        "confirmed": "Σε εξέλιξη",
+        "executed": "Ολοκληρώθηκε",
+        "rejected": "Δεν έγινε",
+        "expired": "Έληξε",
+        "failed": "Απέτυχε"
+      },
+      "roles": {
+        "manager": "Προϊστάμενος",
+        "hr": "HR"
+      },
+      "leaveType": "Είδος άδειας",
+      "period": "Ημερομηνίες",
+      "workingDays": "Εργάσιμες ημέρες",
+      "balance": "Διαθέσιμες ημέρες (πριν → μετά)",
+      "approvalChain": "Έγκριση",
+      "autoAcknowledged": "Καταχωρείται χωρίς έγκριση",
+      "holidays": "Αργίες που εξαιρούνται",
+      "request": "Αίτηση",
+      "from": "Τρέχουσες ημερομηνίες",
+      "to": "Νέες ημερομηνίες",
+      "requester": "Εργαζόμενος",
+      "step": "Το βήμα σας",
+      "comment": "Σχόλιο",
+      "expires": "Ισχύει έως {{time}}",
+      "done": "Αίτηση {{number}}",
+      "confirm": "Επιβεβαίωση",
+      "reject": "Όχι τώρα",
+      "edit": "Αλλαγή",
+      "prepareAgain": "Νέα προετοιμασία"
     }
   }
 }

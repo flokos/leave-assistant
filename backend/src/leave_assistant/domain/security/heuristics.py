@@ -42,6 +42,9 @@ RULES: tuple[Rule, ...] = (
         r"\b(αγνοησε|αγνοηστε|παραβλεψε|παραβλεψτε|ξεχασε|ξεχαστε|παρακαμψε)\b[^.\n]{0,50}\b(οδηγιες|κανονες|περιορισμους|εντολες)\b",
         r"\b(do not|don't|never) follow (the|your|any) (instructions|rules)\b",
         r"\bnew instructions?\b[^.\n]{0,20}\b(from now|override)\b",
+        # "forget / disregard what you were told" (M7: the paraphrase e5 cannot separate from a Greek leave command)
+        r"\b(forget|disregard|ignore)\b[^.\n]{0,20}\b(everything|whatever|what)\b[^.\n]{0,15}\b(you were|you have been|you've been) (told|instructed|asked)\b",
+        r"\b(ξεχνα|ξεχασε|ξεχαστε|αγνοησε|αγνοηστε)\b[^.\n]{0,15}\b(ο,τι|οτι|οσα|ολα οσα)\b[^.\n]{0,10}\b(σου|σας) (ειπαν|ειπα|ειπαμε|εχουν πει|ζητησαν)\b",
     ),
     _rule(
         "role_hijack",

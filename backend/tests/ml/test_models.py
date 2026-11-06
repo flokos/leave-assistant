@@ -128,6 +128,31 @@ def test_static_prompts_fit_their_budgets_with_the_real_tokenizer() -> None:
         assert tokenizer.count(body) * 1.15 <= file.budget, (name, tokenizer.count(body))
 
 
+def test_business_prompts_and_every_roles_tool_schemas_fit_with_the_real_tokenizer() -> None:
+    from leave_assistant.agent import prompts
+    from leave_assistant.application.assistant.tools import allowed_tools, spec_for
+    from leave_assistant.application.llm.ports import tool_schema_text
+    from leave_assistant.domain.agent.budget import TokenBudgets
+    from leave_assistant.domain.tenancy import Role
+
+    tokenizer = E5Tokenizer(MODEL, REVISION)
+    for name in ("business", "plan"):
+        file = prompts.load(name)
+        body = prompts.business_prompt("el", hardened=True) if name == "business" else file.body
+        assert tokenizer.count(body) * 1.15 <= file.budget, (name, tokenizer.count(body))
+    budget = TokenBudgets().tools
+    for roles in (
+        {Role.EMPLOYEE},
+        {Role.MANAGER, Role.EMPLOYEE},
+        {Role.HR_ADMIN, Role.MANAGER, Role.EMPLOYEE},
+        {Role.COMPANY_ADMIN, Role.EMPLOYEE},
+    ):
+        for intent in ("request", "approval_action"):  # the two bound groups
+            schemas = tool_schema_text([spec_for(t) for t in allowed_tools(frozenset(roles), intent=intent)])
+            count = tokenizer.count(schemas)
+            assert count * 1.15 <= budget, (sorted(r.value for r in roles), intent, count)
+
+
 def test_both_reranker_candidates_score_relevance() -> None:
     from leave_assistant.infrastructure.ml.reranker import CrossEncoderReranker
 

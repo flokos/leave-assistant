@@ -3,15 +3,22 @@ retries and failover (ADR-0010). Replaces Groq as the second provider when Groq 
 
 from __future__ import annotations
 
-from typing import TypeVar
+from collections.abc import Awaitable, Sequence
+from typing import Any, TypeVar
 
 import httpx
 from langchain_mistralai import ChatMistralAI
 from pydantic import BaseModel, SecretStr, ValidationError
 
-from leave_assistant.application.llm.ports import ModelRole, Prompt, Usage
+from leave_assistant.application.llm.ports import ModelRole, Prompt, ToolSpec, ToolStep, Usage
 from leave_assistant.domain.agent.types import ProviderError, ProviderErrorKind
-from leave_assistant.infrastructure.llm.common import classify_http, to_messages, unpack
+from leave_assistant.infrastructure.llm.common import (
+    classify_http,
+    to_messages,
+    to_openai_tools,
+    unpack,
+    unpack_tool_step,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -42,6 +49,16 @@ class MistralChatModel:
             )
         return self._clients[key]
 
+    async def _guard(self, model: str, call: Awaitable[Any]) -> Any:
+        try:
+            return await call
+        except httpx.HTTPStatusError as exc:
+            raise classify_http(exc.response.status_code, exc.response.text, self.name, model) from exc
+        except (httpx.TimeoutException, httpx.RequestError, httpx.StreamError, TimeoutError) as exc:
+            raise ProviderError(ProviderErrorKind.TRANSIENT, self.name, model, type(exc).__name__) from exc
+        except ValidationError as exc:
+            raise ProviderError(ProviderErrorKind.INVALID_OUTPUT, self.name, model, str(exc)[:300]) from exc
+
     async def structured(
         self, prompt: Prompt, schema: type[T], *, role: ModelRole, deadline_seconds: float
     ) -> tuple[T, Usage]:
@@ -49,12 +66,15 @@ class MistralChatModel:
         runnable = self._client(model, deadline_seconds, prompt.max_output_tokens).with_structured_output(
             schema, method="json_schema", include_raw=True
         )
-        try:
-            result = await runnable.ainvoke(to_messages(prompt))
-        except httpx.HTTPStatusError as exc:
-            raise classify_http(exc.response.status_code, exc.response.text, self.name, model) from exc
-        except (httpx.TimeoutException, httpx.RequestError, httpx.StreamError, TimeoutError) as exc:
-            raise ProviderError(ProviderErrorKind.TRANSIENT, self.name, model, type(exc).__name__) from exc
-        except ValidationError as exc:
-            raise ProviderError(ProviderErrorKind.INVALID_OUTPUT, self.name, model, str(exc)[:300]) from exc
+        result = await self._guard(model, runnable.ainvoke(to_messages(prompt)))
         return unpack(result, schema, self.name, model)
+
+    async def tool_step(
+        self, prompt: Prompt, tools: Sequence[ToolSpec], *, role: ModelRole, deadline_seconds: float
+    ) -> tuple[ToolStep, Usage]:
+        model = self.model_for(role)
+        runnable = self._client(model, deadline_seconds, prompt.max_output_tokens).bind_tools(
+            to_openai_tools(tools)
+        )
+        message = await self._guard(model, runnable.ainvoke(to_messages(prompt)))
+        return unpack_tool_step(message, self.name, model)

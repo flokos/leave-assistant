@@ -3,6 +3,7 @@ router owns retries and failover (ADR-0010)."""
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Sequence
 from typing import Any, TypeVar
 
 import httpx
@@ -11,9 +12,15 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 from pydantic import BaseModel, ValidationError
 
-from leave_assistant.application.llm.ports import ModelRole, Prompt, Usage
+from leave_assistant.application.llm.ports import ModelRole, Prompt, ToolSpec, ToolStep, Usage
 from leave_assistant.domain.agent.types import ProviderError, ProviderErrorKind
-from leave_assistant.infrastructure.llm.common import classify_http, to_messages, unpack
+from leave_assistant.infrastructure.llm.common import (
+    classify_http,
+    to_messages,
+    to_openai_tools,
+    unpack,
+    unpack_tool_step,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -69,17 +76,15 @@ class GeminiChatModel:
             )
         return self._clients[key]
 
-    async def structured(
-        self, prompt: Prompt, schema: type[T], *, role: ModelRole, deadline_seconds: float
-    ) -> tuple[T, Usage]:
-        model = self.model_for(role)
+    def _deadline(self, deadline_seconds: float) -> float:
         if self._timeout_override is not None:
-            deadline_seconds = min(deadline_seconds, self._timeout_override)
-        runnable = self._client(model, deadline_seconds, prompt.max_output_tokens).with_structured_output(
-            schema, method="json_schema", include_raw=True
-        )
+            return min(deadline_seconds, self._timeout_override)
+        return deadline_seconds
+
+    async def _guard(self, model: str, call: Awaitable[Any]) -> Any:
+        """SDK errors → doc 04 §9 classes (one place for structured output and tool calls)."""
         try:
-            result = await runnable.ainvoke(to_messages(prompt))
+            return await call
         except (httpx.TimeoutException, httpx.NetworkError, TimeoutError, ConnectionError) as exc:
             raise ProviderError(ProviderErrorKind.TRANSIENT, self.name, model, type(exc).__name__) from exc
         except ValidationError as exc:
@@ -91,4 +96,23 @@ class GeminiChatModel:
                     ProviderErrorKind.TRANSIENT, self.name, model, f"{type(exc).__name__}: {exc}"[:300]
                 ) from exc
             raise classify_http(status, str(exc), self.name, model) from exc
+
+    async def structured(
+        self, prompt: Prompt, schema: type[T], *, role: ModelRole, deadline_seconds: float
+    ) -> tuple[T, Usage]:
+        model = self.model_for(role)
+        runnable = self._client(
+            model, self._deadline(deadline_seconds), prompt.max_output_tokens
+        ).with_structured_output(schema, method="json_schema", include_raw=True)
+        result = await self._guard(model, runnable.ainvoke(to_messages(prompt)))
         return unpack(result, schema, self.name, model)
+
+    async def tool_step(
+        self, prompt: Prompt, tools: Sequence[ToolSpec], *, role: ModelRole, deadline_seconds: float
+    ) -> tuple[ToolStep, Usage]:
+        model = self.model_for(role)
+        runnable = self._client(model, self._deadline(deadline_seconds), prompt.max_output_tokens).bind_tools(
+            to_openai_tools(tools)
+        )
+        message = await self._guard(model, runnable.ainvoke(to_messages(prompt)))
+        return unpack_tool_step(message, self.name, model)

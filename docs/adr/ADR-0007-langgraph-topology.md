@@ -40,3 +40,5 @@ Checkpointer schema and role (ADR-0008); prompt files versioned.
 
 ## Consequences
 Evaluation can target nodes (router accuracy, evidence assessment) independently of end-to-end quality.
+
+**Implementation note M7 (2026-11-06, worklog M7):** the three subgraphs are compiled with explicit `output_schema`s and `messages` uses an id-based reducer — M6's Knowledge subgraph returned its full state and duplicated the history on every turn. The Approval subgraph renders the card, pauses with `interrupt()` and continues with `Command(resume=…)` on the owner's next request; a new message on a paused thread starts a fresh run (verified in LangGraph 1.2.19), so the open proposal is superseded.

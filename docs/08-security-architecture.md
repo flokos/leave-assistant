@@ -291,6 +291,15 @@ Same heuristics and classifier on each user message (cheap, local). Score ≥ `u
 hardened prompt variant and **read-only** tools (no `prepare_*`). Authenticated users attacking their own
 assistant mostly endanger themselves, but the screen also catches pasted content ("here is an e-mail I got: …").
 
+M7: blocked turns are now audited (`agent.input.blocked` with score and families); medium-risk turns bind
+read-only tools only. User input is screened against its own benign reference set, `benign_user_v1` (= `benign_v1`
+plus bilingual leave commands): against v1, "Approve request LR-2026-000007" scored 0.79 (medium → read-only, or
+blocked once its digits were pseudonymised) and "Cancel request …" 0.60; with v1 + commands every command scores
+0.00 while the chat attacks stay ≥ 0.95. Documents keep `benign_v1`, because e5-small places short Greek imperatives
+so close together that the commands masked an imperative injection paraphrase (recall 0.713 → 0). A heuristic for
+"forget / disregard what you were told" (EL/EN) was added to `override`. Request numbers (`LR-YYYY-NNNNNN`) are
+excluded from PII detection: Presidio's phone pattern took their digits.
+
 ### 8.4 Runtime controls
 - Prompts: documents and tool results are wrapped in tagged blocks and declared as data; the model is told to
   ignore instructions inside them; system prompt and user turn are separated; no "developer messages" from data.
@@ -369,7 +378,7 @@ it is not rejected/cancelled/withdrawn; HR may attach on the employee's behalf (
   `leave.request.submitted|modified|cancelled|approved|rejected`, `ledger.entry.posted`, `document.uploaded|processed|
   released|quarantined|deleted|version.activated`, `supporting.viewed|downloaded|deleted`, `retention.scan|decision|deleted`,
   `calendar.synced|failed|reconciled|connection.authorised|revoked`, `admin.tenant.created|config.changed|employee.created|updated|deactivated|
-  role.changed|department.created|updated|deleted|manager.changed|security_policy.changed`, `agent.tool.denied|input.blocked|proposal.executed`, `provider.failover`.
+  role.changed|department.created|updated|deleted|manager.changed|security_policy.changed`, `agent.tool.denied|input.blocked|proposal.created|proposal.executed|proposal.rejected|proposal.expired|proposal.superseded`, `chat.runs.viewed` (HR or company administrator reading another user's run history), `provider.failover`. M7: `agent.tool.denied` covers role/allowlist denials, read-only mode and request numbers that resolve to nothing visible (`reason: not_found`); a policy denial behind it is also recorded as `authz.denied`.
 - Access to audit: HR Administrators and Company Administrators read their tenant's log; Platform Administrators
   read platform-level entries only; export is a CSV endpoint (audited itself).
 - Integrity (P3): per-tenant hash chain (`prev_hash`, `hash`) verified by a maintenance job.

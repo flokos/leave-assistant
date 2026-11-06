@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from leave_assistant.application.llm.ports import Prompt, Usage
+from leave_assistant.application.llm.ports import Prompt, ToolCall, ToolSpec, ToolStep, Usage
 from leave_assistant.domain.agent.types import ProviderError, ProviderErrorKind
 
 TRUNCATED_REASONS = {"MAX_TOKENS", "LENGTH"}
+# Gemini reports a function call it could not form as a finish reason, not an exception
+MALFORMED_CALL_REASONS = {"MALFORMED_FUNCTION_CALL", "UNEXPECTED_TOOL_CALL"}
+MAX_CALLS_PER_STEP = 3
 BLOCKED_REASONS = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION", "content_filter"}
 
 
@@ -60,3 +64,58 @@ def classify_http(status: int | None, message: str, provider: str, model: str) -
     if status in (401, 403, 404):
         return ProviderError(ProviderErrorKind.FATAL, provider, model, f"HTTP {status}: {text}")
     return ProviderError(ProviderErrorKind.FATAL, provider, model, f"HTTP {status}: {text}")
+
+
+def to_openai_tools(tools: Sequence[ToolSpec]) -> list[dict[str, Any]]:
+    """The OpenAI function format every LangChain chat model's `bind_tools` accepts."""
+    return [
+        {
+            "type": "function",
+            "function": {"name": t.name, "description": t.description, "parameters": t.parameters},
+        }
+        for t in tools
+    ]
+
+
+def message_text(message: Any) -> str:
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for block in content or []:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(str(block.get("text", "")))
+    return "".join(parts)
+
+
+def _finish(metadata: dict[str, Any]) -> str:
+    return str(metadata.get("finish_reason") or metadata.get("stop_reason") or "").upper()
+
+
+def unpack_tool_step(message: Any, provider: str, model: str) -> tuple[ToolStep, Usage]:
+    """An AIMessage from `bind_tools(...).ainvoke` → tool calls or answer text, with the doc 04 §9 error classes."""
+    finish = _finish(getattr(message, "response_metadata", {}) or {})
+    if finish in {r.upper() for r in BLOCKED_REASONS}:
+        raise ProviderError(ProviderErrorKind.CONTENT_BLOCKED, provider, model, f"finish_reason={finish}")
+    if finish in TRUNCATED_REASONS:
+        raise ProviderError(
+            ProviderErrorKind.INVALID_OUTPUT, provider, model, f"truncated: finish_reason={finish}"
+        )
+    if finish in MALFORMED_CALL_REASONS:
+        raise ProviderError(ProviderErrorKind.INVALID_OUTPUT, provider, model, f"finish_reason={finish}")
+    calls = tuple(
+        ToolCall(str(c["name"]), dict(c.get("args") or {}))
+        for c in (getattr(message, "tool_calls", None) or [])[:MAX_CALLS_PER_STEP]
+    )
+    invalid = getattr(message, "invalid_tool_calls", None) or []
+    if invalid and not calls:
+        detail = "; ".join(str(i.get("error") or i.get("name") or "invalid call") for i in invalid)[:300]
+        raise ProviderError(ProviderErrorKind.INVALID_OUTPUT, provider, model, f"invalid tool call: {detail}")
+    text = "" if calls else message_text(message).strip()
+    if not calls and not text:
+        raise ProviderError(ProviderErrorKind.INVALID_OUTPUT, provider, model, "neither a tool call nor text")
+    usage_meta = getattr(message, "usage_metadata", None) or {}
+    usage = Usage(int(usage_meta.get("input_tokens", 0) or 0), int(usage_meta.get("output_tokens", 0) or 0))
+    return ToolStep(calls=calls, text=text), usage

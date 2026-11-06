@@ -1113,6 +1113,10 @@ class ConversationMessageRow(Base):
     run_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
     outcome: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    proposal_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.action_proposals.id", name="fk_conversation_messages_proposal", ondelete="SET NULL"),
+    )
 
 
 class AgentRunRow(Base):
@@ -1165,3 +1169,66 @@ class ProviderEventRow(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     run_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ActionProposalRow(Base):
+    __tablename__ = "action_proposals"
+    __table_args__ = (
+        Index("ix_action_proposals_conversation", "tenant_id", "conversation_id", "created_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_action_proposals_tenant"),
+        nullable=False,
+    )
+    conversation_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.conversations.id", name="fk_action_proposals_conversation", ondelete="CASCADE"),
+        nullable=False,
+    )
+    employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.employees.id", name="fk_action_proposals_employee"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    payload: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    run_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    claimed_by_run: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    executed_request_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.leave_requests.id", name="fk_action_proposals_request", ondelete="SET NULL"),
+    )
+    outcome: Mapped[Any] = mapped_column(JSONB, nullable=False)
+
+
+class PendingInterruptRow(Base):
+    __tablename__ = "pending_interrupts"
+    __table_args__ = {"schema": "app"}
+
+    conversation_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.conversations.id", name="fk_pending_interrupts_conversation", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_pending_interrupts_tenant"),
+        nullable=False,
+    )
+    proposal_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.action_proposals.id", name="fk_pending_interrupts_proposal", ondelete="CASCADE"),
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

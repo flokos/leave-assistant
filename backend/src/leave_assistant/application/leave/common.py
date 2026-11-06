@@ -8,6 +8,7 @@ from uuid import UUID
 
 from leave_assistant.application.errors import AuthorizationError, InvalidInputError, NotFoundError
 from leave_assistant.application.ports import Clock, IdGenerator, UnitOfWork
+from leave_assistant.application.request_context import current_origin
 from leave_assistant.domain.leave.request import ActorKind, LeaveRequest, RequestEventRecord
 from leave_assistant.domain.leave.state_machine import RequestStatus
 from leave_assistant.domain.leave.types import LeaveType
@@ -81,7 +82,7 @@ class EventWriter:
             actor_employee_id=principal.employee_id if principal else None,
             actor_kind=actor_kind(principal),
             occurred_at=at or self._clock.now(),
-            payload=dict(payload or {}),
+            payload={**dict(payload or {}), **(current_origin() or {})},
         )
         await uow.request_events.add(event)
         return event

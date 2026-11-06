@@ -4,7 +4,7 @@ A multilingual (Greek/English), multi-tenant leave-management assistant that let
 and request leave in natural language, while deterministic backend services own identity, tenancy, business rules,
 approvals, execution and audit. The LLM coordinates; the backend decides.
 
-**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed), M2 (leave domain), M3 (frontend foundation), M4 (document platform), M5 (content security and privacy) and M6 (agent core: knowledge) done; next M7 (agentic operations).** The architecture package in
+**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed), M2 (leave domain), M3 (frontend foundation), M4 (document platform), M5 (content security and privacy), M6 (agent core: knowledge) and M7 (agentic operations: tools, confirmation cards, approvals in chat) done; next M8 (integrations and automation).** The architecture package in
 [`docs/`](docs/README.md) was completed first, as the project brief requires; code is added milestone by milestone
 (roadmap in [docs/12](docs/12-implementation-roadmap.md)).
 
@@ -37,8 +37,8 @@ Details, profiles and troubleshooting: [docs/operations/installation.md](docs/op
 
 ```
 docs/        architecture package, ADRs, (later) operations, evaluation and development logs
-backend/     FastAPI application, LangGraph agent, worker          (M0–M2: API + leave domain; M4: documents, ingestion worker, retrieval; M5: PII vault, injection scoring, supporting documents, retention; M6: provider router, LangGraph agent, chat API with SSE)
-frontend/    React + TypeScript SPA                                   (M3: role workspaces, E2E; M4: documents library + search; M5: review queue, supporting documents, retention; M6: assistant chat with citations)
+backend/     FastAPI application, LangGraph agent, worker          (M0–M2: API + leave domain; M4: documents, ingestion worker, retrieval; M5: PII vault, injection scoring, supporting documents, retention; M6: provider router, LangGraph agent, chat API with SSE; M7: tool gateway, proposals, approval interrupts, resume, run history)
+frontend/    React + TypeScript SPA                                   (M3: role workspaces, E2E; M4: documents library + search; M5: review queue, supporting documents, retention; M6: assistant chat with citations; M7: confirmation cards and tool progress)
 deploy/      Docker Compose, Keycloak realm export, init scripts      (M0: core profile)
 automation/  n8n workflows as JSON                                    (from M8)
 evaluation/  datasets and evaluation harness (own Python project)     (from M9)

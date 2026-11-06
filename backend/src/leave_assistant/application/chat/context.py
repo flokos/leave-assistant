@@ -4,6 +4,7 @@ LangGraph as `context` — never part of the checkpointed state. `metrics` is a 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -59,3 +60,5 @@ class RunContext:
     block_threshold: float
     budgets: TokenBudgets
     metrics: RunMetrics = field(default_factory=RunMetrics)
+    run_id: UUID | None = None  # M7: the run that claims proposals it executes
+    today: date | None = None  # M7: the tenant's calendar date (relative dates, date windows)

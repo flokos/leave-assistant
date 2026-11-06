@@ -46,5 +46,12 @@ def system_prompt(language: str, *, hardened: bool) -> LlmSafeText:
     return LlmSafeText(body.strip())
 
 
+def business_prompt(language: str, *, hardened: bool) -> LlmSafeText:
+    body = load("business").body.format(
+        language=LANGUAGE_NAMES.get(language, "English"), hardening=HARDENING if hardened else ""
+    )
+    return LlmSafeText(body.strip())
+
+
 def static(name: str) -> LlmSafeText:
     return LlmSafeText(load(name).body)

@@ -206,7 +206,7 @@ flowchart LR
 ```
 
 - `await_confirmation` uses `interrupt(payload)`; the API returns the card as an `interrupt` SSE event. The run
-  stays checkpointed; the process can restart; the user can come back later (proposal expiry default 30 min,
+  stays checkpointed; the process can restart; the user can come back later (proposal expiry: tenant setting, default 15 min (M7),
   configurable). Resume: `POST /chat/conversations/{id}/resume` → `Command(resume={"proposal_id", "decision", "edits?"})`.
 - `execute` calls the **same** application service as the REST endpoint; the service re-validates everything
   (balance, overlaps, rules) inside the transaction. The proposal is a convenience, not a privilege.
@@ -230,6 +230,45 @@ Why: a paused run carries the *employee's* trusted context; resuming it with a *
 security contexts, keep threads open for days, and make restarts/retention awkward. The database state machine
 is the durable cross-user workflow; graph interrupts stay single-user and short-lived. All brief capabilities
 (interrupts, HITL, persistence, resume after restart, workflow history) are demonstrated within each user's run.
+
+### 6.2 M7 implementation notes (2026-11-06, worklog M7)
+- **Tool calling is native, the loop history is not.** `ProviderRouter.tool_step` binds the role's tools with each
+  provider's `bind_tools` (Gemini, Mistral, Groq; the fake returns scripted or default calls). Every plan step is a
+  fresh call; earlier calls and results of the turn are rendered as tagged LLM-safe text (`<tool_result n name
+  status>`), never as provider tool messages. Reason: failover must not change behaviour (§9). Gemini 3 requires
+  thought signatures on replayed function calls and Mistral requires 9-character tool-call ids, so replaying native
+  history after a failover would break. Retry, failover, repair and circuit rules are those of `structured`.
+- **Subgraphs declare their outputs.** M6 compiled the Knowledge subgraph on the full state; finishing returned its
+  copy of `messages` and the `operator.add` reducer appended it again (9 messages after two turns). Each subgraph
+  now has an `output_schema`, and `messages` uses an id-based reducer (`merge_messages`), so a subgraph cannot
+  duplicate history.
+- **Bound tools = role allowlist ∩ intent group.** Approval and availability intents bind the approver tools
+  (pending approvals, decision, team availability, request details, balance); every other business intent binds
+  the self-service tools. Medium-risk input binds read-only tools only (doc 08 §8.3). The gateway always checks the
+  full role allowlist, so the narrowing only affects prompt size and small-model accuracy.
+- **Additions to §5.1:** `calculate_working_days`, `validate_leave_request` and `prepare_*` accept `working_days`
+  instead of an end date (the end date is computed deterministically); `get_team_availability` takes an optional
+  department code (another department is a denial for managers, through the same policy as the API). Tools take
+  request numbers (`LR-YYYY-NNNNNN`), never UUIDs. `search_policies` returns at most 600 tokens of documents
+  numbered after earlier searches of the turn; their `[n]` citations are verified like Knowledge answers.
+- **Grounded business answers.** `verify_business` checks every number in the planner's answer against the turn's
+  tool results, the user's message, today's date and the recent turns, checks `[n]` against `search_policies`
+  results, strips Markdown and enforces the question's language. A failure regenerates once, then a deterministic
+  renderer of the last tool result answers.
+- **Texts around actions are deterministic.** The line shown with a card (plus the balance line when the balance
+  was fetched this turn) and every outcome text are bilingual templates filled with fixed facts. The card itself is
+  rendered at read time from the database row for its owner; state holds only the proposal id.
+- **Edit is a deterministic re-preparation** from structured edits (dates, leave type): the old proposal becomes
+  `rejected` (`edited`) and a new card is shown; no model call.
+- **A new message supersedes an open card.** LangGraph starts a fresh run on new input and drops the open
+  interrupt (verified); the proposal becomes `rejected` (`superseded`) and the `pending_interrupts` row is deleted.
+- **Exactly once.** `ProposalService.execute` claims `pending → confirmed` atomically (`UPDATE … RETURNING`, one
+  winner across connections), runs the same service as REST inside `acting_via_agent(proposal_id)` (the request
+  event and audit entries carry `via: agent` and the proposal id), and stores `executed`/`failed`. A second confirm
+  replays the stored outcome; a claim left by a crash is recovered from the request event. The `execute` node
+  retries `ExecutionInterrupted` (non-business failures) up to three times — safe because of the claim.
+- Proposal expiry is the tenant setting `proposal_ttl_minutes` (default 15), not 30 minutes; the worker sweeps
+  expired proposals every 5 minutes (`proposal.expire`).
 
 ## 7. Checkpointing and persistence (ADR-0008)
 
@@ -258,7 +297,8 @@ is the durable cross-user workflow; graph interrupts stay single-user and short-
 | System prompt | ≤ 700 | prompt build-time test |
 | Conversation window (`messages` after trimming) | ≤ 800 | ingress trims to the last N turns; older turns → `summary` |
 | Retrieved context | ≤ 1,800 | ContextBuilder (doc 05 §6.5) |
-| Tool schemas | ≤ 200 | only role-permitted tools are bound |
+| Tool schemas | ≤ 1,300 (M7: measured; was 200) | only role- and intent-permitted tools are bound; JSON schemas cost ≈ 45 e5 tokens per parameter, the largest bound group (self-service) is ≈ 1,300 |
+| Tool results (business) | ≤ 1,000 | newest first; the plan builder fits history and results into what the total leaves after the system prompt and schemas |
 | Total per call | ≤ 3,500 | hard assert before every provider call |
 
 Groq's free/developer caps (8–12K TPM on the useful models) make this a correctness requirement, not an

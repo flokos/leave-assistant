@@ -26,9 +26,17 @@ def excerpt_hash(text: str) -> str:
 
 
 class InjectionScanService:
-    def __init__(self, classifier: SimilarityClassifier | None = None, judge: LlmJudge | None = None) -> None:
+    def __init__(
+        self,
+        classifier: SimilarityClassifier | None = None,
+        judge: LlmJudge | None = None,
+        *,
+        input_classifier: SimilarityClassifier | None = None,
+    ) -> None:
         self._classifier = classifier
         self._judge = judge
+        # what users type is screened against its own benign set (their leave commands are not forgery, M7)
+        self._input_classifier = input_classifier or classifier
 
     @property
     def classifier_version(self) -> str | None:
@@ -94,7 +102,9 @@ class InjectionScanService:
         """User-input screening (doc 08 §8.3): heuristics + classifier; the chat ingress (M6/M7) acts on `blocked`."""
         result = score_text(text)
         classifier_score = (
-            self._classifier.score_blocks([text])[0] if self._classifier is not None and text else None
+            self._input_classifier.score_blocks([text])[0]
+            if self._input_classifier is not None and text
+            else None
         )
         score = combine(result.score, classifier_score, None, 1 if result.flags else 0)
         families = tuple(sorted({f.family for f in result.flags}))

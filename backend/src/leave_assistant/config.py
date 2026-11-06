@@ -114,6 +114,9 @@ class Settings(BaseSettings):
     min_evidence_chunks: int = 1
     conversation_retention_days: int = 90
     conversation_cleanup_interval_seconds: float = 86400.0
+    proposal_expiry_interval_seconds: float = (
+        300.0  # M7: pending proposals past their TTL and their interrupts
+    )
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str = "http://langfuse-web:3000"

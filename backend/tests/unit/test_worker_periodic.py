@@ -29,3 +29,16 @@ async def test_tasks_run_when_due_only() -> None:
     tasks._tasks[1].last_run = time.monotonic() - 3601  # the retention interval elapsed
     third = await tasks()
     assert "retention.scan" in third
+
+
+def test_the_worker_schedules_retention_cleanup_and_proposal_expiry(services) -> None:  # type: ignore[no-untyped-def]
+    from leave_assistant.config import Settings
+    from leave_assistant.worker.periodic import build_periodic
+
+    periodic = build_periodic(services, Settings())
+    assert [t.name for t in periodic._tasks] == [
+        "rollover",
+        "retention.scan",
+        "conversation.cleanup",
+        "proposal.expire",
+    ]

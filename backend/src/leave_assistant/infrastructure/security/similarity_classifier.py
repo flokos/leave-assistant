@@ -18,6 +18,7 @@ from leave_assistant.application.ports import EmbeddingModel
 
 DEFAULT_PATH = Path(__file__).with_name("exemplars_v1.json")
 BENIGN_PATH = Path(__file__).with_name("benign_v1.json")
+USER_BENIGN_PATH = Path(__file__).with_name("benign_user_v1.json")  # M7: screening user input only
 DEFAULT_FLOOR = 0.025  # margin at which a block starts to look like an injection (benign corpus max: +0.035)
 DEFAULT_CEILING = 0.065  # margin from which the classifier is certain (paraphrased injections: +0.037…+0.14)
 

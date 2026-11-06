@@ -4,6 +4,7 @@ company administrators absence only."""
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from leave_assistant.application.authz.policy import Action, ResourceRef, require
 from leave_assistant.application.leave.common import tenant_user
@@ -24,19 +25,21 @@ class TeamService:
         self._uow = uow_factory
 
     async def _scope(
-        self, uow: UnitOfWork, principal: Principal, action: Action
+        self, uow: UnitOfWork, principal: Principal, action: Action, department_id: UUID | None = None
     ) -> tuple[bool, ResourceRef | None]:
-        """Returns (tenant_wide, department resource). HR/company admins are tenant-wide; managers department-scoped."""
+        """Returns (tenant_wide, department resource). HR/company admins are tenant-wide; managers department-scoped
+        — asking for another department (M7 tool argument) is a denial, decided by the same policy."""
         tenant_id, _ = tenant_user(principal)
         if principal.has_any(Role.HR_ADMIN, Role.COMPANY_ADMIN):
             require(principal, action, ResourceRef("team", tenant_id=tenant_id))
             return True, None
-        department = await uow.departments.get(principal.department_id) if principal.department_id else None
+        target = department_id or principal.department_id
+        department = await uow.departments.get(target) if target else None
         resource = ResourceRef(
             "department",
-            principal.department_id,
+            target,
             tenant_id=tenant_id,
-            department_id=principal.department_id,
+            department_id=target,
             department_manager_employee_id=department.manager_employee_id if department else None,
         )
         require(principal, action, resource)
@@ -49,9 +52,11 @@ class TeamService:
                 department_id=None if tenant_wide else principal.department_id
             )
 
-    async def availability(self, principal: Principal, *, start: date, end: date) -> list[AbsenceRow]:
+    async def availability(
+        self, principal: Principal, *, start: date, end: date, department_id: UUID | None = None
+    ) -> list[AbsenceRow]:
         async with self._uow(TenantContext.for_principal(principal)) as uow:
-            tenant_wide, _ = await self._scope(uow, principal, Action.READ_TEAM_AVAILABILITY)
+            tenant_wide, _ = await self._scope(uow, principal, Action.READ_TEAM_AVAILABILITY, department_id)
             requests = await uow.leave_requests.list_in_window(start, end, statuses=ABSENT_STATUSES)
             employees = await uow.employees.get_many([r.employee_id for r in requests])
             types = {t.id: t for t in await uow.leave_types.list(include_inactive=True)}
@@ -62,6 +67,8 @@ class TeamService:
                 if employee is None or (
                     not tenant_wide and employee.department_id != principal.department_id
                 ):
+                    continue
+                if department_id is not None and employee.department_id != department_id:
                     continue
                 leave_type = types.get(request.leave_type_id)
                 rows.append(

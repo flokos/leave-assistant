@@ -47,5 +47,14 @@ def build_periodic(services: Services, settings: Settings) -> PeriodicTasks:
             PeriodicTask(
                 "retention.scan", services.retention.scan_all, settings.retention_scan_interval_seconds
             ),
+            # M6 had the setting but never scheduled it (found in M7): 90-day conversation retention + checkpoints
+            PeriodicTask(
+                "conversation.cleanup",
+                services.chat.cleanup_expired,
+                settings.conversation_cleanup_interval_seconds,
+            ),
+            PeriodicTask(
+                "proposal.expire", services.proposals.expire_due, settings.proposal_expiry_interval_seconds
+            ),
         ]
     )

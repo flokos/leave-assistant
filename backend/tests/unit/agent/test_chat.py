@@ -41,7 +41,7 @@ async def test_policy_question_is_answered_with_verified_citations(
     assert citations[0]["n"] == 1 and citations[0]["title"] == "Κανονισμός Αδειών"
     assert next(e for e in events if e.name == "done").data["outcome"] == "answered"
     # the classifier was an LLM call (no pre-router match); generation used the answer model
-    assert [c[0] for c in agent_world.primary.calls] == ["classify@1", "generate@3"]
+    assert [c[0] for c in agent_world.primary.calls] == ["classify@2", "generate@3"]
     assert agent_world.primary.calls[1][1].value == "answer"
     run = store.agent_runs[-1]
     assert (run.intent, run.route, run.outcome, run.language, run.provider_used) == (
@@ -88,15 +88,11 @@ async def test_unknown_topics_get_the_insufficient_evidence_template(
     assert "generate@3" not in [c[0] for c in agent_world.primary.calls]  # no evidence → no generation
 
 
-async def test_business_intents_and_smalltalk_are_templated_without_generation(
-    agent_world: AgentWorld, world: World
-) -> None:
+async def test_smalltalk_is_templated_without_generation(agent_world: AgentWorld, world: World) -> None:
+    # M6 also templated business intents; since M7 they go to the Business Operations subgraph (test_business.py)
     services = agent_world.services
     employee = principal_for(world.a.employees["employee"])
     conversation = await services.chat.create(employee)
-    events = await ask(services, employee, conversation.id, "Πόσο υπόλοιπο έχω;")
-    assert "«Οι άδειές μου»" in answer_text(events)
-    assert agent_world.primary.calls == []  # deterministic pre-router: no LLM call at all
     events = await ask(services, employee, conversation.id, "Hello there!")
     assert "Ask me anything" in answer_text(events)
     assert next(e for e in events if e.name == "done").data["outcome"] == "scope"
@@ -298,3 +294,21 @@ async def test_answers_with_declared_but_not_inline_citations_are_kept(
         answer_text(events).endswith("[1]")
         and [c[0] for c in agent_world.primary.calls].count("generate@3") == 1
     )
+
+
+async def test_subgraphs_never_duplicate_the_checkpointed_history(
+    agent_world: AgentWorld, world: World
+) -> None:
+    # M6 bug (worklog M7): a subgraph compiled on the full state returned its copy of `messages` and the reducer
+    # appended it again — 9 messages after two policy turns. Each turn must add exactly one user + one assistant.
+    services = agent_world.services
+    employee = principal_for(world.a.employees["employee"])
+    conversation = await services.chat.create(employee)
+    config = {"configurable": {"thread_id": str(conversation.id)}}
+    for turn, question in enumerate(
+        ("How many days of annual leave do I get?", "Can I carry over unused days?", "Γεια σου"), start=1
+    ):
+        await ask(services, employee, conversation.id, question)
+        snapshot = await agent_world.agent.graph.aget_state(config)
+        roles = [m["role"] for m in snapshot.values["messages"]]
+        assert roles == ["user", "assistant"] * turn

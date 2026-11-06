@@ -34,6 +34,8 @@ from leave_assistant.application.ports import (
     LedgerRepository,
     MessageRepository,
     NotificationRepository,
+    PendingInterruptRepository,
+    ProposalRepository,
     ProviderEventRepository,
     RequestEventRepository,
     RetentionPolicyRepository,
@@ -81,6 +83,10 @@ from leave_assistant.infrastructure.db.repositories.ledger import SqlLedgerRepos
 from leave_assistant.infrastructure.db.repositories.notifications import (
     SqlIntegrationEventRepository,
     SqlNotificationRepository,
+)
+from leave_assistant.infrastructure.db.repositories.proposals import (
+    SqlPendingInterruptRepository,
+    SqlProposalRepository,
 )
 from leave_assistant.infrastructure.db.repositories.retention import (
     SqlRetentionPolicyRepository,
@@ -137,6 +143,8 @@ class SqlAlchemyUnitOfWork:
     messages: MessageRepository
     agent_runs: AgentRunRepository
     provider_events: ProviderEventRepository
+    proposals: ProposalRepository
+    pending_interrupts: PendingInterruptRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -191,6 +199,8 @@ class SqlAlchemyUnitOfWork:
         self.messages = SqlMessageRepository(session, tenant_id)
         self.agent_runs = SqlAgentRunRepository(session, tenant_id)
         self.provider_events = SqlProviderEventRepository(session, tenant_id)
+        self.proposals = SqlProposalRepository(session, tenant_id)
+        self.pending_interrupts = SqlPendingInterruptRepository(session, tenant_id)
         return self
 
     async def __aexit__(

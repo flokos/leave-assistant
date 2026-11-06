@@ -279,6 +279,9 @@ async def test_models_match_migration_including_leave_tables(migrated_database: 
                             "ix_document_chunks_tsv_simple",
                             "uq_jobs_active_dedupe",
                             "uq_retention_items_open",
+                            "ix_action_proposals_pending_expiry",
+                            "uq_leave_requests_idempotency",
+                            "ix_leave_request_events_proposal",
                         }
                     )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),

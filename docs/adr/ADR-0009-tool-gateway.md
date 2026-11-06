@@ -37,3 +37,5 @@ None.
 
 ## Consequences
 Tool additions require a schema, a policy entry and tests, which keeps the catalogue small and reviewed.
+
+**Implementation note M7 (2026-11-06, worklog M7):** implemented as decided (`application/assistant/gateway.py`, `proposals.py`). Native function calling binds the role's tools per intent group; the loop's history is rendered as text so a failover never replays provider-specific tool messages. Exactly-once execution: an atomic claim on the proposal row, the same service call as REST under `acting_via_agent` (request events carry the proposal id), a stored outcome for replays, recovery from the request event after a crash, and a partial unique index on the request idempotency key. The security suite measures an unauthorized-action rate of 0 over 17 hostile tool calls plus text attacks, replays and segregation of duties.

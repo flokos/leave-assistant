@@ -66,6 +66,21 @@ and the SSE `POST …/messages`. `resume` and `runs` arrive with M7. `POST …/m
 the stream; `error` event during it). SSE `token` events are emitted after citation verification (doc 04 §4.1);
 the `replace` correction event is therefore never needed in M6.
 
+M7 notes (2026-11-06): `resume` and `runs` implemented.
+- `POST …/resume` body `{proposal_id, decision: confirm|reject|edit, payload_hash, edits?: {start_date?, end_date?,
+  leave_type?}}`; like `…/messages` it takes **no `Idempotency-Key`** — the proposal id is the idempotency key: a
+  proposal that was already decided streams its stored outcome (`done` with `replayed: true`) without running the
+  graph. Problems before the stream: `chat/proposal-expired`, `chat/proposal-hash-mismatch`,
+  `chat/no-pending-proposal`, `chat/proposal-in-progress` (all 409), `chat/run-in-progress`; another user's
+  conversation or proposal is `404`. Edits are structured only.
+- `GET …/runs`: owner, or HR/company administrator for audit (audited `chat.runs.viewed`); others `404`. Stages,
+  tool trace (name, status, duration, reason), provider/model, tokens, timings, proposals — no prompts, no
+  arguments.
+- `GET …/{id}` carries `pending_proposal` (the open card); `GET …/messages` carries `card` on the message that
+  showed it, with the proposal's current status.
+- SSE: `tool_call {name, status: started|ok|denied|invalid|not_found|error}` and `interrupt {proposal_id, kind,
+  card, expires_at}` are emitted; the stream ends after `interrupt` (no `done`).
+
 ### 2.3 Leave (self-service)
 | Method | Path | Roles | Purpose |
 |--------|------|-------|---------|

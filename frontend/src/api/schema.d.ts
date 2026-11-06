@@ -600,6 +600,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chat/conversations/{conversation_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Conversation */
+        post: operations["resume_conversation_api_v1_chat_conversations__conversation_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/conversations/{conversation_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_chat_conversations__conversation_id__runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents": {
         parameters: {
             query?: never;
@@ -1606,6 +1640,7 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            pending_proposal?: components["schemas"]["ProposalCardOut"] | null;
             /** Title */
             title: string;
         };
@@ -2302,6 +2337,7 @@ export interface components {
         };
         /** MessageOut */
         MessageOut: {
+            card?: components["schemas"]["ProposalCardOut"] | null;
             /** Citations */
             citations: components["schemas"]["CitationItem"][];
             /**
@@ -2532,6 +2568,44 @@ export interface components {
             /** Prorate On Hire */
             prorate_on_hire?: boolean | null;
         };
+        /**
+         * ProposalCardOut
+         * @description The confirmation card (doc 09 §4 ProposalCard): rendered from the stored proposal for its owner.
+         */
+        ProposalCardOut: {
+            /** Actions */
+            actions: ("confirm" | "reject" | "edit")[];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "submit" | "modify" | "cancel" | "approve" | "reject";
+            /** Outcome */
+            outcome?: {
+                [key: string]: unknown;
+            };
+            /** Payload Hash */
+            payload_hash: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "executed" | "rejected" | "expired" | "failed";
+            /** Summary */
+            summary: {
+                [key: string]: unknown;
+            };
+        };
         /** ReadAllOut */
         ReadAllOut: {
             /** Marked */
@@ -2558,6 +2632,34 @@ export interface components {
              * Format: uuid
              */
             id: string;
+        };
+        /**
+         * ResumeEditsIn
+         * @description Structured edits only (dates, leave type): the proposal is re-prepared deterministically.
+         */
+        ResumeEditsIn: {
+            /** End Date */
+            end_date?: string | null;
+            /** Leave Type */
+            leave_type?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** ResumeIn */
+        ResumeIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "confirm" | "reject" | "edit";
+            edits?: components["schemas"]["ResumeEditsIn"] | null;
+            /** Payload Hash */
+            payload_hash: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
         };
         /** RetentionDecisionIn */
         RetentionDecisionIn: {
@@ -2805,6 +2907,62 @@ export interface components {
             requires_document?: boolean | null;
             /** Steps */
             steps?: ("manager" | "hr")[] | null;
+        };
+        /**
+         * RunOut
+         * @description Redacted run history (doc 04 §7): stages, tool trace, provider and timings — no prompts, no arguments.
+         */
+        RunOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Failovers */
+            failovers: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Intent */
+            intent: string | null;
+            /** Language */
+            language: string | null;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model */
+            model: string | null;
+            /** Outcome */
+            outcome: string;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Proposals */
+            proposals: components["schemas"]["RunProposalOut"][];
+            /** Provider */
+            provider: string | null;
+            /** Route */
+            route: string | null;
+            /** Stages */
+            stages: string[];
+            /** Tool Trace */
+            tool_trace: components["schemas"]["ToolTraceItem"][];
+            /** Turn */
+            turn: number;
+        };
+        /** RunProposalOut */
+        RunProposalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
         };
         /** SearchHitOut */
         SearchHitOut: {
@@ -3253,6 +3411,17 @@ export interface components {
             } | null;
             /** Timezone */
             timezone?: string | null;
+        };
+        /** ToolTraceItem */
+        ToolTraceItem: {
+            /** Duration Ms */
+            duration_ms: number;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason?: string | null;
+            /** Status */
+            status: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -5073,6 +5242,79 @@ export interface operations {
                      *     data: {"text": "Κάθε εργαζόμενος δικαιούται"}
                      */
                     "text/event-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_conversation_api_v1_chat_conversations__conversation_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeIn"];
+            };
+        };
+        responses: {
+            /** @description SSE stream (doc 09 §3) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example event: status
+                     *     data: {"stage": "executing"}
+                     *
+                     *     event: done
+                     *     data: {"outcome": "executed"}
+                     */
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_chat_conversations__conversation_id__runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"][];
                 };
             };
             /** @description Validation Error */

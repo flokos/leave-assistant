@@ -10,7 +10,7 @@ from uuid import UUID
 
 from leave_assistant.application.audit.entry import ActorKind, AuditEntry, Outcome
 from leave_assistant.application.ports import Clock, IdGenerator, UnitOfWork, UnitOfWorkFactory
-from leave_assistant.application.request_context import current_request_id
+from leave_assistant.application.request_context import current_origin, current_request_id
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.tenancy import Principal
 
@@ -71,7 +71,7 @@ class AuditService:
             resource_id=None if resource_id is None else str(resource_id),
             outcome=outcome,
             request_id=current_request_id(),
-            details=json_safe(dict(details or {})),
+            details=json_safe({**dict(details or {}), **(current_origin() or {})}),
         )
         await uow.audit.add(entry)
         return entry

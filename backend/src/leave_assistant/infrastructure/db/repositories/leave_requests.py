@@ -109,6 +109,26 @@ class SqlLeaveRequestRepository:
             stmt = stmt.where(tuple_(LeaveRequestRow.created_at, LeaveRequestRow.id) > after)
         return [_request_to_domain(r) for r in (await self._s.execute(stmt)).scalars()]
 
+    async def get_by_number(self, request_number: str) -> LeaveRequest | None:
+        if self._tenant is None:
+            return None
+        row = (
+            await self._s.execute(self._base().where(LeaveRequestRow.request_number == request_number))
+        ).scalar_one_or_none()
+        return _request_to_domain(row) if row else None
+
+    async def find_by_idempotency_key(self, employee_id: UUID, key: str) -> LeaveRequest | None:
+        if self._tenant is None:
+            return None
+        row = (
+            await self._s.execute(
+                self._base().where(
+                    LeaveRequestRow.employee_id == employee_id, LeaveRequestRow.idempotency_key == key
+                )
+            )
+        ).scalar_one_or_none()
+        return _request_to_domain(row) if row else None
+
     async def list_for_employee(self, employee_id: UUID) -> builtins.list[LeaveRequest]:
         if self._tenant is None:
             return []
@@ -323,21 +343,37 @@ class SqlRequestEventRepository:
             )
             .order_by(LeaveRequestEventRow.occurred_at, LeaveRequestEventRow.id)
         )
-        return [
-            RequestEventRecord(
-                id=r.id,
-                tenant_id=r.tenant_id,
-                request_id=r.request_id,
-                event_type=r.event_type,
-                from_status=RequestStatus(r.from_status) if r.from_status else None,
-                to_status=RequestStatus(r.to_status),
-                actor_employee_id=r.actor_employee_id,
-                actor_kind=ActorKind(r.actor_kind),
-                occurred_at=r.occurred_at,
-                payload=dict(r.payload),
+        return [_event_to_domain(r) for r in (await self._s.execute(stmt)).scalars()]
+
+    async def find_by_proposal(self, proposal_id: UUID) -> RequestEventRecord | None:
+        if self._tenant is None:
+            return None
+        stmt = (
+            select(LeaveRequestEventRow)
+            .where(
+                LeaveRequestEventRow.tenant_id == self._tenant,
+                LeaveRequestEventRow.payload["proposal_id"].astext == str(proposal_id),
             )
-            for r in (await self._s.execute(stmt)).scalars()
-        ]
+            .order_by(LeaveRequestEventRow.occurred_at)
+            .limit(1)
+        )
+        row = (await self._s.execute(stmt)).scalar_one_or_none()
+        return _event_to_domain(row) if row else None
+
+
+def _event_to_domain(r: LeaveRequestEventRow) -> RequestEventRecord:
+    return RequestEventRecord(
+        id=r.id,
+        tenant_id=r.tenant_id,
+        request_id=r.request_id,
+        event_type=r.event_type,
+        from_status=RequestStatus(r.from_status) if r.from_status else None,
+        to_status=RequestStatus(r.to_status),
+        actor_employee_id=r.actor_employee_id,
+        actor_kind=ActorKind(r.actor_kind),
+        occurred_at=r.occurred_at,
+        payload=dict(r.payload),
+    )
 
 
 __all__ = [

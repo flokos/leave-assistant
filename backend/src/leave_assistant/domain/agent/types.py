@@ -42,6 +42,11 @@ class Outcome(StrEnum):
     SCOPE = "scope"
     BLOCKED = "blocked"
     ERROR = "error"
+    # M7: business operations
+    INTERRUPTED = "interrupted"  # a confirmation card is waiting for the user
+    EXECUTED = "executed"
+    REJECTED = "rejected"  # the user declined the proposal (or it was superseded / expired)
+    FAILED = "failed"  # the confirmed operation broke a business rule at execution time
 
 
 class ProviderErrorKind(StrEnum):

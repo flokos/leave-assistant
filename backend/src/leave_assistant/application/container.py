@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from leave_assistant.application.assistant.gateway import ToolGateway
+from leave_assistant.application.assistant.proposals import ProposalService
 from leave_assistant.application.audit.service import AuditService
 from leave_assistant.application.chat.service import ChatService
 from leave_assistant.application.documents.ingestion import IngestionPipeline
@@ -66,6 +68,7 @@ class DocumentAdapters:
     vault_cipher: VaultCipher
     file_cipher: FileCipher
     classifier: SimilarityClassifier | None = None
+    input_classifier: SimilarityClassifier | None = None  # M7: user-input screening (own benign set)
     judge: LlmJudge | None = None
     reranker: Reranker | None = None
 
@@ -117,6 +120,8 @@ class Services:
     supporting: SupportingDocumentService
     retention: RetentionService
     chat: ChatService
+    proposals: ProposalService
+    tools: ToolGateway
 
     @classmethod
     def build(
@@ -149,8 +154,39 @@ class Services:
         privacy = PseudonymisationService(
             adapters.pii_engine, adapters.vault_cipher, ids, clock, threshold=options.pii_score_threshold
         )
-        security = InjectionScanService(adapters.classifier, adapters.judge)
+        security = InjectionScanService(
+            adapters.classifier, adapters.judge, input_classifier=adapters.input_classifier
+        )
         reidentification = ReidentificationService(privacy)
+        approvals = ApprovalService(uow_factory, workflow, leave_requests)
+        team = TeamService(uow_factory)
+        catalog = LeaveCatalogService(uow_factory, ids, clock, audit, planner)
+        retrieval = RetrievalService(
+            uow_factory,
+            adapters.embedder,
+            adapters.language,
+            leg_size=options.retrieval_leg_size,
+            default_k=options.retrieval_k,
+            reranker=adapters.reranker,
+            rerank_candidates=options.rerank_candidates,
+        )
+        proposals = ProposalService(uow_factory, ids, clock, audit, leave_requests, approvals)
+        tools = ToolGateway(
+            uow_factory,
+            clock,
+            audit,
+            privacy,
+            reidentification,
+            leave_requests,
+            approvals,
+            team,
+            ledger,
+            catalog,
+            planner,
+            retrieval,
+            proposals,
+            adapters.tokenizer,
+        )
         return cls(
             uow_factory=uow_factory,
             identity=identity,
@@ -165,11 +201,11 @@ class Services:
             ),
             employees=EmployeeService(uow_factory, identity, ids, clock, audit),
             departments=DepartmentService(uow_factory, ids, clock, audit),
-            catalog=LeaveCatalogService(uow_factory, ids, clock, audit, planner),
+            catalog=catalog,
             ledger=ledger,
             leave_requests=leave_requests,
-            approvals=ApprovalService(uow_factory, workflow, leave_requests),
-            team=TeamService(uow_factory),
+            approvals=approvals,
+            team=team,
             notifications=notifications,
             rollover=RolloverService(uow_factory, ids, clock, audit, ledger),
             jobs=jobs,
@@ -199,15 +235,7 @@ class Services:
                 rules=rules,
                 max_pages=options.max_pages,
             ),
-            retrieval=RetrievalService(
-                uow_factory,
-                adapters.embedder,
-                adapters.language,
-                leg_size=options.retrieval_leg_size,
-                default_k=options.retrieval_k,
-                reranker=adapters.reranker,
-                rerank_candidates=options.rerank_candidates,
-            ),
+            retrieval=retrieval,
             privacy=privacy,
             reidentification=reidentification,
             security=security,
@@ -234,8 +262,11 @@ class Services:
                 security_policies,
                 adapters.language,
                 None,  # the LangGraph agent is attached by the runtime (it needs an async checkpointer pool)
+                proposals=proposals,
                 retention_days=options.conversation_retention_days,
             ),
+            proposals=proposals,
+            tools=tools,
         )
 
     def with_clock(self, clock: Clock) -> Services:

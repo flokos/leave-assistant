@@ -51,7 +51,10 @@ def build_agent(services: Services, *, budgets: TokenBudgets | None = None, tau:
         language=services.adapters.language,
         counter=WordTokenizer(),
         evidence=EvidencePolicy(tau=tau, min_evidence_chunks=1, budget_tokens=budgets.context),
+        tools=services.tools,
+        proposals=services.proposals,
     )
+    services.tools.evidence = EvidencePolicy(tau=tau, min_evidence_chunks=1)
     agent = LangGraphAgent(deps, saver)
     services.chat.agent = agent
     services.chat.budgets = budgets

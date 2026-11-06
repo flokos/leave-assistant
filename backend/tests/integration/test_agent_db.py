@@ -1,5 +1,6 @@
-"""M6 against PostgreSQL: conversation tables under RLS, the checkpointer role boundary, and a conversation that
-continues after the checkpointer pool is replaced (restart test, doc 12 M6 exit)."""
+"""M6/M7 against PostgreSQL: conversation tables under RLS, the checkpointer role boundary, a conversation that
+continues after the checkpointer pool is replaced (restart test, doc 12 M6 exit), a confirmation that survives an
+API restart and executes exactly once (S29), and the atomic proposal claim across connections."""
 
 from __future__ import annotations
 
@@ -48,6 +49,8 @@ async def agent_for(services: Services, settings: Settings) -> tuple[LangGraphAg
         language=services.adapters.language,
         counter=WordTokenizer(),
         evidence=EvidencePolicy(tau=0.3),
+        tools=services.tools,
+        proposals=services.proposals,
     )
     agent = LangGraphAgent(deps, saver)
     services.chat.agent = agent
@@ -104,3 +107,101 @@ async def test_checkpointer_role_cannot_read_application_tables(checkpoint_setti
         conn.rollback()
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("SELECT count(*) FROM app.pii_vault")
+
+
+async def _drain(stream):  # type: ignore[no-untyped-def]
+    return [e async for e in stream]
+
+
+async def test_s29_a_pending_confirmation_survives_a_restart_and_executes_once(
+    db_services: Services, seeded: dict[str, object], checkpoint_settings: Settings, owner_engine: AsyncEngine
+) -> None:
+    from uuid import UUID
+
+    employees: dict[str, Employee] = seeded["employees"]["brightwater"]  # type: ignore[index]
+    employee = employees["BWS-004"]
+    principal = principal_for(employee)
+    _, pool = await agent_for(db_services, checkpoint_settings)
+    conversation = await db_services.chat.create(principal)
+    events = await _drain(
+        await db_services.chat.send(
+            principal, conversation.id, "I want five days off starting December 14", request_id="r1"
+        )
+    )
+    assert events[-1].name == "interrupt", [e.name for e in events]
+    card = events[-1].data["card"]
+    await pool.close()  # "api restart": the paused run lives only in PostgreSQL now
+
+    agent, pool = await agent_for(db_services, checkpoint_settings)
+    snapshot = await agent.graph.aget_state({"configurable": {"thread_id": str(conversation.id)}})
+    assert snapshot.interrupts and snapshot.interrupts[0].value["proposal_id"] == card["proposal_id"]
+    resume = dict(
+        proposal_id=UUID(card["proposal_id"]),
+        decision="confirm",
+        payload_hash=card["payload_hash"],
+        edits=None,
+        request_id="r2",
+    )
+    done = await _drain(await db_services.chat.resume(principal, conversation.id, **resume))
+    assert done[-1].name == "done" and done[-1].data["outcome"] == "executed"
+    replay = await _drain(await db_services.chat.resume(principal, conversation.id, **resume))
+    assert replay[-1].data["replayed"] is True
+    await pool.close()
+    async with owner_engine.connect() as conn:
+        await conn.execute(
+            text("SELECT set_config('app.tenant_id', :t, false)"), {"t": str(employee.tenant_id)}
+        )
+        requests = (
+            await conn.execute(
+                text(
+                    "SELECT status, idempotency_key FROM app.leave_requests "
+                    "WHERE employee_id = :e AND start_date = '2026-12-14'"
+                ),
+                {"e": employee.id},
+            )
+        ).all()
+        proposal = (
+            await conn.execute(
+                text("SELECT status, executed_request_id FROM app.action_proposals WHERE id = :p"),
+                {"p": card["proposal_id"]},
+            )
+        ).one()
+    assert len(requests) == 1 and requests[0][0] == "PENDING_MANAGER"
+    assert requests[0][1] == f"proposal:{card['proposal_id']}"
+    assert proposal[0] == "executed" and proposal[1] is not None
+
+
+async def test_the_claim_is_atomic_across_connections(
+    db_services: Services, seeded: dict[str, object], checkpoint_settings: Settings
+) -> None:
+    import asyncio
+    from uuid import UUID
+
+    from leave_assistant.application.assistant.gateway import ToolContext
+    from leave_assistant.application.llm.ports import ToolCall
+
+    employees: dict[str, Employee] = seeded["employees"]["aegean"]  # type: ignore[index]
+    principal = principal_for(employees["AEG-006"])
+    conversation = await db_services.chat.create(principal)
+    context = ToolContext(principal, conversation.id, UUID(int=1), db_services.clock.now().date(), "el")
+    outcome = await db_services.tools.call(
+        context,
+        ToolCall(
+            "prepare_leave_request", {"leave_type": "annual", "start_date": "2026-12-28", "working_days": 2}
+        ),
+        "c1",
+    )
+    assert outcome.proposal_id is not None, outcome.result
+    results = await asyncio.gather(
+        *(
+            db_services.proposals.execute(principal, outcome.proposal_id, run_id=UUID(int=n))
+            for n in (11, 12, 13)
+        ),
+        return_exceptions=True,
+    )
+    real = [r for r in results if not isinstance(r, BaseException) and not r.replayed]
+    assert len(real) == 1, results
+    page = await db_services.leave_requests.list(
+        principal, statuses=None, date_from=None, date_to=None, limit=50, cursor=None
+    )
+    assert len([r for r in page.items if r.start_date.isoformat() == "2026-12-28"]) == 1

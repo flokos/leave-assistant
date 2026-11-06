@@ -50,6 +50,9 @@ def test_models_match_migrated_schema(migrated_database: str) -> None:
                             "ix_document_chunks_tsv_simple",
                             "uq_jobs_active_dedupe",
                             "uq_retention_items_open",
+                            "ix_action_proposals_pending_expiry",
+                            "uq_leave_requests_idempotency",
+                            "ix_leave_request_events_proposal",
                         }
                     )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),

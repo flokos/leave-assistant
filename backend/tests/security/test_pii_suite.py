@@ -153,3 +153,14 @@ def test_benign_policy_text_yields_few_or_no_findings(service: PseudonymisationS
         for f in findings
         if f.entity_type in (EntityType.AMKA, EntityType.AFM, EntityType.PHONE, EntityType.EMAIL)
     ]
+
+
+def test_request_numbers_are_never_personal_data(service: PseudonymisationService) -> None:
+    # Presidio's phone pattern took the digits of LR-2026-000007 (M7): request numbers stay readable for the tools
+    for text in (
+        "Approve request LR-2026-000007 please",
+        "Ακύρωσε την αίτηση LR-2026-000123 του PERSON_0001",
+    ):
+        findings = service.detect(text, language="en", known=[])
+        assert not any("2026-000" in f.text for f in findings), findings
+    assert service.detect("Call me on 210 123 4567", language="en", known=[])  # phones are still found
