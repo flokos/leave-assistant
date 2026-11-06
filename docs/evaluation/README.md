@@ -39,6 +39,17 @@ retrievable chunk ids and contents) so runs on a different corpus are recognisab
 - **RAG quality (live, LLM judge)**: RAGAS faithfulness, answer relevancy, context precision (with reference),
   context recall on the 18 `ragas: true` items; 3 judge repetitions; mean ± standard deviation over repetitions and
   the bootstrap interval over items.
+  *Amended 2026-11-06, after the first live run and before any RAGAS score was computed:* the answers of every
+  configuration come from **one pinned provider** (`answers --providers mistral`, `ministral-14b-2512`, the production
+  fallback). With the production order, Gemini's answer model was out of free quota that day, and the router answered
+  15 of 18 items with Mistral and 3 with Gemini, a random mix that would confound the comparison. The **judge** is
+  `mistral-large-4`, a different and much larger model than the answer model (it was `ministral-14b-2512`, which would
+  have judged its own answers). Mistral Medium and Small were the first choice but have no free quota (0 requests per
+  minute on the free plan); Large is metered at 20k tokens/min, so the judge is paced client-side (`EVAL_JUDGE_RPS`).
+  Same family as the answer model, so some shared bias remains; it is reported. Configurations
+  are compared by the paired difference over the items both could score. Samples carry exactly the evidence text the
+  model received (both the knowledge node and the `search_policies` tool) and whether the verifier gave up
+  (`verifier_exhausted`: the user saw the fallback text although the run's outcome is `answered`).
 - **Agent (live)**: tool-selection accuracy (every `expected_tools` called, no `forbidden_tools` executed), action
   success (expected outcome reached), unauthorized-action rate (state changes that the user was not allowed to make);
   answer-language fidelity on every live answer (lingua).

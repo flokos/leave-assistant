@@ -7,10 +7,12 @@ dev database through the published port, nothing in the request path is replaced
 from __future__ import annotations
 
 import hashlib
+import importlib
 import os
 import subprocess
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -171,6 +173,41 @@ class TimedRetrieval:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
+
+
+# Both places that turn hits into the evidence text an LLM receives: the knowledge node and the `search_policies` tool.
+CONTEXT_SITES = {
+    "graph": "leave_assistant.agent.graph",
+    "tool": "leave_assistant.application.assistant.gateway",
+}
+
+
+class ContextRecorder:
+    """Records every evidence bundle handed to the LLM, as built (`build_context` observed at both call sites)."""
+
+    def __init__(self) -> None:
+        self.bundles: list[tuple[str, str]] = []  # (site, LLM-safe evidence text)
+
+    @contextmanager
+    def installed(self) -> Iterator[ContextRecorder]:
+        modules = {site: importlib.import_module(name) for site, name in CONTEXT_SITES.items()}
+        originals = {site: module.build_context for site, module in modules.items()}
+
+        def observed(site: str) -> Callable[..., Any]:
+            def build(*args: Any, **kwargs: Any) -> Any:
+                bundle = originals[site](*args, **kwargs)
+                self.bundles.append((site, str(bundle.text)))
+                return bundle
+
+            return build
+
+        for site, module in modules.items():
+            module.build_context = observed(site)  # type: ignore[attr-defined]
+        try:
+            yield self
+        finally:
+            for site, module in modules.items():
+                module.build_context = originals[site]  # type: ignore[attr-defined]
 
 
 @dataclass(slots=True)

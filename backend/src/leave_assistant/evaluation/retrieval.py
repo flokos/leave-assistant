@@ -21,6 +21,7 @@ import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from leave_assistant.application.retrieval.service import RetrievalService, ScoredHit
@@ -439,32 +440,58 @@ async def run_variant(model: str, backend: str, candidate_counts: Sequence[int])
         await runtime.aclose()
 
 
-def run_variants(candidate_counts: Sequence[int]) -> dict[str, Any]:
-    results: list[dict[str, Any]] = []
-    for model in ("A", "B"):
-        for backend in ("torch", "onnx", "onnx-int8"):
-            started = time.perf_counter()
-            proc = subprocess.run(
-                [sys.executable, "-m", "leave_assistant.evaluation.retrieval", "runtime", "--model", model,
-                 "--backend", backend, "--candidates", ",".join(map(str, candidate_counts))],
-                capture_output=True, text=True,
-            )  # fmt: skip
-            wall = round(time.perf_counter() - started, 1)
-            lines = [line for line in proc.stdout.splitlines() if line.startswith("{")]
-            if proc.returncode == 0 and lines:
-                entry = json.loads(lines[-1])
-            else:
-                entry = {
-                    "model": model,
-                    "backend": backend,
-                    "error": f"exit {proc.returncode}: {proc.stderr[-600:]}",
-                }
-            entry["wall_s"] = wall
-            results.append(entry)
-            sys.stdout.write(f"{model}/{backend}: {'error' if 'error' in entry else 'ok'} in {wall}s\n")
-            sys.stdout.flush()
-    summary = {"date": stamp(), "commit": git_commit(), "max_length": MAX_LENGTH, "variants": results}
+def _partial_path() -> Path:
+    return RESULTS / f"{stamp()}-reranker-runtimes.partial.jsonl"
+
+
+def run_variants(
+    candidate_counts: Sequence[int],
+    variants: Sequence[tuple[str, str, Sequence[int]]] | None = None,
+) -> dict[str, Any]:
+    """`variants`: (model, backend, candidate counts); default every model × runtime × `candidate_counts`."""
+    plan = list(
+        variants or [(m, b, candidate_counts) for m in ("A", "B") for b in ("torch", "onnx", "onnx-int8")]
+    )
     RESULTS.mkdir(parents=True, exist_ok=True)
+    partial = _partial_path()
+    for model, backend, counts in plan:
+        started = time.perf_counter()
+        proc = subprocess.run(
+            [sys.executable, "-m", "leave_assistant.evaluation.retrieval", "runtime", "--model", model,
+             "--backend", backend, "--candidates", ",".join(map(str, counts))],
+            capture_output=True, text=True,
+        )  # fmt: skip
+        wall = round(time.perf_counter() - started, 1)
+        lines = [line for line in proc.stdout.splitlines() if line.startswith("{")]
+        if proc.returncode == 0 and lines:
+            entry = json.loads(lines[-1])
+        else:
+            entry = {
+                "model": model,
+                "backend": backend,
+                "error": f"exit {proc.returncode}: {proc.stderr[-600:]}",
+            }
+        entry["wall_s"] = wall
+        with partial.open("a", encoding="utf-8") as handle:  # survives an interrupted run
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        sys.stdout.write(f"{model}/{backend}: {'error' if 'error' in entry else 'ok'} in {wall}s\n")
+        sys.stdout.flush()
+    return write_runtimes(partial)
+
+
+def latest_per_variant(entries: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The last entry per (model, runtime), in first-seen order: a re-run replaces a failed or stale one."""
+    latest: dict[tuple[str, str], dict[str, Any]] = {}
+    for entry in entries:
+        latest[(entry["model"], entry["backend"])] = entry
+    return list(latest.values())
+
+
+def write_runtimes(partial: Path) -> dict[str, Any]:
+    """The report from every run recorded in `partial` (earlier sessions of the same day included)."""
+    entries = [json.loads(line) for line in partial.read_text(encoding="utf-8").splitlines() if line.strip()]
+    results = latest_per_variant(entries)
+    summary = {"date": stamp(), "commit": git_commit(), "max_length": MAX_LENGTH, "variants": results}
     prefix = RESULTS / f"{summary['date']}-reranker-runtimes"
     prefix.with_suffix(".json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -488,6 +515,14 @@ def run_variants(candidate_counts: Sequence[int]) -> dict[str, Any]:
                 f"| {entry['model']} | {entry['backend']} | {entry['load_s']} | {entry['peak_rss_mb']} | {n} | "
                 f"{values['ndcg5']} | {values['p50_ms']} | {values['p95_ms']} | {values['tau']} | {values['balanced_accuracy']} |"
             )
+    measured = {e["model"] for e in results}
+    if "A" not in measured:
+        lines += [
+            "",
+            "Reranker A was not measured here: in torch it took about 73 s per turn in M6, and a torch run this session "
+            "was stopped after 52 minutes without finishing. That rules it out under NFR-PERF-01 whatever the runtime "
+            "(docs/evaluation/retrieval-comparison.md).",
+        ]
     prefix.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return summary
 
@@ -499,8 +534,14 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--allow-extra", action="store_true", help="run although non-seed documents are retrievable"
     )
+    sub.add_parser("runtimes-report", help="rewrite today's report from the partial JSONL")
     r = sub.add_parser("runtimes")
     r.add_argument("--candidates", default="10,20")
+    r.add_argument(
+        "--variant",
+        action="append",
+        help="MODEL:BACKEND[:N,N] (repeatable); default every model × runtime with --candidates",
+    )
     one = sub.add_parser("runtime")
     one.add_argument("--model", choices=sorted(RERANKERS), required=True)
     one.add_argument("--backend", choices=("torch", "onnx", "onnx-int8"), required=True)
@@ -510,7 +551,18 @@ def main(argv: list[str] | None = None) -> int:
         summary = asyncio.run(run_grid(args.allow_extra))
         sys.stdout.write(json.dumps({k: summary[k] for k in ("date", "commit", "corpus_fingerprint")}) + "\n")
     elif args.command == "runtimes":
-        run_variants([int(n) for n in args.candidates.split(",")])
+        counts = [int(n) for n in args.candidates.split(",")]
+        variants = None
+        if args.variant:
+            variants = []
+            for spec in args.variant:
+                parts = spec.split(":")
+                variants.append(
+                    (parts[0], parts[1], [int(n) for n in parts[2].split(",")] if len(parts) > 2 else counts)
+                )
+        run_variants(counts, variants)
+    elif args.command == "runtimes-report":
+        write_runtimes(_partial_path())
     else:
         result = asyncio.run(
             run_variant(args.model, args.backend, [int(n) for n in args.candidates.split(",")])

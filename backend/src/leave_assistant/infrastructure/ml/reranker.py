@@ -16,7 +16,9 @@ MAX_LENGTH = 512
 Backend = Literal["torch", "onnx", "onnx-int8"]
 FP32_FILE = "onnx/model.onnx"
 INT8_CONFIG = "avx2"  # the closest dynamic-int8 configuration for AVX-only CPUs (none exists for plain AVX)
-INT8_FILE = f"onnx/model_qint8_{INT8_CONFIG}.onnx"
+INT8_FILE = (
+    f"onnx/model_quint8_{INT8_CONFIG}.onnx"  # sentence-transformers names the avx2 quantisation quint8
+)
 
 
 def onnx_root() -> Path:

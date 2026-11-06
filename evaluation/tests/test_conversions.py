@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from leave_eval.common import dataset_items, scorable
 from leave_eval.langfuse_sync import item_payload
 from leave_eval.ragas_run import bootstrap, to_sample
@@ -46,3 +48,43 @@ def test_dataset_items_map_to_langfuse_payloads() -> None:
 def test_bootstrap_ignores_missing_values() -> None:
     mean, low, high = bootstrap([1.0, float("nan"), 0.5])
     assert mean == 0.75 and low <= mean <= high
+
+
+def test_paired_differences_use_common_items_only() -> None:
+    from leave_eval.ragas_run import METRICS, paired
+
+    nan = float("nan")
+    base = {"items": {"a": {m: [0.5, 0.7] for m in METRICS}, "b": {m: [1.0] for m in METRICS}}}
+    challenger = {"items": {"a": {m: [0.8, nan] for m in METRICS}, "c": {m: [0.0] for m in METRICS}}}
+    result = paired(base, challenger)
+    assert all(result[m]["n"] == 1 and result[m]["delta"] == 0.2 for m in METRICS)
+
+
+def test_usage_merge_sums_nested_details() -> None:
+    from leave_eval.ragas_run import judge_chat, merge_usage
+
+    first = {"prompt_tokens": 10, "prompt_tokens_details": {"cached_tokens": 1}, "model": "x"}
+    second = {"prompt_tokens": 5, "prompt_tokens_details": {"cached_tokens": 2}, "model": "y"}
+    assert merge_usage(merge_usage({}, first), second) == {
+        "prompt_tokens": 15,
+        "prompt_tokens_details": {"cached_tokens": 3},
+        "model": "x",
+    }
+    chat = judge_chat(model="mistral-large-4", api_key="test")
+    combined = chat._combine_llm_outputs([{"token_usage": first}, None, {"token_usage": second}])
+    assert combined["token_usage"]["prompt_tokens_details"] == {"cached_tokens": 3}
+
+
+def test_checkpoint_restores_finished_repetitions_per_config(tmp_path: Any) -> None:
+    import json
+
+    from leave_eval.ragas_run import load_checkpoint
+
+    path = tmp_path / "ragas.partial.jsonl"
+    rows = [
+        {"config": "B", "rep": 0, "items": {"S01": {"faithfulness": 1.0}}},
+        {"config": "A", "rep": 0, "items": {"S01": {"faithfulness": 0.5}}},
+    ]
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    assert load_checkpoint(path, "A") == {0: {"S01": {"faithfulness": 0.5}}}
+    assert load_checkpoint(tmp_path / "missing.jsonl", "A") == {}

@@ -26,6 +26,11 @@ def main() -> int:
     for model in dict.fromkeys([settings.reranker_model, *RERANKERS]):  # both ADR-0014 candidates (M6)
         score = CrossEncoderReranker(model).score("άδεια", ["κανονική άδεια", "printer toner"])
         sys.stdout.write(f"reranker {model}: {score}\n")
+    if settings.reranker_backend != "torch":  # M9: export the ONNX graph once into $HF_HOME/onnx
+        onnx = CrossEncoderReranker(settings.reranker_model, backend=settings.reranker_backend)
+        sys.stdout.write(
+            f"reranker {onnx.model_id}: {onnx.score('άδεια', ['κανονική άδεια', 'printer toner'])}\n"
+        )
     artifacts = settings.docling_artifacts_dir
     if artifacts is not None:
         from docling.utils.model_downloader import download_models

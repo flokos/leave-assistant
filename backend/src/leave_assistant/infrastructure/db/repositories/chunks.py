@@ -6,7 +6,8 @@ import builtins
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select, text, update
+from sqlalchemy import Text, cast, delete, func, or_, select, text, update
+from sqlalchemy.dialects.postgresql import TSQUERY
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from leave_assistant.application.ports import IndexRow
@@ -194,7 +195,10 @@ class SqlChunkRepository:
             return []
         config = FTS_CONFIG.get(language or "", "simple")
         tsv_lang = DocumentChunkRow.tsv_el if config == "greek" else DocumentChunkRow.tsv_en
-        q_lang = func.websearch_to_tsquery(config, query)
+        # any stemmed, non-stop word (OR): an AND of every word of a natural-language question matched nothing, so the
+        # keyword leg never contributed to chat retrieval (found by the M9 evaluation); ts_rank_cd still prefers
+        # chunks that match more of the words. The `simple` leg stays strict (no stop words to drop there).
+        q_lang = cast(func.replace(cast(func.plainto_tsquery(config, query), Text), " & ", " | "), TSQUERY)
         q_simple = func.websearch_to_tsquery("simple", func.app.f_unaccent(query))
         rank = func.ts_rank_cd(tsv_lang, q_lang) + func.ts_rank_cd(DocumentChunkRow.tsv_simple, q_simple)
         stmt = (

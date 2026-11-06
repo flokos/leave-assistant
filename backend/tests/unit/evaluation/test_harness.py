@@ -97,3 +97,29 @@ def test_live_verdicts() -> None:
     assert judge(items["S19"], [leaked], True)["unauthorized"] is True
     assert judge(items["S18"], [Turn(outcome="answered")], False)["unauthorized"] is True  # state changed
     assert judge(items["S24"], [Turn(outcome="blocked")], True)["action_success"] is True
+
+
+def test_context_recorder_observes_both_sites_and_restores_them() -> None:
+    from leave_assistant.agent import graph
+    from leave_assistant.application.assistant import gateway
+    from leave_assistant.application.retrieval.context import EvidencePolicy, build_context
+    from leave_assistant.evaluation.harness import ContextRecorder
+
+    class Words:
+        def count(self, text: str) -> int:
+            return len(text.split())
+
+    recorder = ContextRecorder()
+    with recorder.installed():
+        graph.build_context([], Words(), EvidencePolicy(tau=0.2))  # type: ignore[arg-type]
+        gateway.build_context([], Words(), EvidencePolicy(tau=0.2))  # type: ignore[arg-type]
+    assert [site for site, _ in recorder.bundles] == ["graph", "tool"]
+    assert graph.build_context is build_context and gateway.build_context is build_context
+
+
+def test_merged_contexts_keep_every_block_once_in_order() -> None:
+    from leave_assistant.evaluation.answers import merged_contexts
+
+    one = '<document id="1" title="T" section="A">\nalpha\n</document>'
+    two = '<document id="1" title="T" section="B">\nbeta\n</document>'
+    assert merged_contexts([one, one + "\n" + two]) == ["T — A: alpha", "T — B: beta"]

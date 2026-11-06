@@ -155,6 +155,11 @@ sequenceDiagram
   `tsv_simple = to_tsvector('simple', content)` with GIN indexes. `greek` strips accents and stems aggressively
   (verified: "εργαζόμενοι" → "εργαζομεν"); `simple` catches exact tokens, codes and names.
 - Query: `websearch_to_tsquery(cfg, q)` for the detected language config plus `simple`; `ts_rank_cd` for ranking.
+  **Amended M9 (2026-11-06):** the language-config leg ORs the stemmed terms (`plainto_tsquery` with `&` rewritten to
+  `|`); `simple` keeps `websearch_to_tsquery`. `websearch_to_tsquery`/`plainto_tsquery` AND every word, and a whole
+  natural-language question almost never has all its words in one chunk. The leg returned nothing, and hybrid
+  ranked exactly like vector-only on all 49 dataset queries (`docs/evaluation/retrieval-comparison.md` §4). The rank
+  still prefers chunks that match more terms.
   Greek queries are also normalised (accent folding via `unaccent` where the config does not) so that
   "άδεια" and "αδεια" match.
 
@@ -164,6 +169,10 @@ sequenceDiagram
   latency budget requires it. Model chosen in M9 between `BAAI/bge-reranker-v2-m3` (quality) and
   `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (speed) using nDCG@5 / MRR on the evaluation set in **both languages**
   and the measured p95 latency on the reference machine (ADR-0014). Jina rerankers are excluded (non-commercial licence).
+  **Decided in M9 (2026-11-06): candidate B on ONNX fp32** (`RERANKER_BACKEND=onnx`; exported by `make models` into
+  `/models/onnx/<model>`, `safe_tanh` applied before export). Same scores as PyTorch, rerank p50 1.88 s vs 2.72 s.
+  A is better (+0.034 nDCG@5) but about 13× slower per turn; int8 is slower than fp32 on the AVX-only CPU. The
+  backends are `torch | onnx | onnx-int8`. 10 candidates at 256 tokens stay (ADR-0014, retrieval comparison §3).
 
 ### 6.4 Evidence threshold
 `τ` is a calibrated reranker score (per model) below which a chunk is not considered evidence; if fewer than
@@ -193,6 +202,9 @@ keep the source language. Evaluation measures both directions (doc 11).
   smoke-tested and measured; the selection stays an M9 decision (ADR-0014).
 - `ContextBuilder` (`application/retrieval/context.py`) implements §6.5; τ (`RETRIEVAL_TAU`) and
   `MIN_EVIDENCE_CHUNKS` are settings. **Provisional calibration for candidate B: τ = 0.5, one evidence chunk.**
+  **Recalibrated in M9: τ = 0.22** (`RETRIEVAL_TAU`). It maximises balanced accuracy of the top score, answerable
+  vs unanswerable, over the 45 dataset items (0.985; highest unanswerable 0.199). At 0.5, 15 % of answerable
+  questions were refused. P02 (dress code) now ends as insufficient evidence; S01–S09 pass.
   Measured top scores: answerable S01–S09 questions 0.65–1.00, unanswerable ones ≤ 0.06, off-topic "policy"
   questions 0.31 (pets) and 0.51 (dress code). The dress-code probe passes τ, so the generation prompt's
   "say you don't know" rule is the second line of defence there (scenario P02 is a live probe). Each cited source
@@ -219,8 +231,14 @@ class VectorIndex(Protocol):
   both, runs the same query set, and reports hit@k, MRR, nDCG@k and latency per backend, with and without the
   reranker. The default stays pgvector unless Chroma shows a *material* quality advantage — which the design
   does not expect, since both store identical vectors and differ only in ANN implementation. The brief asks for
-  the default to be justified by results: the report lives in `docs/evaluation/retrieval-comparison.md` **[to be
-  filled during M9]**.
+  the default to be justified by results: the report is `docs/evaluation/retrieval-comparison.md`.
+- **As built (M9, 2026-11-06):** the port is `VectorIndex.search(uow, embedding, *, reader, limit) -> list[LegHit]`
+  (`application/ports.py`). `PgVectorIndex` delegates to the repository's SQL; `ChromaVectorIndex` uses one
+  collection per tenant (`tenant_<hex>`, cosine), takes the allow list from `ChunkRepository.visible_version_ids(reader)`
+  under RLS, and filters on it. `ChromaSync.sync_tenant` rebuilds a tenant's collection from the pgvector rows
+  (`index_rows`), so both stores hold identical vectors. Ingestion writes only to pgvector; Chroma is synced for an
+  evaluation run. The harness is `leave_assistant.evaluation.retrieval` (not `retrieval_compare.py`). Result:
+  identical rankings, Chroma slower; **pgvector stays the default** (ADR-0011).
 
 ## 8. Re-indexing and document updates
 - New version uploaded → full pipeline → on `ACTIVE`, previous version → `SUPERSEDED` in the same transaction;

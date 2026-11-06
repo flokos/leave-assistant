@@ -46,10 +46,10 @@ build: env ## build the api and frontend images
 up: env ## start the core profile (needs ~4 GB free RAM)
 	$(COMPOSE) --profile core up -d --wait
 
-up-staged: env ## low-memory hosts: infra first, worker embedded in the api process (doc 02 §10); api limit 3 GB for the ingestion child
+up-staged: env ## low-memory hosts: infra first, worker embedded in the api process (doc 02 §10); api limit 3.5 GB for the ingestion child (M9: ONNX reranker)
 	$(COMPOSE) --profile core up -d --wait postgres seaweedfs mailpit
 	$(COMPOSE) --profile core up -d --wait keycloak
-	WORKER_MODE=embedded API_MEMORY_LIMIT=3G $(COMPOSE) --profile core up -d --wait --force-recreate api frontend   # worker container not started; loop runs inside api
+	WORKER_MODE=embedded API_MEMORY_LIMIT=3584M $(COMPOSE) --profile core up -d --wait --force-recreate api frontend   # worker container not started; loop runs inside api
 
 up-dev: env ## core profile with hot reload and api published on :8000
 	$(COMPOSE_DEV) --profile core up -d --wait
@@ -75,17 +75,23 @@ eval-session-end: ## stop Chroma and Langfuse, back to the staged core stack
 
 EVAL_RUN = set -a && . ./deploy/.env && set +a && cd backend && $(UV) run --no-sync python -m
 
+EVAL_RUNTIME_VARIANTS ?= --variant B:torch --variant B:onnx --variant B:onnx-int8  # A: see retrieval-comparison §3
+
 eval-offline: ## retrieval grid (pgvector/Chroma × rerankers × hybrid/vector), reranker runtimes, τ, security figures → docs/evaluation/results
 	$(EVAL_RUN) leave_assistant.evaluation.retrieval grid
-	$(EVAL_RUN) leave_assistant.evaluation.retrieval runtimes
+	$(EVAL_RUN) leave_assistant.evaluation.retrieval runtimes $(EVAL_RUNTIME_VARIANTS)
 	$(EVAL_RUN) leave_assistant.evaluation.security
 
-EVAL_CONFIGS ?= --config pgvector+B+hybrid:0.5
+EVAL_CONFIGS ?= --config pgvector+B+hybrid+onnx:0.22 --config pgvector+A+vector:0.135
 EVAL_PROVIDERS ?= gemini,mistral
+EVAL_ANSWER_PROVIDERS ?= mistral  # one provider for every configuration's answers: comparable RAGAS
 
 eval-live: ## live answers for RAGAS (EVAL_CONFIGS="--config backend+A|B+mode:τ …") + live agent scenarios (EVAL_PROVIDERS); budget EVAL_MAX_CALLS
-	$(EVAL_RUN) leave_assistant.evaluation.answers $(EVAL_CONFIGS)
+	$(EVAL_RUN) leave_assistant.evaluation.answers --providers $(EVAL_ANSWER_PROVIDERS) $(EVAL_CONFIGS)
 	$(EVAL_RUN) leave_assistant.evaluation.agent_live --providers $(EVAL_PROVIDERS)
+
+eval-trace: ## one chat turn through the running api (LANGFUSE_ENABLED=true make up-staged) read back from Langfuse; fails on any leak
+	$(EVAL_RUN) leave_assistant.evaluation.trace_check
 
 eval-ragas: ## RAGAS scoring (judge: Mistral) and the Langfuse dataset + experiments (separate evaluation/ project)
 	set -a && . ./deploy/.env && set +a && cd evaluation && $(UV) run python -m leave_eval.ragas_run $(ARGS)
@@ -137,8 +143,8 @@ rescan: ## upgrade back-fill: pseudonymise and risk-score every indexed version 
 chat-smoke: ## live LLM smoke inside the api container (needs GEMINI_API_KEY / GROQ_API_KEY): ARGS="--order groq" or "--gemini-timeout 0.01"
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.agent.smoke $(ARGS)
 
-chat-perf: ## NFR-PERF-01: 20 chat turns excluding LLM latency inside the api container (ARGS="--reranker BAAI/bge-reranker-v2-m3")
-	$(COMPOSE) --profile core exec -T api python -m leave_assistant.agent.perf $(ARGS)
+chat-perf: ## NFR-PERF-01: 20 chat turns excluding LLM latency, one-off api container (same image, env, limit); stop the api first on 7 GB hosts
+	$(COMPOSE) --profile core run --rm --no-deps -T api python -m leave_assistant.agent.perf $(ARGS)   # M9: `exec` into the running api loaded every model twice under one memory limit
 
 retention-scan: ## run the retention scan for every tenant now (creates HR review items), then drain deletion jobs
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.retention.scan

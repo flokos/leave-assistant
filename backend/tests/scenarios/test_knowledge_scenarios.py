@@ -32,7 +32,9 @@ pytestmark = [pytest.mark.scenario, pytest.mark.asyncio(loop_scope="module")]
 SCENARIOS = [
     item
     for item in yaml.safe_load(
-        (Path(__file__).resolve().parents[3] / "evaluation/datasets/leave-eval-v1.yaml").read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[3] / "evaluation/datasets/leave-eval-v1.yaml").read_text(
+            encoding="utf-8"
+        )
     )["items"]
     if item.get("scenario_test")
 ]

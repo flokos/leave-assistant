@@ -36,7 +36,7 @@ x-backend-env: &backend-env
   MISTRAL_MODEL: ${MISTRAL_MODEL:-ministral-14b-2512}
   LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-25}
   RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/mmarco-mMiniLMv2-L12-H384-v1}
-  RETRIEVAL_TAU: ${RETRIEVAL_TAU:-0.5}
+  RETRIEVAL_TAU: ${RETRIEVAL_TAU:-0.22}
   RERANK_CANDIDATES: ${RERANK_CANDIDATES:-10}
   RERANK_MAX_LENGTH: ${RERANK_MAX_LENGTH:-256}
   CONVERSATION_RETENTION_DAYS: ${CONVERSATION_RETENTION_DAYS:-90}
@@ -68,7 +68,7 @@ x-backend-env: &backend-env
   MAIL_FROM_DOMAIN: ${MAIL_FROM_DOMAIN:-leave.local}
   PLATFORM_ALERT_EMAIL: ${PLATFORM_ALERT_EMAIL:-platform-alerts@leave.local}
   # M9 — evaluation and observability (doc 11, ADR-0011/0014/0022)
-  RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
+  RERANKER_BACKEND: ${RERANKER_BACKEND:-onnx}
   CHROMA_URL: http://chroma:8000
   LANGFUSE_HOST: http://langfuse-web:3000
 
@@ -264,7 +264,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${API_MEMORY_LIMIT:-2G}   # 3G in embedded mode (make up-staged): the ingestion child shares the cgroup
+          memory: ${API_MEMORY_LIMIT:-2G}   # 3.5G in embedded mode (make up-staged): the ingestion child shares the cgroup (M9: peak 3.06 GB with ONNX)
     networks: [internal]
 
   worker:

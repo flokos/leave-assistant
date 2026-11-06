@@ -12,7 +12,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # env_ignore_empty: an empty variable means "default", as compose's `${X:-default}` does (M9)
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True
+    )
 
     app_env: Literal["dev", "test", "prod"] = "dev"
     log_level: str = "INFO"
@@ -111,10 +114,10 @@ class Settings(BaseSettings):
     )
     rerank_max_length: int = 256  # tokens per (query, passage) pair; chunks put headings and key facts first
     # M9 (ADR-0014): the reranker's runtime; ONNX models are exported once into $HF_HOME/onnx (`make models`)
-    reranker_backend: Literal["torch", "onnx", "onnx-int8"] = "torch"
+    reranker_backend: Literal["torch", "onnx", "onnx-int8"] = "onnx"  # M9 decision (docs/evaluation)
     chroma_url: str = "http://chroma:8000"  # RETRIEVAL_BACKEND=chroma only (eval profile, ADR-0011)
     retrieval_hybrid: bool = True  # vector + full-text (RRF); False = vector-only, for the M9 comparison only
-    retrieval_tau: float = 0.5  # candidate B, calibrated on S01–S09 + off-topic probes (worklog M6)
+    retrieval_tau: float = 0.22  # reranker B, recalibrated on leave-eval-v1 in M9 (M6: 0.5)
     min_evidence_chunks: int = 1
     conversation_retention_days: int = 90
     conversation_cleanup_interval_seconds: float = 86400.0

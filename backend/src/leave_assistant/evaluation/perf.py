@@ -25,6 +25,12 @@ from leave_assistant.seed.data import AEGEAN, BRIGHTWATER
 
 # the seed manifest knows each document's source format (`scan` = image-only PDF, OCR)
 SEED_FORMATS = {d.title: d.format for company in (AEGEAN, BRIGHTWATER) for d in company.documents}
+# uploads outside the seed manifest: the MIME subtype, named as the manifest names formats
+MIME_FORMATS = {
+    "markdown": "md",
+    "plain": "txt",
+    "vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+}
 
 
 def stage_latency(date: str) -> dict[str, Any]:
@@ -35,10 +41,12 @@ def stage_latency(date: str) -> dict[str, Any]:
             continue
         config = samples[0]["config"]
         stages: dict[str, list[float]] = defaultdict(list)
+        warmup, samples = samples[0], samples[1:]  # the first turn loads the models: reported on its own
         for s in samples:
             t = s["timings"]
-            stages["search_ms"].append(t["search_s"] * 1000)
-            stages["rerank_ms"].append(t["rerank_s"] * 1000)
+            if t["search_s"] > 0:  # turns that retrieved (a clarification or a fallback may not)
+                stages["search_ms"].append(t["search_s"] * 1000)
+                stages["rerank_ms"].append(t["rerank_s"] * 1000)
             if t.get("llm_ms") is not None:
                 stages["llm_ms"].append(float(t["llm_ms"]))
             stages["total_ms"].append(t["total_s"] * 1000)
@@ -50,7 +58,16 @@ def stage_latency(date: str) -> dict[str, Any]:
             }
             for stage, values in stages.items()
         }
-        excluding = [total - llm for total, llm in zip(stages["total_ms"], stages["llm_ms"], strict=False)]
+        out[config]["warmup_total_ms"] = {
+            "n": 1,
+            "p50": round(warmup["timings"]["total_s"] * 1000),
+            "p95": None,
+        }
+        excluding = [
+            s["timings"]["total_s"] * 1000 - float(s["timings"]["llm_ms"])
+            for s in samples
+            if s["timings"].get("llm_ms") is not None
+        ]
         if excluding:
             out[config]["total_minus_llm_ms"] = {
                 "n": len(excluding),
@@ -81,7 +98,8 @@ async def ingestion() -> dict[str, Any]:
             if version is None:
                 continue
             title = document.title if document else ""
-            kind = SEED_FORMATS.get(title) or version.mime.rsplit("/", 1)[-1]
+            subtype = version.mime.rsplit("/", 1)[-1]
+            kind = SEED_FORMATS.get(title) or MIME_FORMATS.get(subtype, subtype)
             by_type[kind].append((job.finished_at - job.locked_at).total_seconds())
     finally:
         await runtime.aclose()
@@ -113,11 +131,15 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "## Live answers, per stage (ms)",
         "",
+        "Warm turns only (the first turn of a configuration loads the models and is listed as `warmup_total_ms`);",
+        "search and rerank over the turns that retrieved. The LLM time is the provider's, on the free tier.",
+        "",
     ]
     lines += ["| Configuration | stage | n | p50 | p95 |", "|---|---|---|---|---|"]
     for config, stages in summary["stage_latency"].items():
         for stage, values in stages.items():
-            lines.append(f"| `{config}` | {stage} | {values['n']} | {values['p50']} | {values['p95']} |")
+            p95 = "—" if values["p95"] is None else values["p95"]
+            lines.append(f"| `{config}` | {stage} | {values['n']} | {values['p50']} | {p95} |")
     lines += [
         "",
         "## Ingestion per document type (job claim → finish, s)",
