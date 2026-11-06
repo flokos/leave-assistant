@@ -50,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Langfuse dataset and experiments for M9")
     parser.add_argument("--date", default=datetime.now(UTC).strftime("%Y-%m-%d"))
+    parser.add_argument("--run-suffix", default="", help="e.g. -dry: a trial run kept apart from the real ones")
     args = parser.parse_args(argv)
     client = Langfuse(
         public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -87,9 +88,13 @@ def main(argv: list[str] | None = None) -> int:
         def task(*, item: Any, samples: dict[str, Any] = samples, **_: Any) -> Any:
             sample = samples[item.id]
             return {
+                "id": item.id,  # the evaluator looks the RAGAS scores up by item
                 "answer": sample["answer"],
                 "outcome": sample["outcome"],
                 "citations": sample["citations"],
+                "provider": sample.get("provider"),
+                "model": sample.get("model"),
+                "verifier_exhausted": sample.get("verifier_exhausted", False),
             }
 
         def evaluator(
@@ -102,7 +107,10 @@ def main(argv: list[str] | None = None) -> int:
             **kwargs: Any,
         ) -> list[Any]:
             item_id = output.get("id") if isinstance(output, dict) else None
-            result = [Evaluation(name="answered", value=1.0 if output.get("outcome") == "answered" else 0.0)]
+            result = [
+                Evaluation(name="answered", value=1.0 if output.get("outcome") == "answered" else 0.0),
+                Evaluation(name="verifier_exhausted", value=1.0 if output.get("verifier_exhausted") else 0.0),
+            ]
             for metric, values in (scores.get(item_id) or {}).items():
                 clean = [v for v in values if not math.isnan(v)]
                 if clean:
@@ -116,10 +124,11 @@ def main(argv: list[str] | None = None) -> int:
             return result
 
         data = [i for i in dataset.items if i.id in samples]
-        result = dataset.run_experiment(
+        result = client.run_experiment(  # only the sampled items (`dataset.run_experiment` runs all of them)
             name=f"rag-{config}",
-            run_name=f"{args.date}-{config}",
-            description="M9 live answers (Gemini first) scored with RAGAS (judge Mistral)",
+            run_name=f"{args.date}-{config}{args.run_suffix}",
+            description="M9 live answers (pinned to ministral-14b-2512) scored with RAGAS (judge mistral-large-4)",
+            data=data,
             task=task,
             evaluators=[evaluator],
             max_concurrency=4,
@@ -131,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         runs[config] = {
             "items": len(data),
-            "run": f"{args.date}-{config}",
+            "run": f"{args.date}-{config}{args.run_suffix}",
             "dataset_run_id": getattr(result, "dataset_run_id", None),
         }
         sys.stdout.write(f"experiment {config}: {len(data)} items\n")

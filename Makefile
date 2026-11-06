@@ -32,7 +32,7 @@ test-integration: ## integration + ml + security suites against the running stac
 test-ocr: ## parse the scanned Greek fixture with Docling + Tesseract inside the api container
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.parse_check /app/src/leave_assistant/seed/corpus/files/aegean/diadikasia-anarrotikis.pdf
 
-test-e2e: ## Playwright smoke against the running stack (make up-staged && make bootstrap first)
+test-e2e: ## Playwright smoke against the running stack (LLM_PROVIDER_ORDER=fake make up-staged && make bootstrap first: the chat specs expect the fake model)
 	set -a && . ./deploy/.env && set +a && cd frontend && $(NPM) run --silent test:e2e
 
 contract: ## regenerate docs/api/openapi.json and the frontend types; fail if either changed
