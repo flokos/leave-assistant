@@ -10,6 +10,7 @@ from uuid import UUID
 
 from leave_assistant.application.audit.service import AuditService
 from leave_assistant.application.authz.policy import Action, ResourceRef, authorize, require
+from leave_assistant.application.calendar.sync import CalendarSyncService
 from leave_assistant.application.errors import AuthorizationError, ConflictError, NotFoundError
 from leave_assistant.application.leave.commands import CancelRequest, ModifyRequest, SubmitRequest
 from leave_assistant.application.leave.common import (
@@ -74,6 +75,15 @@ class RequestWorkflow:
         self.ledger = ledger
         self.planner = planner
         self.events = EventWriter(ids, clock)
+        self.calendar: CalendarSyncService | None = None  # M8: attached by the container (outbox rows)
+
+    async def calendar_approved(self, uow: UnitOfWork, request: LeaveRequest) -> None:
+        if self.calendar is not None:
+            await self.calendar.request_approved(uow, request)
+
+    async def calendar_withdrawn(self, uow: UnitOfWork, request: LeaveRequest) -> None:
+        if self.calendar is not None:
+            await self.calendar.request_withdrawn(uow, request)
 
     async def periods(
         self, uow: UnitOfWork, tenant: Tenant, request: LeaveRequest, *, from_date: date | None = None
@@ -182,6 +192,7 @@ class RequestWorkflow:
                 at=now,
             )
             await self.deduct(uow, tenant, request, leave_type)
+            await self.calendar_approved(uow, request)
             await self.notifications.notify(
                 uow, [requester.id], "request.approved", params | {"auto_acknowledged": True}
             )
@@ -781,6 +792,7 @@ class LeaveRequestService:
             at=now,
         )
         await uow.leave_requests.update(original, expected_version=original.version)
+        await self._wf.calendar_withdrawn(uow, original)
 
     # -- cancel / withdraw ----------------------------------------------------------------------------------
     async def cancel(self, principal: Principal, request_id: UUID, cmd: CancelRequest) -> RequestDetail:
@@ -844,6 +856,8 @@ class LeaveRequestService:
             request.cancelled_at = now
             request.updated_at = now
             await uow.leave_requests.update(request, expected_version=cmd.version)
+            if previous in (RequestStatus.APPROVED, RequestStatus.ACTIVE):
+                await self._wf.calendar_withdrawn(uow, request)
             await self._wf.events.record(
                 uow,
                 request,

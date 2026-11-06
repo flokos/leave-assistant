@@ -25,18 +25,18 @@ async def _main(force: bool, rescan: bool) -> int:
     generation = services.ingestion.generation
     enqueued = 0
     try:
+        if not rescan:  # the same operation as n8n W2's `POST /internal/index/reindex` (M8)
+            enqueued = (await services.ops.enqueue_reindex(None, force=force))["enqueued"]
+            sys.stdout.write(f"generation {generation}: {enqueued} reindex job(s) enqueued\n")
+            return 0
         async with services.uow_factory(
             TenantContext(tenant_id=None, user_id="reindex", platform_admin=True)
         ) as uow:
             tenants = await uow.tenants.list(limit=200, after=None)
         for tenant in tenants:
             async with services.uow_factory(worker_context(tenant.id)) as uow:
-                statuses = RESCAN_STATUSES if rescan else frozenset({VersionStatus.ACTIVE})
-                for version in await uow.document_versions.list_by_status(statuses):
-                    if rescan:
-                        if version.extracted_object_key is None or (version.pii_summary and not force):
-                            continue
-                    elif not force and version.index_generation == generation:
+                for version in await uow.document_versions.list_by_status(RESCAN_STATUSES):
+                    if version.extracted_object_key is None or (version.pii_summary and not force):
                         continue
                     await services.jobs.enqueue(
                         uow,
@@ -45,7 +45,7 @@ async def _main(force: bool, rescan: bool) -> int:
                             "tenant_id": str(tenant.id),
                             "document_id": str(version.document_id),
                             "version_id": str(version.id),
-                            "rescan": rescan,
+                            "rescan": True,
                         },
                         tenant_id=tenant.id,
                         dedupe_key=f"{JOB_DOCUMENT_REINDEX}:{version.id}",

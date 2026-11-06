@@ -117,6 +117,20 @@ class Settings(BaseSettings):
     proposal_expiry_interval_seconds: float = (
         300.0  # M7: pending proposals past their TTL and their interrupts
     )
+    # Integrations — M8 (doc 06, doc 10, ADR-0019/0020/0021)
+    public_base_url: str = "http://localhost:8080"  # the SPA and the proxied API as the browser sees them
+    oauth_redirect_base_url: str | None = (
+        None  # default: public_base_url (Google needs it registered verbatim)
+    )
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: SecretStr | None = None
+    mock_calendar_fail_mode: Literal["none", "transient_once", "auth_expired", "permanent"] = "none"
+    mail_from_domain: str = "leave.local"  # notification e-mails: no-reply@{tenant-slug}.{domain}
+    platform_alert_email: str = (
+        "platform-alerts@leave.local"  # W7 digest (platform admins have no inbox rows)
+    )
+    outbox_lease_seconds: float = 300.0
+    outbox_max_attempts: int = 10
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str = "http://langfuse-web:3000"
@@ -135,6 +149,16 @@ class Settings(BaseSettings):
             k is not None and k.get_secret_value().strip()
             for k in (self.app_kek, self.vault_hmac_key, self.vault_kek)
         )
+
+    @property
+    def oauth_redirect_uri(self) -> str:
+        base = (self.oauth_redirect_base_url or self.public_base_url).rstrip("/")
+        return f"{base}{self.api_prefix}/calendar/connections/google/callback"
+
+    @property
+    def google_configured(self) -> bool:
+        secret = self.google_oauth_client_secret
+        return bool(self.google_oauth_client_id and secret and secret.get_secret_value().strip())
 
     @property
     def llm_providers(self) -> list[str]:

@@ -28,7 +28,8 @@
     "documents": "Documents",
     "reviewQueue": "Review queue",
     "retention": "Retention",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "calendar": "Calendar"
   },
   "auth": {
     "signIn": "Sign in",
@@ -250,7 +251,12 @@
       "document.failed": "Document “{{title}}” v{{version_no}} could not be processed: {{error}}",
       "document.review_required": "Document “{{title}}” v{{version_no}} needs review ({{status}}).",
       "supporting.uploaded": "A supporting document ({{filename}}) was attached to {{request_number}}.",
-      "retention.items_found": "{{created}} item(s) are eligible for retention review."
+      "retention.items_found": "{{created}} item(s) are eligible for retention review.",
+      "calendar.connection_expired": "Your {{kind}} calendar connection expired. Re-authorise it on the calendar page.",
+      "calendar.sync_failed": "Calendar synchronisation for {{request_number}} failed ({{operation}}).",
+      "document.processing_stalled": "Document “{{title}}” v{{version_no}} has been processing for more than {{minutes}} minutes.",
+      "document.review_reminder": "{{count}} document(s) have been waiting for review for over 48 hours.",
+      "retention.review_reminder": "{{count}} retention item(s) are waiting for your decision."
     }
   },
   "admin": {
@@ -610,6 +616,102 @@
       "reject": "Not now",
       "edit": "Change",
       "prepareAgain": "Prepare again"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "privacy": "Approved absences are written to the connected calendars with the name, the dates and the availability only — never the leave type, the reason or any document.",
+    "kinds": {
+      "company_shared": "Company leave calendar",
+      "personal": "My calendar"
+    },
+    "kindHelp": {
+      "company_shared": "A calendar created by the app in the administrator's account; share it with your staff in the calendar provider.",
+      "personal": "Your own approved absences appear as “Out of office” in your primary calendar."
+    },
+    "notConnected": "Not connected",
+    "provider": "Provider",
+    "providers": {
+      "google": "Google Calendar",
+      "mock": "Mock calendar",
+      "none": "Not configured"
+    },
+    "lastSuccess": "Last synchronised",
+    "lastError": "Last error",
+    "connect": "Connect {{provider}}",
+    "reauthorise": "Re-authorise",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect this calendar? Events already written stay in the calendar.",
+    "connected": "Calendar connected.",
+    "errors": {
+      "state_invalid": "The authorisation link expired or was already used. Please try again.",
+      "state_missing": "The authorisation could not be verified.",
+      "consent_denied": "Access to the calendar was not granted.",
+      "consent_failed": "The calendar provider reported an error.",
+      "exchange_failed": "The calendar provider did not confirm the authorisation.",
+      "insufficient_scope": "The calendar permissions were not granted.",
+      "principal_changed": "Your account changed during the authorisation; please try again.",
+      "calendar_setup_failed": "The company calendar could not be created.",
+      "unknown": "The calendar could not be connected."
+    },
+    "syncHistory": "Synchronisation history",
+    "noJobs": "No synchronisation yet.",
+    "request": "Request",
+    "calendar": "Calendar",
+    "operation": "Operation",
+    "attempts": "Attempts",
+    "nextAttempt": "Next attempt",
+    "errorClass": "Error",
+    "retry": "Retry",
+    "operations": {
+      "create": "Add",
+      "update": "Update",
+      "delete": "Remove"
+    },
+    "statuses": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Disconnected",
+      "pending": "Pending",
+      "running": "Running",
+      "succeeded": "Synchronised",
+      "parked": "Waiting for re-authorisation",
+      "dead": "Failed",
+      "open": "Open",
+      "resolved": "Resolved",
+      "ignored": "Ignored"
+    },
+    "errorClasses": {
+      "transient": "Temporary",
+      "auth_expired": "Authorisation expired",
+      "permanent": "Permanent",
+      "unknown": "Unknown"
+    },
+    "reconciliation": "Reconciliation",
+    "runReconciliation": "Reconcile now",
+    "lastRun": "Last run: {{when}}",
+    "inSync": "The calendars match the approved absences.",
+    "reconcileErrors": "Some calendars could not be checked; see their connection status.",
+    "finding": "Finding",
+    "result": "Result",
+    "findings": {
+      "missing": "Missing in the calendar",
+      "mismatched": "Different in the calendar",
+      "orphaned": "No approved request",
+      "unknown_external_id": "Event not linked"
+    },
+    "itemActions": {
+      "enqueued_create": "Re-created",
+      "enqueued_update": "Updated",
+      "enqueued_delete": "Removed",
+      "relinked": "Linked",
+      "ignored": "Ignored",
+      "deleted": "Deleted"
+    },
+    "actions": {
+      "relink": "Link",
+      "ignore": "Ignore",
+      "delete-orphan": "Delete event"
     }
   }
 }

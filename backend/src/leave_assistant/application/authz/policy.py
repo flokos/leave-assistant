@@ -39,6 +39,9 @@ class Action(StrEnum):
     MANAGE_ORGANISATION = "admin.manage_organisation"
     MANAGE_CALENDAR_COMPANY = "calendar.manage_company"
     CONNECT_PERSONAL_CALENDAR = "calendar.connect_personal"
+    READ_CALENDAR_SYNC = (
+        "calendar.read_sync"  # M8: sync history (doc 09 §2.7: C, H; owners for their requests)
+    )
     MANAGE_SECURITY_POLICY = "admin.manage_security_policy"
     READ_AUDIT_TENANT = "audit.read_tenant"
     READ_RUN_HISTORY = "chat.read_run_history"
@@ -116,6 +119,7 @@ PERMISSIONS: Final[dict[Action, dict[Role, Scope]]] = {
     Action.MANAGE_ORGANISATION: {C: Scope.TENANT},
     Action.MANAGE_CALENDAR_COMPANY: {C: Scope.TENANT},
     Action.CONNECT_PERSONAL_CALENDAR: _ALL_SELF,
+    Action.READ_CALENDAR_SYNC: {E: Scope.SELF, M: Scope.SELF, H: Scope.TENANT, C: Scope.TENANT},
     Action.MANAGE_SECURITY_POLICY: {C: Scope.TENANT},
     Action.READ_AUDIT_TENANT: {H: Scope.TENANT, C: Scope.TENANT},
     Action.READ_RUN_HISTORY: {E: Scope.SELF, M: Scope.SELF, H: Scope.TENANT, C: Scope.TENANT},

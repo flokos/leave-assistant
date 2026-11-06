@@ -39,6 +39,9 @@ class NotificationService:
         created: list[Notification] = []
         now = self._clock.now()
         for recipient in dict.fromkeys(recipients):  # distinct, order-preserving
+            key = f"{dedupe_key}:{recipient}" if dedupe_key else None
+            if key is not None and await uow.notifications.exists_dedupe(key):
+                continue  # already notified: repeated triggers (reminders, retries) are harmless
             notification = Notification(
                 id=self._ids.new_id(),
                 tenant_id=tenant_id,
@@ -47,7 +50,7 @@ class NotificationService:
                 params=dict(params),
                 channels=channels,
                 created_at=now,
-                dedupe_key=f"{dedupe_key}:{recipient}" if dedupe_key else None,
+                dedupe_key=key,
             )
             await uow.notifications.add(notification)
             await uow.integration_events.add(

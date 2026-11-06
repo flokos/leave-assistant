@@ -1,4 +1,4 @@
-"""Notification records and outbox events (doc 07 §4.7). Rendering and dispatch arrive in M8."""
+"""Notification records and outbox events (doc 07 §4.7)."""
 
 from __future__ import annotations
 
@@ -41,4 +41,5 @@ class IntegrationEvent:
     delivered_at: datetime | None = None
     attempts: int = 0
     dead: bool = False
+    leased_until: datetime | None = None
     extra: dict[str, Any] = field(default_factory=dict)

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import math
 import re
 from collections.abc import Sequence
@@ -19,6 +20,13 @@ from uuid import UUID
 
 from leave_assistant.application.assistant.models import ActionProposal, PendingInterrupt
 from leave_assistant.application.audit.entry import AuditEntry
+from leave_assistant.application.calendar.models import (
+    CalendarConnection,
+    CalendarEventRecord,
+    CalendarSyncJob,
+    OAuthState,
+    ReconciliationItem,
+)
 from leave_assistant.application.chat.models import (
     AgentRun,
     Conversation,
@@ -39,6 +47,9 @@ from leave_assistant.application.ports import (
     AuditFilter,
     AuditRepository,
     BalanceRow,
+    CalendarConnectionRepository,
+    CalendarEventRepository,
+    CalendarSyncJobRepository,
     ChunkRepository,
     ConversationRepository,
     DepartmentRepository,
@@ -62,10 +73,13 @@ from leave_assistant.application.ports import (
     LeaveTypeRepository,
     LedgerRepository,
     MessageRepository,
+    MockCalendarStore,
     NotificationRepository,
+    OAuthStateRepository,
     PendingInterruptRepository,
     ProposalRepository,
     ProviderEventRepository,
+    ReconciliationItemRepository,
     RequestEventRepository,
     RequestFilter,
     RetentionPolicy,
@@ -81,12 +95,14 @@ from leave_assistant.application.ports import (
     SupportingAccessRepository,
     SupportingDocument,
     SupportingDocumentRepository,
+    SyncJobFilter,
     TenantRepository,
     VaultEntry,
     VaultRepository,
 )
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.agent.proposals import ProposalStatus
+from leave_assistant.domain.calendar.model import ConnectionKind, ConnectionStatus, EventStatus, SyncStatus
 from leave_assistant.domain.documents.fusion import LegHit
 from leave_assistant.domain.documents.types import (
     AclEntry,
@@ -148,6 +164,12 @@ class MemoryStore:
     provider_events: list[ProviderEventRecord] = field(default_factory=list)
     proposals: dict[UUID, ActionProposal] = field(default_factory=dict)
     pending_interrupts: dict[UUID, PendingInterrupt] = field(default_factory=dict)
+    calendar_connections: dict[UUID, CalendarConnection] = field(default_factory=dict)
+    calendar_jobs: dict[UUID, CalendarSyncJob] = field(default_factory=dict)
+    calendar_events: dict[UUID, CalendarEventRecord] = field(default_factory=dict)
+    calendar_items: dict[UUID, ReconciliationItem] = field(default_factory=dict)
+    mock_calendar: dict[tuple[UUID, str, str], dict[str, object]] = field(default_factory=dict)
+    oauth_states: dict[str, OAuthState] = field(default_factory=dict)
 
     def tables(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -649,6 +671,8 @@ class _Ledger:
 
 class _Notifications(_TenantTable[Notification]):
     async def add(self, notification: Notification) -> None:
+        if notification.dedupe_key is not None and await self.exists_dedupe(notification.dedupe_key):
+            raise ConflictError("uq_notifications_dedupe")
         self._check(notification)
         self._rows_dict[notification.id] = copy.deepcopy(notification)
 
@@ -677,6 +701,9 @@ class _Notifications(_TenantTable[Notification]):
         self._check(notification)
         self._rows_dict[notification.id] = copy.deepcopy(notification)
 
+    async def exists_dedupe(self, dedupe_key: str) -> bool:
+        return any(n.dedupe_key == dedupe_key for n in self._rows())
+
     async def mark_all_read(self, recipient_employee_id: UUID, read_at: datetime) -> int:
         count = 0
         for n in self._rows():
@@ -695,6 +722,61 @@ class _IntegrationEvents:
         if event.tenant_id != self._tenant:
             raise ConflictError("RLS: WITH CHECK failed")
         self._s.integration_events.append(event)
+
+    def _live(self, now: datetime) -> list[int]:
+        return [
+            i
+            for i, e in enumerate(self._s.integration_events)
+            if e.tenant_id == self._tenant
+            and e.delivered_at is None
+            and not e.dead
+            and (e.leased_until is None or e.leased_until < now)
+        ]
+
+    async def lease(
+        self, *, now: datetime, until: datetime, limit: int, max_attempts: int
+    ) -> list[IntegrationEvent]:
+        events = self._s.integration_events
+        for i in self._live(now):
+            if events[i].attempts >= max_attempts:
+                events[i] = dataclasses.replace(events[i], dead=True)
+        out: list[IntegrationEvent] = []
+        for i in sorted(self._live(now), key=lambda i: events[i].id)[:limit]:
+            events[i] = dataclasses.replace(events[i], leased_until=until, attempts=events[i].attempts + 1)
+            out.append(events[i])
+        return out
+
+    def _update(self, ids: Sequence[UUID], **changes: object) -> int:
+        wanted, n = set(ids), 0
+        events = self._s.integration_events
+        for i, e in enumerate(events):
+            if e.tenant_id == self._tenant and e.id in wanted and e.delivered_at is None:
+                events[i] = dataclasses.replace(e, **changes)  # type: ignore[arg-type]
+                n += 1
+        return n
+
+    async def ack(self, ids: Sequence[UUID], now: datetime) -> int:
+        return self._update(ids, delivered_at=now, leased_until=None)
+
+    async def mark_dead(self, ids: Sequence[UUID]) -> int:
+        return self._update(ids, dead=True, leased_until=None)
+
+    async def counts(self) -> dict[str, int]:
+        mine = [e for e in self._s.integration_events if e.tenant_id == self._tenant]
+        return {
+            "dead": sum(e.dead for e in mine),
+            "undelivered": sum(e.delivered_at is None and not e.dead for e in mine),
+        }
+
+    async def purge_delivered(self, before: datetime) -> int:
+        keep = [
+            e
+            for e in self._s.integration_events
+            if not (e.tenant_id == self._tenant and e.delivered_at is not None and e.delivered_at < before)
+        ]
+        n = len(self._s.integration_events) - len(keep)
+        self._s.integration_events = keep
+        return n
 
 
 # --- documents, chunks, jobs (M4) ------------------------------------------------------------------------------
@@ -1018,8 +1100,17 @@ class _Jobs:
             counts[row.status.value] = counts.get(row.status.value, 0) + 1
         return counts
 
+    # --- M5: vault, security, supporting documents, retention -----------------------------------------------------
 
-# --- M5: vault, security, supporting documents, retention -----------------------------------------------------
+    async def purge_finished(self, before: datetime) -> int:
+        stale = [
+            k
+            for k, j in self._s.jobs.items()
+            if j.status is JobStatus.SUCCEEDED and j.finished_at is not None and j.finished_at < before
+        ]
+        for k in stale:
+            del self._s.jobs[k]
+        return len(stale)
 
 
 class _Vault:
@@ -1344,6 +1435,13 @@ class _ProviderEvents:
     async def add_many(self, events: Sequence[ProviderEventRecord]) -> None:
         self._store.provider_events.extend(events)
 
+    async def counts_since(self, since: datetime) -> dict[tuple[str, str], int]:
+        out: dict[tuple[str, str], int] = {}
+        for e in self._store.provider_events:
+            if e.tenant_id == self._tenant and e.occurred_at >= since:
+                out[(e.provider, e.event)] = out.get((e.provider, e.event), 0) + 1
+        return out
+
 
 class _Proposals:
     """`claim` reads and writes the shared store directly — the in-memory stand-in for `UPDATE … WHERE
@@ -1419,6 +1517,229 @@ class _PendingInterrupts:
             del self._store.pending_interrupts[conversation_id]
 
 
+# --- calendar (M8) ---------------------------------------------------------------------------------------------
+
+
+class _TenantDict:
+    def __init__(self, rows: dict, tenant_id: UUID | None) -> None:  # type: ignore[type-arg]
+        self._rows = rows
+        self._tenant = tenant_id
+
+    def _check(self, tenant_id: UUID) -> None:
+        if tenant_id != self._tenant:
+            raise ConflictError("RLS: WITH CHECK failed")
+
+    def _mine(self) -> list:  # type: ignore[type-arg]
+        return [r for r in self._rows.values() if r.tenant_id == self._tenant]
+
+
+class _CalendarConnections(_TenantDict):
+    async def add(self, connection: CalendarConnection) -> None:
+        self._check(connection.tenant_id)
+        if await self.find_live(connection.kind, connection.employee_id) is not None:
+            raise ConflictError("duplicate live calendar connection")
+        self._rows[connection.id] = copy.deepcopy(connection)
+
+    async def get(self, connection_id: UUID) -> CalendarConnection | None:
+        row = self._rows.get(connection_id)
+        return copy.deepcopy(row) if row is not None and row.tenant_id == self._tenant else None
+
+    async def find_live(self, kind: ConnectionKind, employee_id: UUID | None) -> CalendarConnection | None:
+        for c in self._mine():
+            if (
+                c.kind is kind
+                and c.status is not ConnectionStatus.REVOKED
+                and (kind is ConnectionKind.COMPANY_SHARED or c.employee_id == employee_id)
+            ):
+                return copy.deepcopy(c)  # type: ignore[no-any-return]
+        return None
+
+    async def list_live(self) -> list[CalendarConnection]:
+        rows = [c for c in self._mine() if c.status is not ConnectionStatus.REVOKED]
+        return [copy.deepcopy(c) for c in sorted(rows, key=lambda c: c.created_at)]
+
+    async def update(self, connection: CalendarConnection) -> None:
+        self._check(connection.tenant_id)
+        connection.version += 1
+        self._rows[connection.id] = copy.deepcopy(connection)
+
+
+class _CalendarJobs(_TenantDict):
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        super().__init__(store.calendar_jobs, tenant_id)
+        self._store = store
+
+    async def add(self, job: CalendarSyncJob) -> None:
+        self._check(job.tenant_id)
+        if await self.get_by_key(job.idempotency_key) is not None:
+            raise ConflictError("duplicate calendar sync job")
+        self._rows[job.id] = copy.deepcopy(job)
+
+    async def get(self, job_id: UUID) -> CalendarSyncJob | None:
+        row = self._rows.get(job_id)
+        return copy.deepcopy(row) if row is not None and row.tenant_id == self._tenant else None
+
+    async def get_by_key(self, idempotency_key: str) -> CalendarSyncJob | None:
+        row = next((j for j in self._mine() if j.idempotency_key == idempotency_key), None)
+        return copy.deepcopy(row)
+
+    async def lock(self, job_id: UUID) -> CalendarSyncJob | None:
+        return await self.get(job_id)
+
+    def _newest_first(self, rows: list[CalendarSyncJob]) -> list[CalendarSyncJob]:
+        return sorted(rows, key=lambda j: (j.created_at, j.id), reverse=True)
+
+    async def list(self, *, filters: SyncJobFilter, limit: int) -> list[CalendarSyncJob]:
+        rows = self._mine()
+        if filters.status is not None:
+            rows = [j for j in rows if j.status.value == filters.status]
+        if filters.request_id is not None:
+            rows = [j for j in rows if j.request_id == filters.request_id]
+        if filters.employee_id is not None:
+            own = {r.id for r in self._store.leave_requests.values() if r.employee_id == filters.employee_id}
+            rows = [j for j in rows if j.request_id in own]
+        return [copy.deepcopy(j) for j in self._newest_first(rows)[:limit]]
+
+    async def list_parked(self, connection_id: UUID) -> list[CalendarSyncJob]:
+        rows = [j for j in self._mine() if j.connection_id == connection_id and j.status is SyncStatus.PARKED]
+        return [copy.deepcopy(j) for j in sorted(rows, key=lambda j: j.created_at)]
+
+    async def list_due(self, now: datetime, limit: int) -> list[CalendarSyncJob]:
+        rows = [
+            j
+            for j in self._mine()
+            if j.status is SyncStatus.PENDING and (j.next_attempt_at is None or j.next_attempt_at <= now)
+        ]
+        return [copy.deepcopy(j) for j in sorted(rows, key=lambda j: j.created_at)[:limit]]
+
+    async def latest_for_request(self, request_id: UUID, connection_id: UUID) -> CalendarSyncJob | None:
+        rows = [j for j in self._mine() if j.request_id == request_id and j.connection_id == connection_id]
+        return copy.deepcopy(self._newest_first(rows)[0]) if rows else None
+
+    async def update(self, job: CalendarSyncJob) -> None:
+        self._check(job.tenant_id)
+        self._rows[job.id] = copy.deepcopy(job)
+
+    async def counts(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for j in self._mine():
+            out[j.status.value] = out.get(j.status.value, 0) + 1
+        return out
+
+
+class _CalendarEvents(_TenantDict):
+    async def get(self, connection_id: UUID, request_id: UUID) -> CalendarEventRecord | None:
+        row = next(
+            (e for e in self._mine() if e.connection_id == connection_id and e.request_id == request_id), None
+        )
+        return copy.deepcopy(row)
+
+    async def add(self, record: CalendarEventRecord) -> None:
+        self._check(record.tenant_id)
+        if await self.get(record.connection_id, record.request_id) is not None:
+            raise ConflictError("duplicate calendar event mapping")
+        self._rows[record.id] = copy.deepcopy(record)
+
+    async def update(self, record: CalendarEventRecord) -> None:
+        self._check(record.tenant_id)
+        self._rows[record.id] = copy.deepcopy(record)
+
+    async def list_for_connection(self, connection_id: UUID) -> list[CalendarEventRecord]:
+        return [copy.deepcopy(e) for e in self._mine() if e.connection_id == connection_id]
+
+    async def mark_orphaned(self, connection_id: UUID, now: datetime) -> int:
+        n = 0
+        for e in self._mine():
+            if e.connection_id == connection_id and e.status is EventStatus.PRESENT:
+                e.status, e.updated_at, n = EventStatus.ORPHANED, now, n + 1
+        return n
+
+
+class _CalendarItems(_TenantDict):
+    async def add(self, item: ReconciliationItem) -> None:
+        self._check(item.tenant_id)
+        self._rows[item.id] = copy.deepcopy(item)
+
+    async def get(self, item_id: UUID) -> ReconciliationItem | None:
+        row = self._rows.get(item_id)
+        return copy.deepcopy(row) if row is not None and row.tenant_id == self._tenant else None
+
+    async def update(self, item: ReconciliationItem) -> None:
+        self._check(item.tenant_id)
+        self._rows[item.id] = copy.deepcopy(item)
+
+    async def latest_run(self) -> list[ReconciliationItem]:
+        rows = self._mine()
+        if not rows:
+            return []
+        latest = max(i.run_at for i in rows)
+        return [
+            copy.deepcopy(i)
+            for i in sorted(rows, key=lambda i: (i.finding.value, i.id))
+            if i.run_at == latest
+        ]
+
+
+class _MockCalendar:
+    def __init__(self, store: MemoryStore, tenant_id: UUID | None) -> None:
+        self._rows = store.mock_calendar
+        self._tenant = tenant_id
+
+    def _key(self, calendar_id: str, event_id: str) -> tuple[UUID, str, str]:
+        if self._tenant is None:
+            raise ConflictError("RLS: no tenant")
+        return (self._tenant, calendar_id, event_id)
+
+    async def get(self, calendar_id: str, event_id: str) -> dict[str, object] | None:
+        row = self._rows.get(self._key(calendar_id, event_id))
+        return copy.deepcopy(row)
+
+    async def put(self, calendar_id: str, event_id: str, body: dict[str, object], now: datetime) -> bool:
+        key = self._key(calendar_id, event_id)
+        if key in self._rows:
+            return False
+        self._rows[key] = copy.deepcopy(body)
+        return True
+
+    async def replace(self, calendar_id: str, event_id: str, body: dict[str, object], now: datetime) -> bool:
+        key = self._key(calendar_id, event_id)
+        if key not in self._rows:
+            return False
+        self._rows[key] = copy.deepcopy(body)
+        return True
+
+    async def remove(self, calendar_id: str, event_id: str) -> bool:
+        return self._rows.pop(self._key(calendar_id, event_id), None) is not None
+
+    async def list(self, calendar_id: str) -> list[dict[str, object]]:
+        return [
+            copy.deepcopy(body)
+            for (tenant, cal, _), body in sorted(self._rows.items())
+            if tenant == self._tenant and cal == calendar_id
+        ]
+
+
+class _OAuthStates:
+    def __init__(self, store: MemoryStore) -> None:
+        self._rows = store.oauth_states
+
+    async def add(self, state: OAuthState) -> None:
+        self._rows[state.nonce_hash] = state
+
+    async def consume(self, nonce_hash: str, now: datetime) -> OAuthState | None:
+        state = self._rows.get(nonce_hash)
+        if state is None or state.used_at is not None or state.expires_at <= now:
+            return None
+        self._rows[nonce_hash] = dataclasses.replace(state, used_at=now)
+        return self._rows[nonce_hash]
+
+    async def purge(self, before: datetime) -> int:
+        stale = [k for k, v in self._rows.items() if v.expires_at < before]
+        for k in stale:
+            del self._rows[k]
+        return len(stale)
+
+
 class MemoryUnitOfWork:
     leave_types: LeaveTypeRepository
     leave_policies: LeavePolicyRepository
@@ -1457,6 +1778,12 @@ class MemoryUnitOfWork:
     provider_events: ProviderEventRepository
     proposals: ProposalRepository
     pending_interrupts: PendingInterruptRepository
+    calendar_connections: CalendarConnectionRepository
+    calendar_jobs: CalendarSyncJobRepository
+    calendar_events: CalendarEventRepository
+    calendar_items: ReconciliationItemRepository
+    mock_calendar: MockCalendarStore
+    oauth_states: OAuthStateRepository
 
     def __init__(self, store: MemoryStore, context: TenantContext | None) -> None:
         self._shared = store
@@ -1504,6 +1831,12 @@ class MemoryUnitOfWork:
         self.provider_events = _ProviderEvents(self._work, tenant)
         self.proposals = _Proposals(self._work, self._shared, tenant)
         self.pending_interrupts = _PendingInterrupts(self._work, tenant)
+        self.calendar_connections = _CalendarConnections(self._work.calendar_connections, tenant)
+        self.calendar_jobs = _CalendarJobs(self._work, tenant)
+        self.calendar_events = _CalendarEvents(self._work.calendar_events, tenant)
+        self.calendar_items = _CalendarItems(self._work.calendar_items, tenant)
+        self.mock_calendar = _MockCalendar(self._work, tenant)
+        self.oauth_states = _OAuthStates(self._work)
         return self
 
     async def __aexit__(

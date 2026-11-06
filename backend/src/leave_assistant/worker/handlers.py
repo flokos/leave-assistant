@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from leave_assistant.application.calendar.models import JOB_CALENDAR_SYNC
 from leave_assistant.application.container import Services
 from leave_assistant.application.jobs.models import JOB_DOCUMENT_PROCESS, JOB_DOCUMENT_REINDEX, Job
 from leave_assistant.application.jobs.registry import JobHandler, JobRegistry
@@ -36,5 +37,7 @@ def build_registry(services: Services) -> JobRegistry:
             # M5: retention jobs are plain database work — inline in the worker process
             JobHandler(JOB_RETENTION_SCAN, services.retention.handle_scan_job),
             JobHandler(JOB_RETENTION_DELETE, services.retention.handle_delete_job),
+            # M8: calendar sync — the service owns retries (backoff, park, dead); the queue job is a single shot
+            JobHandler(JOB_CALENDAR_SYNC, services.calendar_sync.handle_job),
         ]
     )

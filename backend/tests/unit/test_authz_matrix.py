@@ -46,6 +46,7 @@ MATRIX: list[tuple[Action, dict[str, Scope]]] = [
     (Action.MANAGE_ORGANISATION, {C: TENANT}),
     (Action.MANAGE_CALENDAR_COMPANY, {C: TENANT}),
     (Action.CONNECT_PERSONAL_CALENDAR, {E: SELF, M: SELF, H: SELF, C: SELF}),
+    (Action.READ_CALENDAR_SYNC, {E: SELF, M: SELF, H: TENANT, C: TENANT}),
     (Action.MANAGE_SECURITY_POLICY, {C: TENANT}),
     (Action.MANAGE_SECURITY_DEFAULTS, {P: PLAT}),
     (Action.MANAGE_TENANTS, {P: PLAT}),

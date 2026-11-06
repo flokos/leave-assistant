@@ -261,6 +261,7 @@ class ApprovalService:
                         at=now,
                     )
                     await self._wf.deduct(uow, tenant, request, leave_type)
+                    await self._wf.calendar_approved(uow, request)
                     await self._wf.notifications.notify(
                         uow, [request.employee_id], "request.approved", params
                     )

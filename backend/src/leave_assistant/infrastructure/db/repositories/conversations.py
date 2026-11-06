@@ -284,3 +284,11 @@ class SqlProviderEventRepository:
             )
         if events:
             await flush_or_conflict(self._s)
+
+    async def counts_since(self, since: datetime) -> dict[tuple[str, str], int]:
+        stmt = (
+            select(ProviderEventRow.provider, ProviderEventRow.event, func.count())
+            .where(ProviderEventRow.tenant_id == self._tenant, ProviderEventRow.occurred_at >= since)
+            .group_by(ProviderEventRow.provider, ProviderEventRow.event)
+        )
+        return {(str(p), str(e)): int(n) for p, e, n in (await self._s.execute(stmt)).all()}

@@ -533,6 +533,7 @@ class IntegrationEventRow(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, nullable=False)
     dead: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    leased_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 # --- documents, retrieval and jobs (M4: doc 07 §4.4 / §4.7, migration 0003) -----------------------------------
@@ -1232,3 +1233,150 @@ class PendingInterruptRow(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# --- M8: calendar integration (doc 07 §4.7, doc 10) and OAuth states -------------------------------------------
+
+
+def _uuid_fk(target: str, name: str, **kw: Any) -> Any:
+    return mapped_column(PgUUID(as_uuid=True), ForeignKey(target, name=name), **kw)
+
+
+class CalendarConnectionRow(Base):
+    __tablename__ = "calendar_connections"
+    __table_args__ = {"schema": "app"}
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = _uuid_fk(
+        "platform.tenants.id", "fk_calendar_connections_tenant", nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    employee_id: Mapped[UUID | None] = _uuid_fk("app.employees.id", "fk_calendar_connections_employee")
+    provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    external_calendar_id: Mapped[str | None] = mapped_column(String(255))
+    refresh_token_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary)
+    refresh_token_dek: Mapped[bytes | None] = mapped_column(LargeBinary)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    authorised_by_employee_id: Mapped[UUID] = _uuid_fk(
+        "app.employees.id", "fk_calendar_connections_authoriser", nullable=False
+    )
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+
+
+class CalendarSyncJobRow(Base):
+    __tablename__ = "calendar_sync_jobs"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_calendar_sync_jobs_idempotency"),
+        Index("ix_calendar_sync_jobs_status", "tenant_id", "status", "next_attempt_at"),
+        Index("ix_calendar_sync_jobs_request", "tenant_id", "request_id"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = _uuid_fk("platform.tenants.id", "fk_calendar_sync_jobs_tenant", nullable=False)
+    request_id: Mapped[UUID] = _uuid_fk(
+        "app.leave_requests.id", "fk_calendar_sync_jobs_request", nullable=False
+    )
+    connection_id: Mapped[UUID] = _uuid_fk(
+        "app.calendar_connections.id", "fk_calendar_sync_jobs_connection", nullable=False
+    )
+    operation: Mapped[str] = mapped_column(String(10), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    unknown_errors: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_class: Mapped[str | None] = mapped_column(String(16))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CalendarEventRow(Base):
+    __tablename__ = "calendar_events"
+    __table_args__ = (
+        UniqueConstraint("connection_id", "request_id", name="uq_calendar_events_connection_request"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = _uuid_fk("platform.tenants.id", "fk_calendar_events_tenant", nullable=False)
+    request_id: Mapped[UUID] = _uuid_fk("app.leave_requests.id", "fk_calendar_events_request", nullable=False)
+    connection_id: Mapped[UUID] = _uuid_fk(
+        "app.calendar_connections.id", "fk_calendar_events_connection", nullable=False
+    )
+    external_event_id: Mapped[str] = mapped_column(String(1024), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CalendarReconciliationItemRow(Base):
+    __tablename__ = "calendar_reconciliation_items"
+    __table_args__ = (
+        Index("ix_calendar_reconciliation_items_run", "tenant_id", "run_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = _uuid_fk(
+        "platform.tenants.id", "fk_calendar_reconciliation_items_tenant", nullable=False
+    )
+    connection_id: Mapped[UUID] = _uuid_fk(
+        "app.calendar_connections.id", "fk_calendar_reconciliation_items_connection", nullable=False
+    )
+    run_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finding: Mapped[str] = mapped_column(String(24), nullable=False)
+    request_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    external_event_id: Mapped[str | None] = mapped_column(String(1024))
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    action: Mapped[str | None] = mapped_column(String(24))
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default="{}")
+    resolved_by_employee_id: Mapped[UUID | None] = _uuid_fk(
+        "app.employees.id", "fk_calendar_reconciliation_items_resolver"
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MockCalendarEventRow(Base):
+    """The mock provider's store: what a real calendar would hold (doc 10 §6)."""
+
+    __tablename__ = "mock_calendar_events"
+    __table_args__ = {"schema": "app"}
+
+    tenant_id: Mapped[UUID] = _uuid_fk(
+        "platform.tenants.id", "fk_mock_calendar_events_tenant", nullable=False
+    )
+    calendar_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(1024), primary_key=True)
+    body: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OAuthStateRow(Base):
+    """`platform.oauth_states`: hashed single-use OAuth `state` nonces carrying the initiating principal."""
+
+    __tablename__ = "oauth_states"
+    __table_args__ = {"schema": "platform"}
+
+    nonce_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[UUID] = _uuid_fk("platform.tenants.id", "fk_oauth_states_tenant", nullable=False)
+    user_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    employee_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    roles: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

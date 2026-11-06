@@ -10,7 +10,7 @@ NPM := npm
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
 
-env: ## create deploy/.env from the example if missing; generate the M5 encryption keys when empty
+env: ## create deploy/.env from the example if missing; generate empty keys (M5 encryption, M8 n8n)
 	@test -f deploy/.env || (cp deploy/.env.example deploy/.env && echo "created deploy/.env — review the values")
 	@python3 scripts/ensure_keys.py deploy/.env
 
@@ -53,6 +53,13 @@ up-staged: env ## low-memory hosts: infra first, worker embedded in the api proc
 
 up-dev: env ## core profile with hot reload and api published on :8000
 	$(COMPOSE_DEV) --profile core up -d --wait
+
+up-automation: env ## add the automation profile: n8n-init imports and publishes W0–W7, then n8n on 127.0.0.1:5678
+	$(COMPOSE) --profile core --profile automation up -d
+
+n8n-export: ## export the workflows edited in the n8n UI back into automation/n8n/workflows (then review and commit)
+	$(COMPOSE) --profile automation exec -T n8n n8n export:workflow --all --separate --pretty --output=/tmp/export
+	$(COMPOSE) --profile automation cp n8n:/tmp/export/. automation/n8n/workflows/
 
 down: ## stop everything (volumes are kept; add -v manually to wipe data)
 	$(COMPOSE) --profile core down

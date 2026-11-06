@@ -137,18 +137,25 @@ async def test_exclusion_constraint_rejects_overlapping_open_requests(
         )
 
 
-async def test_ledger_and_events_are_append_only_for_the_runtime_role(
+async def test_ledger_and_events_are_append_only_for_the_runtime_role(  # outbox: content only (M8)
     sql_uow_factory: SqlAlchemyUnitOfWorkFactory, seeded_leave: dict[str, object]
 ) -> None:
     aegean = _tenant(seeded_leave, "aegean")
     ctx = TenantContext(tenant_id=aegean.id, user_id="x", roles=("hr_admin",))
-    for table in ("app.leave_ledger_entries", "app.leave_request_events", "app.integration_events"):
+    for table in ("app.leave_ledger_entries", "app.leave_request_events"):
         async with sql_uow_factory(ctx) as uow:
             with pytest.raises(ProgrammingError, match="permission denied"):
                 await uow.session.execute(text(f"DELETE FROM {table}"))
         async with sql_uow_factory(ctx) as uow:
             with pytest.raises(ProgrammingError, match="permission denied"):
                 await uow.session.execute(text(f"UPDATE {table} SET tenant_id = tenant_id"))
+    # M8: the outbox's delivery bookkeeping is updatable (lease, ack, dead), its content is not
+    for column in ("tenant_id", "type", "payload", "created_at"):
+        async with sql_uow_factory(ctx) as uow:
+            with pytest.raises(ProgrammingError, match="permission denied"):
+                await uow.session.execute(text(f"UPDATE app.integration_events SET {column} = {column}"))
+    async with sql_uow_factory(ctx) as uow:
+        await uow.session.execute(text("UPDATE app.integration_events SET attempts = attempts"))
 
 
 async def test_balance_view_respects_rls(
@@ -282,6 +289,8 @@ async def test_models_match_migration_including_leave_tables(migrated_database: 
                             "ix_action_proposals_pending_expiry",
                             "uq_leave_requests_idempotency",
                             "ix_leave_request_events_proposal",
+                            "uq_calendar_connections_company",
+                            "uq_calendar_connections_personal",
                         }
                     )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),

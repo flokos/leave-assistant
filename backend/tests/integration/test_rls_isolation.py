@@ -82,6 +82,11 @@ async def test_every_tenant_table_has_forced_policy(owner_engine: AsyncEngine) -
         ("app", "provider_events"),
         ("app", "action_proposals"),
         ("app", "pending_interrupts"),
+        ("app", "calendar_connections"),
+        ("app", "calendar_sync_jobs"),
+        ("app", "calendar_events"),
+        ("app", "calendar_reconciliation_items"),
+        ("app", "mock_calendar_events"),
         ("audit", "audit_log"),
     }
     for schema, table, enabled, forced, has_policy in rows:
