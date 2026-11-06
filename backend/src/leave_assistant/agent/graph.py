@@ -31,7 +31,14 @@ from leave_assistant.application.retrieval.context import EvidencePolicy, build_
 from leave_assistant.application.retrieval.service import RetrievalService
 from leave_assistant.application.security.scan import InjectionScanService
 from leave_assistant.domain.agent.budget import estimate
-from leave_assistant.domain.agent.citations import MARKER, attach_declared, renumber, split_grouped, verify
+from leave_assistant.domain.agent.citations import (
+    MARKER,
+    attach_declared,
+    renumber,
+    split_grouped,
+    strip_markdown,
+    verify,
+)
 from leave_assistant.domain.agent.streaming import PLACEHOLDER
 from leave_assistant.domain.agent.types import (
     BUSINESS_INTENTS,
@@ -309,7 +316,7 @@ class AgentGraph:
         draft = state["draft"]
         refs = [ref_from_json(r) for r in state.get("refs", [])]
         declared = list(draft.get("citations", []))
-        answer = split_grouped(str(draft["answer"]))
+        answer = split_grouped(strip_markdown(str(draft["answer"])))
         draft = {**draft, "answer": attach_declared(answer, declared, len(refs))}
         check = verify(str(draft["answer"]), declared, len(refs))
         language = state.get("language") or runtime.context.locale

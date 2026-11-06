@@ -29,6 +29,7 @@ from leave_assistant.infrastructure.identity.tokens import TokenVerifier
 from leave_assistant.infrastructure.llm.fake import FakeChatModel
 from leave_assistant.infrastructure.llm.gemini import GeminiChatModel
 from leave_assistant.infrastructure.llm.groq import GroqChatModel
+from leave_assistant.infrastructure.llm.mistral import MistralChatModel
 from leave_assistant.infrastructure.ml.embedder import E5Embedder
 from leave_assistant.infrastructure.ml.language import LinguaLanguageDetector
 from leave_assistant.infrastructure.ml.reranker import CrossEncoderReranker
@@ -181,6 +182,14 @@ def build_providers(settings: Settings) -> list[ChatModel]:
                     timeout_seconds=settings.gemini_timeout_seconds,
                     thinking_level=settings.gemini_thinking_level,
                     thinking_tokens=settings.gemini_thinking_tokens,
+                )
+            )
+        elif name == "mistral" and settings.mistral_api_key and settings.mistral_api_key.get_secret_value():
+            providers.append(
+                MistralChatModel(
+                    settings.mistral_api_key.get_secret_value(),
+                    fast_model=settings.mistral_model_fast,
+                    answer_model=settings.mistral_model,
                 )
             )
         elif name == "groq" and settings.groq_api_key and settings.groq_api_key.get_secret_value():

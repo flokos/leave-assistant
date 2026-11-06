@@ -96,9 +96,9 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Delivered as planned except: the reranker's running default is candidate B (A is wired but unusable on the
   reference host, doc 13 R-31); 10 rerank candidates at 256 tokens instead of 20 at 512 (doc 05 §6.7); answers are
   streamed after citation verification, not token by token from the model (doc 04 §4.1); business intents get a
-  templated pointer to the UI until M7; NFR-PERF-01 is marginally missed (p50 3.12 s, R-31); the live smoke ran on
-  Gemini only, because no Groq key was provided: the Groq adapter and failover are covered by unit tests with the
-  fake provider and the live Groq runs remain open; Langfuse traces need the M9 `observability` profile.
+  templated pointer to the UI until M7; NFR-PERF-01 is marginally missed (p50 3.12 s, R-31); Mistral replaced Groq as
+  the second provider because the Groq signup was blocked (user decision; Groq stays selectable, untested live); the
+  live smoke and the forced failover ran on Gemini and Mistral; Langfuse traces need the M9 `observability` profile.
 
 ### M7 — Agentic operations: business + approval (L)
 - Tool catalogue + gateway; Business Operations subgraph; proposals; Approval subgraph with interrupts; resume API;

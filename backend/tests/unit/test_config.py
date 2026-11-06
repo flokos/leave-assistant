@@ -12,7 +12,7 @@ def test_defaults_match_the_documented_flags() -> None:
     assert s.calendar_provider == "mock"
     assert s.worker_mode == "separate"
     assert s.langfuse_enabled is False
-    assert s.llm_providers == ["gemini", "groq"]
+    assert s.llm_providers == ["gemini", "mistral", "groq"]
     assert s.readiness_timeout_seconds == 5.0
 
 

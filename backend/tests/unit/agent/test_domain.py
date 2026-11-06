@@ -78,3 +78,13 @@ def test_truncated_structured_output_is_invalid() -> None:
     with pytest.raises(ProviderError) as caught:
         unpack(result, AnswerOutput, "gemini", "gemini-3.6-flash")
     assert caught.value.kind is ProviderErrorKind.INVALID_OUTPUT
+
+
+def test_strip_markdown_keeps_the_words() -> None:
+    # Mistral bolded words although the prompt asks for plain text (live smoke, worklog M6)
+    from leave_assistant.domain.agent.citations import strip_markdown
+
+    text = "Δικαιούσαι είκοσι (20) ημέρες **κανονικής** άδειας [1]. Δέκα __αναρρωτικής__ [2]."
+    assert strip_markdown(text) == "Δικαιούσαι είκοσι (20) ημέρες κανονικής άδειας [1]. Δέκα αναρρωτικής [2]."
+    assert strip_markdown("## Carry-over\nUp to 5 days [1].") == "Carry-over\nUp to 5 days [1]."
+    assert strip_markdown("2 * 3 = 6 and snake_case_name") == "2 * 3 = 6 and snake_case_name"

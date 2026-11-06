@@ -28,6 +28,15 @@ def markers_in(text: str) -> list[int]:
     return seen
 
 
+_EMPHASIS = re.compile(r"(\*\*|__)(.+?)\1", re.DOTALL)
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+", re.MULTILINE)
+
+
+def strip_markdown(answer: str) -> str:
+    """The chat shows plain text: bold/underline emphasis and heading marks are removed, the words kept."""
+    return _HEADING.sub("", _EMPHASIS.sub(r"\2", answer))
+
+
 def split_grouped(answer: str) -> str:
     """`[1, 2]` / `[1;2]` → `[1][2]`: models group markers although the prompt asks for one per bracket."""
     return GROUPED.sub(lambda m: "".join(f"[{n.strip()}]" for n in re.split(r"[,;]", m.group(1))), answer)

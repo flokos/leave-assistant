@@ -1,5 +1,5 @@
 """Live LLM smoke (`make chat-smoke`, M6): S01/S02/S05 through the real ChatService, retrieval and providers inside
-the api container. `--order groq` forces Groq; `--gemini-timeout 0.01` forces a transient Gemini failure → failover.
+the api container. `--order mistral` (or `groq`) forces one provider; `--gemini-timeout 0.01` forces a transient Gemini failure → failover.
 Fictional seed data only (ADR-0029). Conversations are archived afterwards."""
 
 from __future__ import annotations
@@ -129,7 +129,7 @@ async def _runs(uow: Any, conversation_id: UUID) -> list[Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Live LLM smoke (M6)")
-    parser.add_argument("--order", help="override LLM_PROVIDER_ORDER, e.g. groq")
+    parser.add_argument("--order", help="override LLM_PROVIDER_ORDER, e.g. mistral")
     parser.add_argument(
         "--gemini-timeout", type=float, help="force a Gemini timeout (seconds) to exercise failover"
     )

@@ -131,7 +131,9 @@ Node 24 LTS (host Node 22.22 also satisfies Vite) · Vite 8.3.x · React 19.2.x 
   `minimaxai/minimax-m2.7`, `meta-models/muse-spark-open`; JSON mode on all; parallel tool calls not on gpt-oss.
 - Proposed defaults: `GROQ_MODEL=llama-3.3-70b-versatile`, `GROQ_MODEL_FALLBACK=openai/gpt-oss-120b`.
   M6 implemented two roles instead: `GROQ_MODEL_FAST=llama-3.1-8b-instant` (classify, condense, summarise) and
-  `GROQ_MODEL=llama-3.3-70b-versatile` (answers); `openai/gpt-oss-120b` stays a configuration option (worklog M6).
+  `GROQ_MODEL=llama-3.3-70b-versatile` (answers); `openai/gpt-oss-120b` stays a configuration option (worklog M6). **Mistral replaced Groq as the second provider**
+  after the Groq signup was blocked (ADR-0010 amendment): `langchain-mistralai` 1.1.6, models `ministral-8b-2512` /
+  `ministral-14b-2512` on the free plan.
 - Consequence of 8–12K TPM caps: hard 3,500-token input budget per call (doc 04 §8).
 
 ### 7.3 Provider policy

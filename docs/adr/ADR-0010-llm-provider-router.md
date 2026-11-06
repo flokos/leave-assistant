@@ -42,3 +42,11 @@ Free-tier quota numbers must be read from AI Studio/Groq console at M6 and encod
 
 ## Implementation note (M6, 2026-11-05)
 Implemented in M6 as decided: `ChatModel` port, Gemini (`json_schema` structured output) and Groq (tool-calling structured output) adapters with SDK retries disabled, `FakeChatModel`, `ProviderRouter` (25 s timeout, two jittered retries on transient errors, failover in `LLM_PROVIDER_ORDER`, one same-provider repair on invalid output then surface, no retry on content blocks, per provider+model circuit breaker: 3 consecutive failures → open 60 s, fatal → open 10 min, half-open probe), 3,500-token budget asserted before every call (e5 tokenizer × 1.15), every non-trivial event in `provider_events`. Default models (verified 2026-11-05): Gemini `gemini-3.5-flash-lite` (fast) / `gemini-3.6-flash` (answers); Groq `llama-3.1-8b-instant` / `llama-3.3-70b-versatile`. See worklog M6.
+
+**Amendment 2026-11-06 (worklog M6 addendum):** the user's Groq signup was refused, so **Mistral** (free "Experiment"
+plan, `langchain-mistralai`, strict JSON-schema output) became the second provider: `LLM_PROVIDER_ORDER` defaults to
+`gemini,mistral,groq`, and providers without a key are skipped. Models on the free plan: `ministral-8b-2512` (fast)
+and `ministral-14b-2512` (answers); `mistral-small`/`-medium` are not available on it, and `mistral-large-4` always
+reasons. The live failover drill (Gemini forced to time out) answered every question from Mistral and opened Gemini's
+circuits after three failed turns. Groq remains implemented but untested live.
+

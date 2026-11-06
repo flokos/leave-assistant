@@ -9,7 +9,7 @@ following it from a clean clone.
   profiles (doc 02 §10). Hosts with less free memory use the staged start-up below.
 - Only for development outside containers: Python 3.14 with [uv](https://docs.astral.sh/uv/) 0.13.x, Node ≥ 22.12
   (24 LTS recommended) with npm.
-- External accounts are needed only later: Gemini/Groq API keys from M6, a Google Cloud project from M8 — free tiers,
+- External accounts are needed only later: Gemini and Mistral (or Groq) API keys from M6, a Google Cloud project from M8 — free tiers,
   fictional data only (ADR-0029).
 
 ## First start
@@ -149,8 +149,9 @@ because free-tier prompts may be used by the provider (doc 13 R-04).
 
 ```
 GEMINI_API_KEY=...            # Google AI Studio
-GROQ_API_KEY=...              # Groq console
-LLM_PROVIDER_ORDER=gemini,groq
+MISTRAL_API_KEY=...           # console.mistral.ai (free Experiment plan, phone verification)
+GROQ_API_KEY=...              # optional: Groq console
+LLM_PROVIDER_ORDER=gemini,mistral,groq   # providers without a key are skipped
 ```
 
 Model IDs are settings (`GEMINI_MODEL_FAST`, `GEMINI_MODEL`, `GROQ_MODEL_FAST`, `GROQ_MODEL`). Without any key the
@@ -163,8 +164,8 @@ After `make migrate` (which also creates the LangGraph checkpoint tables in sche
 | Command | What it does |
 |---------|--------------|
 | `make chat-smoke` | asks S01–S05 against the configured providers inside the api container and prints outcome, language, citations, provider and latency per question |
-| `make chat-smoke ARGS="--order groq"` | the same, forced onto Groq |
-| `make chat-smoke ARGS="--gemini-timeout 0.01"` | forced failover: Gemini times out, Groq answers, `provider_events` records the failover |
+| `make chat-smoke ARGS="--order mistral"` | the same, forced onto Mistral (`--order groq` for Groq) |
+| `make chat-smoke ARGS="--gemini-timeout 0.01"` | forced failover: Gemini times out, Mistral answers, `provider_events` records the failover |
 | `make chat-perf` | NFR-PERF-01: 20 turns with a zero-latency fake model, p50/p95 of everything except the LLM |
 
 The api warms up the embedder, reranker, Presidio and the input screen in the background after start; the first

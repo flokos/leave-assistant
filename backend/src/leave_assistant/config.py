@@ -85,10 +85,14 @@ class Settings(BaseSettings):
     # Agent core — M6 (doc 04, ADR-0007/0008/0010/0014). Model IDs are configuration; keys never leave deploy/.env.
     gemini_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+    mistral_api_key: SecretStr | None = None
     gemini_model_fast: str = "gemini-3.5-flash-lite"
     gemini_model: str = "gemini-3.6-flash"
     groq_model_fast: str = "llama-3.1-8b-instant"
     groq_model: str = "llama-3.3-70b-versatile"
+    # free "Experiment" plan: mistral-small/-medium are at 0 requests/min, mistral-large-4 always reasons (worklog M6)
+    mistral_model_fast: str = "ministral-8b-2512"
+    mistral_model: str = "ministral-14b-2512"
     llm_timeout_seconds: float = 25.0
     gemini_timeout_seconds: float | None = (
         None  # smoke/failover drills only: a tiny value forces a transient error
@@ -120,7 +124,7 @@ class Settings(BaseSettings):
     injection_llm_judge: bool = False
     calendar_provider: Literal["google", "mock"] = "mock"
     langfuse_enabled: bool = False
-    llm_provider_order: str = "gemini,groq"
+    llm_provider_order: str = "gemini,mistral,groq"
 
     @property
     def security_keys_configured(self) -> bool:

@@ -44,6 +44,7 @@ dependencies = [
   "el-core-news-md",
   "en-core-web-lg",
   "python-multipart>=0.0.33",
+  "langchain-mistralai>=1.1.6",
 ]
 
 [dependency-groups]
