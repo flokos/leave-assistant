@@ -149,3 +149,19 @@ class FakeEmbedder:
     def embed_query(self, text: str) -> list[float]:
         self.queries.append(text)
         return self._vector(text)
+
+
+class FakeReranker:
+    """Word-overlap relevance in [0, 1] (query words found in the passage / query words)."""
+
+    model_id = "fake-reranker"
+
+    def score(self, query: str, passages: Sequence[str]) -> list[float]:
+        words = {w for w in _WORD.findall(query.casefold()) if len(w) > 3}
+        if not words:
+            return [0.0 for _ in passages]
+        out = []
+        for passage in passages:
+            found = {w for w in _WORD.findall(passage.casefold()) if len(w) > 3}
+            out.append(round(len(words & found) / len(words), 4))
+        return out

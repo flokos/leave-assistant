@@ -35,3 +35,6 @@ Model download (A: ~2.2 GB fp32 or ~600 MB int8); lazy loading in the API proces
 
 ## Consequences
 This ADR is amended with the results table and the chosen default at M9.
+
+## Implementation note (M6, 2026-11-05)
+M6: both candidates are wired behind the `Reranker` port and downloaded by `make models`; the running default is candidate B because candidate A in fp32 does not fit the api memory limit on the reference host (measurements in worklog M6). The M9 evaluation still selects the final model (possibly A in int8).

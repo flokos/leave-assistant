@@ -116,3 +116,27 @@ def test_docling_parses_docx_markdown_and_plain_text(parser: DoclingParser) -> N
 def test_docling_ocr_reads_the_scanned_greek_pdf(parser: DoclingParser) -> None:
     parsed = parser.parse(CORPUS / "aegean/diadikasia-anarrotikis.pdf", PDF)
     assert "Αναρρωτικ" in parsed.text and "Ανθρώπινου Δυναμικού" in parsed.text
+
+
+def test_static_prompts_fit_their_budgets_with_the_real_tokenizer() -> None:
+    from leave_assistant.agent import prompts
+
+    tokenizer = E5Tokenizer(MODEL, REVISION)
+    for name in ("system", "classify", "condense", "generate", "summarise"):
+        file = prompts.load(name)
+        body = prompts.system_prompt("el", hardened=True) if name == "system" else file.body
+        assert tokenizer.count(body) * 1.15 <= file.budget, (name, tokenizer.count(body))
+
+
+def test_both_reranker_candidates_score_relevance() -> None:
+    from leave_assistant.infrastructure.ml.reranker import CrossEncoderReranker
+
+    passages = [
+        "Κάθε εργαζόμενος δικαιούται είκοσι εργάσιμες ημέρες κανονικής άδειας ανά έτος.",
+        "Ο εκτυπωτής του δεύτερου ορόφου χρειάζεται νέο toner.",
+    ]
+    for model in (
+        "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+    ):  # candidate A is measured in the container (memory)
+        scores = CrossEncoderReranker(model).score("Πόσες μέρες άδειας δικαιούμαι;", passages)
+        assert 0.0 <= min(scores) and max(scores) <= 1.0 and scores[0] > scores[1] + 0.2, scores

@@ -10,6 +10,7 @@ import {
   DeleteOutlined,
   FileDoneOutlined,
   FileTextOutlined,
+  MessageOutlined,
   SafetyCertificateOutlined,
   ScheduleOutlined,
   SettingOutlined,
@@ -29,6 +30,7 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
     children.length ? groups.push({ key, type: 'group', label, children }) : undefined
   if (principal.isTenantUser) {
     group('employee', t('nav.employee'), [
+      { key: '/chat', icon: <MessageOutlined />, label: <Link to="/chat">{t('nav.assistant')}</Link> },
       { key: '/leave', icon: <ScheduleOutlined />, label: <Link to="/leave">{t('nav.myLeave')}</Link> },
       { key: '/notifications', icon: <BellOutlined />, label: <Link to="/notifications">{t('nav.notifications')}</Link> },
       { key: '/documents', icon: <FileTextOutlined />, label: <Link to="/documents">{t('nav.documents')}</Link> },

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from leave_assistant.application.audit.service import AuditService
+from leave_assistant.application.chat.service import ChatService
 from leave_assistant.application.documents.ingestion import IngestionPipeline
 from leave_assistant.application.documents.service import DocumentLimits, DocumentService
 from leave_assistant.application.identity.claims import TokenClaims
@@ -29,6 +30,7 @@ from leave_assistant.application.ports import (
     LanguageDetector,
     LlmJudge,
     PiiEngine,
+    Reranker,
     SimilarityClassifier,
     Tokenizer,
     UnitOfWorkFactory,
@@ -65,6 +67,7 @@ class DocumentAdapters:
     file_cipher: FileCipher
     classifier: SimilarityClassifier | None = None
     judge: LlmJudge | None = None
+    reranker: Reranker | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +82,8 @@ class DocumentOptions:
     pii_score_threshold: float = 0.4
     supporting_max_upload_mb: int = 10
     download_token_ttl_seconds: int = 60
+    rerank_candidates: int = 20
+    conversation_retention_days: int = 90
 
 
 @dataclass(slots=True)
@@ -111,6 +116,7 @@ class Services:
     security_policies: SecurityPolicyService
     supporting: SupportingDocumentService
     retention: RetentionService
+    chat: ChatService
 
     @classmethod
     def build(
@@ -144,6 +150,7 @@ class Services:
             adapters.pii_engine, adapters.vault_cipher, ids, clock, threshold=options.pii_score_threshold
         )
         security = InjectionScanService(adapters.classifier, adapters.judge)
+        reidentification = ReidentificationService(privacy)
         return cls(
             uow_factory=uow_factory,
             identity=identity,
@@ -198,9 +205,11 @@ class Services:
                 adapters.language,
                 leg_size=options.retrieval_leg_size,
                 default_k=options.retrieval_k,
+                reranker=adapters.reranker,
+                rerank_candidates=options.rerank_candidates,
             ),
             privacy=privacy,
-            reidentification=ReidentificationService(privacy),
+            reidentification=reidentification,
             security=security,
             security_policies=security_policies,
             supporting=SupportingDocumentService(
@@ -215,11 +224,23 @@ class Services:
                 token_ttl_seconds=options.download_token_ttl_seconds,
             ),
             retention=RetentionService(uow_factory, ids, clock, audit, notifications, jobs, adapters.storage),
+            chat=ChatService(
+                uow_factory,
+                ids,
+                clock,
+                audit,
+                privacy,
+                reidentification,
+                security_policies,
+                adapters.language,
+                None,  # the LangGraph agent is attached by the runtime (it needs an async checkpointer pool)
+                retention_days=options.conversation_retention_days,
+            ),
         )
 
     def with_clock(self, clock: Clock) -> Services:
         """The same adapters with another clock (the seed submits sample data 'in the past')."""
-        return Services.build(
+        services = Services.build(
             uow_factory=self.uow_factory,
             identity=self.identity,
             verifier=self.verifier,
@@ -228,3 +249,5 @@ class Services:
             adapters=self.adapters,
             options=self.options,
         )
+        services.chat.agent = self.chat.agent
+        return services

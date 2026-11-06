@@ -121,6 +121,33 @@ flowchart LR
   regenerated once; a second failure yields the insufficient-evidence template (brief §7.8: "comfortable saying
   it does not know").
 
+### 4.1 M6 implementation notes (2026-11-05, worklog M6)
+- Package layout: `leave_assistant/agent/` (graph, state, prompts, runner, checkpointer, tracing) sits outside
+  `application` because the import-linter contract forbids LangGraph there; the application talks to it through the
+  `AgentRunner` port (`application/chat/ports.py`) and the runtime wires it. `RunContext` therefore lives in
+  `application/chat/context.py`; it carries the verified `Principal` and a per-run metrics collector (not state).
+- Pseudonymisation of the user turn happens in `ChatService` just before the graph (Presidio in a worker thread),
+  so the text that enters `messages` — and every checkpoint — is already LLM-safe; `ingress` keeps the language
+  detection, the input screen and the history budget.
+- **Answers are streamed after `verify_citations`** (structured output first, then chunked `token` events through
+  the buffered re-identifier). Status events stream live. A grounded answer or an honest "not in the documents"
+  matters more than first-token latency; streamed-then-retracted citations would be worse.
+- Business intents (balance, history, request, …) receive a templated bilingual pointer to the UI until the M7 tool
+  gateway exists; a deterministic pre-router catches unambiguous wording without an LLM call.
+- Citation retries: one regeneration with the verifier's feedback, then the insufficient-evidence template.
+  Before verification the answer is normalised: grouped markers (`[1, 2]`) are split into `[1][2]`, and declared
+  citations are appended when the model listed them but wrote no inline marker. Both were seen live on Gemini.
+- Language rule: the answer is always in the language of the question, also when every cited source is in the
+  other language. `verify_citations` checks the written language deterministically (markers and placeholders
+  removed) and treats a mismatch like a failed citation check.
+- Gemini 3 models think before answering, and the thoughts count against the output cap. The adapter sets
+  `thinking_level=low` (`GEMINI_THINKING_LEVEL`) and adds a thinking allowance (`GEMINI_THINKING_TOKENS`, 1,024) on
+  top of the 700-token answer budget. A response stopped by the token limit is `INVALID_OUTPUT`, never an answer:
+  a cut-off JSON object can still parse.
+- Re-identification amendment (doc 08 §7.4): values a user typed into their own conversation are restored in their
+  own view (`authored_by_viewer`); placeholders from documents follow the matrix, model-invented ones become
+  `[unavailable]`.
+
 ## 5. Business Operations subgraph
 
 ```mermaid

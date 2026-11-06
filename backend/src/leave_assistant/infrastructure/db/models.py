@@ -1058,3 +1058,110 @@ class RetentionReviewItemRow(Base):
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     comment: Mapped[str | None] = mapped_column(Text)
+
+
+# --- M6: conversations and agent runs (doc 07 §4.6) ---------------------------------------------------------------
+
+
+class ConversationRow(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        Index("ix_conversations_employee", "tenant_id", "employee_id", "last_activity_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_conversations_tenant"),
+        nullable=False,
+    )
+    employee_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app.employees.id", name="fk_conversations_employee"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    locale: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    run_lock_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ConversationMessageRow(Base):
+    __tablename__ = "conversation_messages"
+    __table_args__ = (
+        Index("ix_conversation_messages_conversation", "tenant_id", "conversation_id", "created_at"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_conversation_messages_tenant"),
+        nullable=False,
+    )
+    conversation_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.conversations.id", name="fk_conversation_messages_conversation", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content_pseudonymised: Mapped[str] = mapped_column(Text, nullable=False)
+    citations: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    provenance: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    run_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    outcome: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentRunRow(Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index("ix_agent_runs_conversation", "tenant_id", "conversation_id", "turn"),
+        {"schema": "app"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform.tenants.id", name="fk_agent_runs_tenant"), nullable=False
+    )
+    conversation_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("app.conversations.id", name="fk_agent_runs_conversation", ondelete="CASCADE"),
+        nullable=False,
+    )
+    turn: Mapped[int] = mapped_column(Integer, nullable=False)
+    intent: Mapped[str | None] = mapped_column(String(32))
+    language: Mapped[str | None] = mapped_column(String(8))
+    route: Mapped[str | None] = mapped_column(String(32))
+    provider_used: Mapped[str | None] = mapped_column(String(32))
+    model_used: Mapped[str | None] = mapped_column(String(80))
+    failovers: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    tool_trace: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    details: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    langfuse_trace_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ProviderEventRow(Base):
+    __tablename__ = "provider_events"
+    __table_args__ = (Index("ix_provider_events_occurred", "tenant_id", "occurred_at"), {"schema": "app"})
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("platform.tenants.id", name="fk_provider_events_tenant"),
+        nullable=False,
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(80), nullable=False)
+    event: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    run_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -1,14 +1,16 @@
-"""RetrievalService: `search` (hybrid + RRF, no reranker until M9) and `citation` (readers only)."""
+"""RetrievalService: `search` (hybrid + RRF, the documents page), `retrieve` (+ cross-encoder reranking, the agent —
+M6) and `citation` (readers only)."""
 
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from uuid import UUID
 
 from leave_assistant.application.documents.policy import reader_for, require_tenant_user, scope_for
 from leave_assistant.application.documents.views import RetrievalBundle, SearchHit
 from leave_assistant.application.errors import ApplicationError, InvalidInputError, NotFoundError
-from leave_assistant.application.ports import EmbeddingModel, LanguageDetector, UnitOfWorkFactory
+from leave_assistant.application.ports import EmbeddingModel, LanguageDetector, Reranker, UnitOfWorkFactory
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.domain.documents.fusion import FusedHit, reciprocal_rank_fusion
 from leave_assistant.domain.documents.types import Chunk, Citation, Document, DocumentVersion
@@ -16,6 +18,12 @@ from leave_assistant.domain.documents.visibility import can_read
 from leave_assistant.domain.tenancy import Principal
 
 MAX_QUERY_LENGTH = 500
+
+
+@dataclass(frozen=True, slots=True)
+class ScoredHit:
+    hit: SearchHit
+    rerank_score: float
 
 
 class NotRetrievable(ApplicationError):
@@ -32,6 +40,8 @@ class RetrievalService:
         leg_size: int = 30,
         default_k: int = 10,
         max_per_document: int = 3,
+        reranker: Reranker | None = None,
+        rerank_candidates: int = 20,
     ) -> None:
         self._uow = uow_factory
         self._embedder = embedder
@@ -39,6 +49,8 @@ class RetrievalService:
         self._leg_size = leg_size
         self._default_k = default_k
         self._max_per_document = max_per_document
+        self._reranker = reranker
+        self._rerank_candidates = rerank_candidates
 
     async def search(self, principal: Principal, query: str, *, k: int | None = None) -> RetrievalBundle:
         require_tenant_user(principal, action="document.search")
@@ -79,6 +91,19 @@ class RetrievalService:
                     versions[item.version_id] = version
                 hits.append(self._hit(item, chunk, documents[item.document_id], versions[item.version_id]))
         return RetrievalBundle(query=text, language=language, hits=hits)
+
+    async def retrieve(self, principal: Principal, query: str) -> list[ScoredHit]:
+        """Agent retrieval (doc 05 §6): up to `rerank_candidates` fused candidates under the principal's visibility,
+        rescored by the cross-encoder on the LLM-safe text (query and passages are both pseudonymised)."""
+        bundle = await self.search(principal, query, k=self._rerank_candidates)
+        if not bundle.hits:
+            return []
+        if self._reranker is None:
+            return [ScoredHit(hit, hit.score) for hit in bundle.hits]
+        passages = [f"{h.document.title}: {h.chunk.content_llm_safe}" for h in bundle.hits]
+        scores = await asyncio.to_thread(self._reranker.score, bundle.query, passages)
+        scored = [ScoredHit(hit, float(score)) for hit, score in zip(bundle.hits, scores, strict=True)]
+        return sorted(scored, key=lambda s: s.rerank_score, reverse=True)
 
     async def citation(self, principal: Principal, chunk_id: UUID) -> SearchHit:
         require_tenant_user(principal, action="document.read")

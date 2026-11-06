@@ -74,11 +74,11 @@ async def test_seed_uploads_corpus_and_processing_indexes_markdown_under_rls(
     hr = principal_for(employees["AEG-002"])
     employee = principal_for(employees["AEG-004"])
     page = await db_services.documents.list(hr, filters=DocumentFilter(), limit=None, cursor=None)
-    assert len(page.items) == 8 and all(
+    assert len(page.items) == 9 and all(
         s.latest_version and s.latest_version.status is VersionStatus.UPLOADED for s in page.items
     )
     jobs = await db_services.jobs.counts()
-    assert jobs == {"queued": 16}  # 8 Aegean + 7 Brightwater + the superseded handbook version
+    assert jobs == {"queued": 17}  # 9 Aegean + 7 Brightwater + the superseded handbook version
     faq = next(s for s in page.items if s.document.title == "Συχνές ερωτήσεις / FAQ")
     assert faq.latest_version is not None
     outcome = await db_services.ingestion.process(aegean.id, faq.latest_version.id)
@@ -161,6 +161,7 @@ async def test_visibility_predicate_matches_the_python_rules(
                 "Διαδικασία Αναρρωτικής Άδειας",
                 "Leave approvals appendix (untrusted upload)",
                 "Σημείωμα διαδικασίας (ύποπτο)",
+                "Οδηγοί εταιρικών οχημάτων: άδεια οδήγησης",
             ]:
                 document = await uow.documents.get_by_title(title)
                 assert document is not None, title
@@ -255,6 +256,6 @@ async def test_skip_locked_claims_are_exclusive(
         assert len(claimed) == 6 and len({j.id for j in claimed}) == 6
         assert {j.status.value for j in claimed} == {"running"} and all(j.attempts == 1 for j in claimed)
         remaining = await services.jobs.counts()
-        assert remaining == {"queued": 10, "running": 6}
+        assert remaining == {"queued": 11, "running": 6}
     finally:
         await engine.dispose()

@@ -180,6 +180,27 @@ Queries in Greek retrieve English documents and vice versa (e5 is cross-lingual;
 same-language matches). The answer is generated in the user's language from mixed-language evidence; citations
 keep the source language. Evaluation measures both directions (doc 11).
 
+### 6.7 M6 implementation notes (2026-11-05, worklog M6)
+- `RetrievalService.retrieve` (agent path) takes the best fused candidates and rescores them with the cross-encoder
+  on `title: content_llm_safe` against the pseudonymised query; `search` (documents page) is unchanged.
+  **Deviation: 10 candidates (`RERANK_CANDIDATES`) and a 256-token pair length (`RERANK_MAX_LENGTH`)** instead of
+  20 / 512. Reranking was the only expensive stage of a chat turn on the reference CPU (7–8 s for 17 pairs); halving
+  both brought the turn excluding LLM time from p50 6.19 s to 3.12 s (NFR-PERF-01, worklog M6). S01–S09 retrieve
+  the expected section in the top 3 either way. M9 revisits both with the evaluation harness.
+- Reranker port with a sentence-transformers `CrossEncoder` adapter (sigmoid scores 0–1). **Running default:
+  candidate B** (`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`) — candidate A (`BAAI/bge-reranker-v2-m3`, fp32 ≈ 2.2 GB)
+  does not fit the api's 2–3 GB limit next to e5 and Presidio on the reference host; A is downloaded by `make models`,
+  smoke-tested and measured; the selection stays an M9 decision (ADR-0014).
+- `ContextBuilder` (`application/retrieval/context.py`) implements §6.5; τ (`RETRIEVAL_TAU`) and
+  `MIN_EVIDENCE_CHUNKS` are settings. **Provisional calibration for candidate B: τ = 0.5, one evidence chunk.**
+  Measured top scores: answerable S01–S09 questions 0.65–1.00, unanswerable ones ≤ 0.06, off-topic "policy"
+  questions 0.31 (pets) and 0.51 (dress code). The dress-code probe passes τ, so the generation prompt's
+  "say you don't know" rule is the second line of defence there (scenario P02 is a live probe). Each cited source
+  is the best-scoring chunk of its merged group, not the first one.
+- The reranker and the embedder rewrite `tanh` as `2·sigmoid(2x) − 1` at load (`infrastructure/ml/safe_tanh.py`)
+  and e5 drops BERT's unused pooler. MKL's vector `tanh` kernel crashed with SIGILL on the AVX-only reference CPU
+  (doc 13 R-27). Scores and vectors are unchanged (max difference 1.5e-8 and 0).
+
 ## 7. The `VectorIndex` port and the ChromaDB comparison (brief §7.6, ADR-0011)
 
 ```python

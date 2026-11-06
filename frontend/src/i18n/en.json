@@ -27,7 +27,8 @@
     "status": "Status",
     "documents": "Documents",
     "reviewQueue": "Review queue",
-    "retention": "Retention"
+    "retention": "Retention",
+    "assistant": "Assistant"
   },
   "auth": {
     "signIn": "Sign in",
@@ -369,7 +370,11 @@
     "supporting/not-permitted": "Supporting document access not permitted",
     "supporting/unsupported-type": "Supporting documents must be PDF, JPEG or PNG",
     "security/not-configured": "Security keys are not configured on the server",
-    "retention/invalid-decision": "Invalid retention decision"
+    "retention/invalid-decision": "Invalid retention decision",
+    "chat/run-in-progress": "Please wait for the current answer",
+    "chat/provider-unavailable": "The assistant is temporarily unavailable",
+    "chat/content-blocked": "The provider refused to answer this",
+    "chat/invalid-output": "The assistant could not produce a valid answer"
   },
   "documents": {
     "title": "Documents",
@@ -509,6 +514,36 @@
     "actions": {
       "notify_only": "Notify HR only",
       "delete_after_review": "Delete after HR review"
+    }
+  },
+  "chat": {
+    "title": "Leave assistant",
+    "conversations": "Conversations",
+    "new": "New",
+    "noConversations": "No conversations yet.",
+    "untitled": "New conversation",
+    "deleteConfirm": "Delete this conversation?",
+    "intro": "Ask about entitlements, carry-over, holidays, sick leave or procedures. Answers cite the company's documents.",
+    "placeholder": "Type your question… (Enter to send)",
+    "send": "Send",
+    "sources": "Sources",
+    "source": "Source",
+    "section": "Section",
+    "disclaimer": "Answers come from the company's documents only and may be incomplete. The assistant cannot submit or approve requests yet.",
+    "stages": {
+      "thinking": "Thinking",
+      "classifying": "Understanding the question",
+      "condensing": "Understanding the question",
+      "summarising": "Summarising the conversation",
+      "retrieving": "Searching the documents",
+      "generating": "Writing the answer",
+      "verifying": "Checking the sources"
+    },
+    "outcomes": {
+      "insufficient_evidence": "Not in the documents",
+      "blocked": "Refused",
+      "clarify": "Needs clarification",
+      "scope": "General"
     }
   }
 }

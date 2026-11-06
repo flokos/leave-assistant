@@ -72,6 +72,8 @@ _PROBLEM_STATUS = {
     "supporting/unsupported-type": 415,
     "security/not-configured": 503,
     "retention/invalid-decision": 409,
+    "chat/run-in-progress": 409,
+    "chat/provider-unavailable": 503,
 }
 _PROBLEM_TITLES = {
     "tenant/suspended": "Tenant suspended",
@@ -102,6 +104,8 @@ _PROBLEM_TITLES = {
     "supporting/unsupported-type": "Unsupported supporting document type",
     "security/not-configured": "Security keys not configured",
     "retention/invalid-decision": "Invalid retention decision",
+    "chat/run-in-progress": "A message is still being answered",
+    "chat/provider-unavailable": "The assistant is unavailable",
 }
 
 

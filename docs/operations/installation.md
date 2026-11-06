@@ -9,7 +9,7 @@ following it from a clean clone.
   profiles (doc 02 §10). Hosts with less free memory use the staged start-up below.
 - Only for development outside containers: Python 3.14 with [uv](https://docs.astral.sh/uv/) 0.13.x, Node ≥ 22.12
   (24 LTS recommended) with npm.
-- External accounts are needed only later: Gemini/Groq API keys from M6, a Google Cloud project from M8 — free tiers,
+- External accounts are needed only later: Gemini and Mistral (or Groq) API keys from M6, a Google Cloud project from M8 — free tiers,
   fictional data only (ADR-0029).
 
 ## First start
@@ -139,6 +139,39 @@ for supporting documents after the leave end, 730 days for superseded/retired co
 advice); the worker scans daily (`make retention-scan` runs it now) and HR decides each item (retain or approve
 deletion); deletions run as jobs and keep a tombstone for audit.
 
+### Assistant chat (M6)
+The **Assistant** page is the first menu entry and the landing page for company users. It answers policy questions
+from the company's active documents, with numbered citations that open the cited section. Business questions
+(balances, new requests) get a short pointer to the matching page until the tools arrive in M7.
+
+Language model keys go into the git-ignored `deploy/.env`. Both providers have free tiers; use fictional data only,
+because free-tier prompts may be used by the provider (doc 13 R-04).
+
+```
+GEMINI_API_KEY=...            # Google AI Studio
+MISTRAL_API_KEY=...           # console.mistral.ai (free Experiment plan, phone verification)
+GROQ_API_KEY=...              # optional: Groq console
+LLM_PROVIDER_ORDER=gemini,mistral,groq   # providers without a key are skipped
+```
+
+Model IDs are settings (`GEMINI_MODEL_FAST`, `GEMINI_MODEL`, `GROQ_MODEL_FAST`, `GROQ_MODEL`). Without any key the
+assistant answers `503 chat/provider-unavailable`; in `APP_ENV=dev` you can set `LLM_PROVIDER_ORDER=fake` to try the
+flow with a scripted model. Answers come in the language of the question, even when the cited document is in the
+other language. The input budget is 3,500 tokens per call; older turns are summarised.
+
+After `make migrate` (which also creates the LangGraph checkpoint tables in schema `langgraph`):
+
+| Command | What it does |
+|---------|--------------|
+| `make chat-smoke` | asks S01–S05 against the configured providers inside the api container and prints outcome, language, citations, provider and latency per question |
+| `make chat-smoke ARGS="--order mistral"` | the same, forced onto Mistral (`--order groq` for Groq) |
+| `make chat-smoke ARGS="--gemini-timeout 0.01"` | forced failover: Gemini times out, Mistral answers, `provider_events` records the failover |
+| `make chat-perf` | NFR-PERF-01: 20 turns with a zero-latency fake model, p50/p95 of everything except the LLM |
+
+The api warms up the embedder, reranker, Presidio and the input screen in the background after start; the first
+question right after `make up` can take longer until that finishes. Conversations are deleted automatically after
+90 days (`CONVERSATION_RETENTION_DAYS`), together with their checkpoints.
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged
@@ -194,6 +227,8 @@ fast at start-up.
 | `readyz` reports `keycloak` failing while the console works | The API reaches Keycloak on `http://keycloak:8080` (backchannel); `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` must be set together with the full-URL `KC_HOSTNAME`. |
 | `readyz` reports `s3` failing | The bucket is created by the API at start-up; check SeaweedFS logs and `S3_ACCESS_KEY/S3_SECRET_KEY` in `deploy/.env`. |
 | Port already in use | Change `FRONTEND_PORT`, `KEYCLOAK_PORT`, `MAILPIT_PORT` (or `API_PORT` for `up-dev`) in `deploy/.env`. |
+| `api` exits with code 132 (illegal instruction) | An AVX-only CPU hit MKL's vector `tanh` (doc 13 R-27). The models already avoid that kernel; also set `MKL_CBWR=AVX` in `deploy/.env` and restart. |
+| Chat answers `503 chat/provider-unavailable`, or the stream ends with that error | HTTP 503: no provider is configured (no key). Stream error: every provider failed or its circuit breaker is open (60 s; 10 min after a bad key or model). Check `make logs SERVICE=api` for `provider` events. |
 | `api` OOM-killed | Raise the memory limit in `deploy/compose.yaml` or use `make up-staged`. |
 | Build fails downloading wheels | Retry; the uv cache mount keeps already-downloaded packages. |
 | `readyz` reports `schema` failing | Migrations not applied or behind the code: `make migrate`. |

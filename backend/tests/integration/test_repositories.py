@@ -64,7 +64,7 @@ async def test_seed_and_repositories_round_trip(db_services: Services) -> None:
     report = await run_seed(db_services, "pw")
     assert report.changed >= 34 and not report.unchanged
     second = await run_seed(db_services, "pw")
-    assert second.changed == 0 and len(second.unchanged) == 108
+    assert second.changed == 0 and len(second.unchanged) == 109
 
     async with db_services.uow_factory(
         TenantContext(tenant_id=None, user_id="seed", platform_admin=True)

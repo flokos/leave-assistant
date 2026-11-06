@@ -82,13 +82,49 @@ class Settings(BaseSettings):
     retention_scan_interval_seconds: float = 86400.0
     injection_exemplars_version: str = "v1"
 
+    # Agent core — M6 (doc 04, ADR-0007/0008/0010/0014). Model IDs are configuration; keys never leave deploy/.env.
+    gemini_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
+    mistral_api_key: SecretStr | None = None
+    gemini_model_fast: str = "gemini-3.5-flash-lite"
+    gemini_model: str = "gemini-3.6-flash"
+    groq_model_fast: str = "llama-3.1-8b-instant"
+    groq_model: str = "llama-3.3-70b-versatile"
+    # free "Experiment" plan: mistral-small/-medium are at 0 requests/min, mistral-large-4 always reasons (worklog M6)
+    mistral_model_fast: str = "ministral-8b-2512"
+    mistral_model: str = "ministral-14b-2512"
+    llm_timeout_seconds: float = 25.0
+    gemini_timeout_seconds: float | None = (
+        None  # smoke/failover drills only: a tiny value forces a transient error
+    )
+    # Gemini 3 models think before answering and the thoughts count against the output cap: bounded level, and an
+    # allowance on top of the answer budget so thinking cannot truncate the JSON (worklog M6)
+    gemini_thinking_level: Literal["minimal", "low", "medium", "high"] | None = "low"
+    gemini_thinking_tokens: int = 1024
+    llm_max_retries: int = 2
+    llm_circuit_open_seconds: float = 60.0
+    llm_budget_total: int = 3500
+    llm_budget_history: int = 800
+    llm_budget_context: int = 1800
+    rerank_candidates: int = (
+        10  # doc 05 §6.3 allows ≤ 20; 10 keeps NFR-PERF-01 reachable on a 2-core CPU (worklog M6)
+    )
+    rerank_max_length: int = 256  # tokens per (query, passage) pair; chunks put headings and key facts first
+    retrieval_tau: float = 0.5  # candidate B, calibrated on S01–S09 + off-topic probes (worklog M6)
+    min_evidence_chunks: int = 1
+    conversation_retention_days: int = 90
+    conversation_cleanup_interval_seconds: float = 86400.0
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_host: str = "http://langfuse-web:3000"
+
     # Feature flags — doc 03 §7
     retrieval_backend: Literal["pgvector", "chroma"] = "pgvector"
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     injection_llm_judge: bool = False
     calendar_provider: Literal["google", "mock"] = "mock"
     langfuse_enabled: bool = False
-    llm_provider_order: str = "gemini,groq"
+    llm_provider_order: str = "gemini,mistral,groq"
 
     @property
     def security_keys_configured(self) -> bool:

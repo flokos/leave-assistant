@@ -22,7 +22,7 @@ pytestmark = pytest.mark.integration
 async def seeded(db_services: Services) -> dict[str, UUID]:
     """Both companies through the real SQL unit of work (Keycloak faked)."""
     report = await run_seed(db_services, "pw")
-    assert len(report.created) == 108 and not report.unchanged
+    assert len(report.created) == 109 and not report.unchanged
     async with db_services.uow_factory(
         TenantContext(tenant_id=None, user_id="seed", platform_admin=True)
     ) as uow:
@@ -76,6 +76,10 @@ async def test_every_tenant_table_has_forced_policy(owner_engine: AsyncEngine) -
         ("app", "supporting_document_access_events"),
         ("app", "retention_policies"),
         ("app", "retention_review_items"),
+        ("app", "conversations"),
+        ("app", "conversation_messages"),
+        ("app", "agent_runs"),
+        ("app", "provider_events"),
         ("audit", "audit_log"),
     }
     for schema, table, enabled, forced, has_policy in rows:

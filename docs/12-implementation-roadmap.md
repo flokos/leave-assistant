@@ -86,13 +86,19 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   M10; checkpoint leak tests belong to M6 (no checkpointer yet); the similarity classifier scores a contrastive
   margin (doc 08 §8.6) instead of a raw calibrated similarity.
 
-### M6 — Agent core: knowledge (L)
+### M6 — Agent core: knowledge (L) — **done 2026-11-06** (worklog: `docs/development/worklog/M6.md`)
 - Provider router (Gemini, Groq, Fake) with failover, health, budgets, structured outputs; prompt files; LangGraph
   orchestrator + ingress/classify/compose; Knowledge subgraph; reranker port (candidate A wired, B available);
   Postgres checkpointer (schema/role); conversations + messages; chat API with SSE; streaming re-identification;
   chat UI with citations; Langfuse handler with masking (profile optional).
 - Exit: S01–S09 pass with the fake provider; live smoke with both providers; failover tests; budgets asserted;
   restart test for checkpointer; NFR-PERF-01 measured.
+- Delivered as planned except: the reranker's running default is candidate B (A is wired but unusable on the
+  reference host, doc 13 R-31); 10 rerank candidates at 256 tokens instead of 20 at 512 (doc 05 §6.7); answers are
+  streamed after citation verification, not token by token from the model (doc 04 §4.1); business intents get a
+  templated pointer to the UI until M7; NFR-PERF-01 is marginally missed (p50 3.12 s, R-31); Mistral replaced Groq as
+  the second provider because the Groq signup was blocked (user decision; Groq stays selectable, untested live); the
+  live smoke and the forced failover ran on Gemini and Mistral; Langfuse traces need the M9 `observability` profile.
 
 ### M7 — Agentic operations: business + approval (L)
 - Tool catalogue + gateway; Business Operations subgraph; proposals; Approval subgraph with interrupts; resume API;

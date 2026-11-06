@@ -21,10 +21,10 @@ function keysOf(principal: Principal): string[] {
 
 describe('workspace menu per role (UX only — the API re-authorises every call)', () => {
   it('employee: my leave, notifications, documents, system', () => {
-    expect(keysOf(principalWith(['employee']))).toEqual(['/leave', '/notifications', '/documents', '/system'])
+    expect(keysOf(principalWith(['employee']))).toEqual(['/chat', '/leave', '/notifications', '/documents', '/system'])
   })
   it('manager: adds approvals and team pages', () => {
-    expect(keysOf(principalWith(['employee', 'manager']))).toEqual(['/leave', '/notifications', '/documents', '/approvals', '/team/availability', '/team/requests', '/system'])
+    expect(keysOf(principalWith(['employee', 'manager']))).toEqual(['/chat', '/leave', '/notifications', '/documents', '/approvals', '/team/availability', '/team/requests', '/system'])
   })
   it('hr admin: approvals, team, balances and audit but no company administration', () => {
     const keys = keysOf(principalWith(['employee', 'hr_admin']))
@@ -38,7 +38,7 @@ describe('workspace menu per role (UX only — the API re-authorises every call)
   })
   it('company admin: administration pages, balances and audit but no approvals', () => {
     const keys = keysOf(principalWith(['employee', 'company_admin']))
-    expect(keys).toEqual(['/leave', '/notifications', '/documents', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/balances', '/admin/review-queue', '/admin/retention', '/admin/audit', '/system'])
+    expect(keys).toEqual(['/chat', '/leave', '/notifications', '/documents', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/balances', '/admin/review-queue', '/admin/retention', '/admin/audit', '/system'])
   })
   it('platform admin: tenants and platform audit only', () => {
     expect(keysOf(principalWith(['platform_admin'], { platform: true }))).toEqual(['/platform/tenants', '/platform/audit', '/system'])

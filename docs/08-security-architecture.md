@@ -223,6 +223,9 @@ The step runs in the API layer with the principal and the provenance of each pla
 user message, document version, tool result). Unknown placeholders (model-invented) are replaced by
 "[unavailable]" and counted in evaluation.
 
+M6 amendment: a value the viewer typed into their own conversation is restored in their own view
+(`authored_by_viewer`) — they wrote it, so showing it back discloses nothing; every other row applies unchanged.
+
 ### 7.5 Exclusions and fail-closed behaviour
 - `supporting_document` content never enters any text pipeline — the type system has no path from it to
   `LlmSafeText`.

@@ -9,6 +9,7 @@ import { RequireRole } from './RequireRole'
 
 // Route-level code splitting: each workspace is a separate chunk (M0 follow-up).
 const MyLeavePage = lazy(() => import('../features/leave/MyLeavePage'))
+const ChatPage = lazy(() => import('../features/chat/ChatPage'))
 const NotificationsPage = lazy(() => import('../features/notifications/NotificationsPage'))
 const DocumentsPage = lazy(() => import('../features/documents/DocumentsPage'))
 const ApprovalsPage = lazy(() => import('../features/approvals/ApprovalsPage'))
@@ -30,7 +31,7 @@ function Home() {
   const principal = usePrincipal()
   if (!authEnabled) return <Navigate to="/system" replace />
   if (!principal.me) return <RequireRole />
-  if (principal.isTenantUser) return <Navigate to="/leave" replace />
+  if (principal.isTenantUser) return <Navigate to="/chat" replace />
   if (principal.isPlatformAdmin) return <Navigate to="/platform/tenants" replace />
   return <Navigate to="/system" replace />
 }
@@ -50,6 +51,7 @@ export function AppRouter() {
             <Route index element={<Home />} />
             <Route path="/system" element={<HealthPage />} />
             <Route element={<RequireRole tenantOnly />}>
+              <Route path="/chat" element={<ChatPage />} />
               <Route path="/leave" element={<MyLeavePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
