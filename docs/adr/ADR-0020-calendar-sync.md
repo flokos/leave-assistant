@@ -40,3 +40,10 @@ Google Cloud project + OAuth client; re-authorisation every 7 days while in Test
 
 ## Consequences
 The mock adapter is the default in development and CI; the Google adapter is exercised by a manual checklist.
+
+## M8 notes (2026-11-06)
+Implemented as decided, with these refinements (doc 10 §9): the sync outbox enqueues single-shot jobs on the
+existing worker queue; the OAuth state is a hashed single-use nonce rather than a signed blob, with PKCE derived
+from the state; the Google adapter is tested with `HttpMockSequence`; the mock's `auth_expired` mode rejects tokens
+issued before the process started; reconciliation items are stored in `calendar_reconciliation_items`. The manual
+Google checklist needs a Google Cloud OAuth client and is recorded in the M8 worklog.

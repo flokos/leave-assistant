@@ -1,0 +1,185 @@
+{
+  "id": "laW2Reindex00001",
+  "name": "W2 — Index generation check",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "df5eb11e-52c2-5ef3-9a19-ad56168a444a",
+      "name": "Daily 03:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/internal/index/status",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "1d1e16c8-c11d-520a-b4bb-7e3e8b844b00",
+      "name": "Index status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0d90f404-7899-5542-8358-4b7843c2f005",
+              "leftValue": "={{ $json.stale }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8b63a2e7-fe50-5f6d-a531-db5f5b237836",
+      "name": "Stale?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/index/reindex",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "3756556e-8ed3-5ce3-95f6-7923ce8f48f7",
+      "name": "Re-index stale versions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "961a95e5-28c0-51b1-b61b-66cbed01c06b",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 03:00": {
+      "main": [
+        [
+          {
+            "node": "Index status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Index status": {
+      "main": [
+        [
+          {
+            "node": "Stale?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stale?": {
+      "main": [
+        [
+          {
+            "node": "Re-index stale versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Index status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "laErrorHandler01"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

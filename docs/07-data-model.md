@@ -280,3 +280,16 @@ function with property-based tests; holidays are loaded per request (small table
   API with dev passwords), roles, leave types/policies for the current year, holidays (Greek public holidays 2026 for
   Aegean Logistics; Irish public holidays 2026 for Brightwater Software — decided Q-07), approval rules, security
   policies from defaults, retention placeholders, seed documents (doc 05 §10) enqueued for processing.
+
+M8 notes (2026-11-06, migration `0007_integrations`):
+- `calendar_connections` also stores `refresh_token_dek` (the wrapped data key of the M5 envelope encryption) and
+  `created_at/updated_at`; partial unique indexes allow one non-revoked `company_shared` connection per tenant and
+  one non-revoked `personal` connection per employee (revoked rows stay as history).
+- `calendar_sync_jobs`: statuses `pending|running|succeeded|parked|dead`; columns `error_class`, `unknown_errors`,
+  `payload_hash`, `finished_at`; `idempotency_key` unique per tenant.
+- New: `calendar_reconciliation_items` (run id/time, finding, status `open|resolved|ignored`, action, resolver),
+  `mock_calendar_events` (the mock provider's store, keyed by calendar and event id) and `platform.oauth_states`
+  (hashed single-use OAuth states; no RLS, like the download tokens). Every new `app` table has forced RLS.
+- `integration_events.leased_until` (delivery lease). The runtime role may now update only the delivery columns
+  (`delivered_at`, `attempts`, `dead`, `leased_until`) and delete delivered rows (housekeeping); type, payload and
+  tenant stay immutable.

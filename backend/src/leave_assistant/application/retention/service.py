@@ -244,7 +244,6 @@ class RetentionService:
                     "retention.items_found",
                     {"created": created},
                     dedupe_key=f"retention.items_found:{tenant_id}:{today.isoformat()}",
-                    channels=("in_app",),
                 )
             await uow.commit()
         return ScanReport(tenant_id=tenant_id, created=created, eligible=eligible)

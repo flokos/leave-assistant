@@ -15,6 +15,9 @@ from leave_assistant.application.ports import (
     ApprovalRuleRepository,
     ApprovalStepRepository,
     AuditRepository,
+    CalendarConnectionRepository,
+    CalendarEventRepository,
+    CalendarSyncJobRepository,
     ChunkRepository,
     ConversationRepository,
     DepartmentRepository,
@@ -33,10 +36,13 @@ from leave_assistant.application.ports import (
     LeaveTypeRepository,
     LedgerRepository,
     MessageRepository,
+    MockCalendarStore,
     NotificationRepository,
+    OAuthStateRepository,
     PendingInterruptRepository,
     ProposalRepository,
     ProviderEventRepository,
+    ReconciliationItemRepository,
     RequestEventRepository,
     RetentionPolicyRepository,
     RetentionReviewItemRepository,
@@ -50,6 +56,14 @@ from leave_assistant.application.ports import (
 )
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.infrastructure.db.repositories.audit import SqlAuditRepository
+from leave_assistant.infrastructure.db.repositories.calendar import (
+    SqlCalendarConnectionRepository,
+    SqlCalendarEventRepository,
+    SqlCalendarSyncJobRepository,
+    SqlMockCalendarStore,
+    SqlOAuthStateRepository,
+    SqlReconciliationItemRepository,
+)
 from leave_assistant.infrastructure.db.repositories.chunks import SqlChunkRepository
 from leave_assistant.infrastructure.db.repositories.conversations import (
     SqlAgentRunRepository,
@@ -145,6 +159,12 @@ class SqlAlchemyUnitOfWork:
     provider_events: ProviderEventRepository
     proposals: ProposalRepository
     pending_interrupts: PendingInterruptRepository
+    calendar_connections: CalendarConnectionRepository
+    calendar_jobs: CalendarSyncJobRepository
+    calendar_events: CalendarEventRepository
+    calendar_items: ReconciliationItemRepository
+    mock_calendar: MockCalendarStore
+    oauth_states: OAuthStateRepository
 
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], context: TenantContext | None
@@ -201,6 +221,12 @@ class SqlAlchemyUnitOfWork:
         self.provider_events = SqlProviderEventRepository(session, tenant_id)
         self.proposals = SqlProposalRepository(session, tenant_id)
         self.pending_interrupts = SqlPendingInterruptRepository(session, tenant_id)
+        self.calendar_connections = SqlCalendarConnectionRepository(session, tenant_id)
+        self.calendar_jobs = SqlCalendarSyncJobRepository(session, tenant_id)
+        self.calendar_events = SqlCalendarEventRepository(session, tenant_id)
+        self.calendar_items = SqlReconciliationItemRepository(session, tenant_id)
+        self.mock_calendar = SqlMockCalendarStore(session, tenant_id)
+        self.oauth_states = SqlOAuthStateRepository(session)
         return self
 
     async def __aexit__(

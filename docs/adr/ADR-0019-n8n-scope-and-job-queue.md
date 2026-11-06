@@ -43,3 +43,9 @@ One container plus init import; Postgres database for n8n.
 
 ## Consequences
 Every n8n workflow maps to documented internal endpoints with their own tests.
+
+## M8 notes (2026-11-06)
+Implemented with n8n 2.46.6 (publish instead of activate). The backend creates all business notifications; n8n
+adds e-mail, watchdog, reminders, schedules and the provider digest. The worker keeps its own periodic tasks as
+the always-on baseline (the `automation` profile is optional); every operation n8n triggers is idempotent, so a
+double trigger is harmless. Outbox delivery uses a 5-minute lease per event instead of a cursor (doc 06 §9).

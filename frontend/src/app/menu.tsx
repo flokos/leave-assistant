@@ -34,6 +34,7 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
       { key: '/leave', icon: <ScheduleOutlined />, label: <Link to="/leave">{t('nav.myLeave')}</Link> },
       { key: '/notifications', icon: <BellOutlined />, label: <Link to="/notifications">{t('nav.notifications')}</Link> },
       { key: '/documents', icon: <FileTextOutlined />, label: <Link to="/documents">{t('nav.documents')}</Link> },
+      { key: '/calendar', icon: <CalendarOutlined />, label: <Link to="/calendar">{t('nav.calendar')}</Link> },
     ])
   }
   if (principal.hasRole('manager', 'hr_admin')) {

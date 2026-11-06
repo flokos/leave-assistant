@@ -1,0 +1,183 @@
+{
+  "id": "laW7Health000001",
+  "name": "W7 — Provider health digest",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "d97df6a6-6b83-5761-b3aa-69072fe41a33",
+      "name": "Hourly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/internal/health/providers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "8bef4d59-c7d1-5cb0-aecb-97f5fc4792cd",
+      "name": "Provider health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bacc329c-6b3d-5931-b0d4-64bdacd43729",
+              "leftValue": "={{ $json.healthy }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a2c6747-c0ca-5b13-b22f-862319ceb06b",
+      "name": "Degraded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.alert.from }}",
+        "toEmail": "={{ $json.alert.to }}",
+        "subject": "={{ $json.alert.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.alert.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "5d40ce96-53b8-5afd-a6ad-e98e25a90571",
+      "name": "Alert platform admins",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "laMailpitSmtp001",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "1cdece7e-0556-55b0-a307-23c5aef81e7f",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Hourly": {
+      "main": [
+        [
+          {
+            "node": "Provider health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider health": {
+      "main": [
+        [
+          {
+            "node": "Degraded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Degraded?": {
+      "main": [
+        [
+          {
+            "node": "Alert platform admins",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Provider health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "laErrorHandler01"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

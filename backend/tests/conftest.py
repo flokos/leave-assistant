@@ -6,10 +6,12 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from leave_assistant.application.calendar.ports import CalendarAdapters
 from leave_assistant.application.container import DocumentAdapters, DocumentOptions, Services
 from leave_assistant.application.health import CheckResult
 from leave_assistant.config import Settings
 from leave_assistant.domain.tenancy import Employee, Principal, Role
+from leave_assistant.infrastructure.calendar.mock import MockCalendarProvider
 from leave_assistant.infrastructure.identity.tokens import TokenVerifier
 from leave_assistant.infrastructure.ml.language import ScriptLanguageDetector
 from leave_assistant.main import create_app
@@ -90,6 +92,7 @@ def services(
     ids: SequentialIds,
     test_keys: TestKeys,
     document_adapters: DocumentAdapters,
+    calendar_mock: MockCalendarProvider,
 ) -> Services:
     verifier = TokenVerifier(test_keys.resolver(), issuer=ISSUER, audience=AUDIENCE, leeway_seconds=30)
     return Services.build(
@@ -100,7 +103,14 @@ def services(
         ids=ids,
         adapters=document_adapters,
         options=DocumentOptions(max_upload_mb=1, job_stale_after_seconds=600),
+        calendar=CalendarAdapters(provider=calendar_mock, oauth=calendar_mock),
     )
+
+
+@pytest.fixture
+def calendar_mock(uow_factory: MemoryUnitOfWorkFactory, clock: FixedClock) -> MockCalendarProvider:
+    """The database-backed mock calendar on the in-memory store (M8); tests switch `fail_mode` as needed."""
+    return MockCalendarProvider(uow_factory, clock, fail_mode="none", valid_after_ms=0)
 
 
 @pytest.fixture

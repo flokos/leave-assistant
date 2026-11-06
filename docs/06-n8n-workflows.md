@@ -186,3 +186,64 @@ event's tenant. The automation role cannot read documents, chunks, requests, led
 n8n Community Edition under the Sustainable Use License 1.0 permits use "for your own internal business purposes".
 This deployment is internal, single-organisation, not resold or hosted for third parties, and uses no `.ee.`
 features. Re-verified at M8 against the current `LICENSE.md`.
+
+## 9. M8 notes (2026-11-06) — as implemented
+- **n8n 2.46.6** (`n8nio/n8n:2.46.6`, compose profile `automation`, `make up-automation`). n8n 2.x replaced
+  activation with *publishing*: `n8n-init` runs `import:credentials` (rendered from
+  `automation/n8n/credentials.template.json` with env values, the plain copy emptied at once),
+  `import:workflow --separate` (fixed workflow ids, so re-runs overwrite) and `publish:workflow --id=…` for each
+  workflow (`--all` is no longer supported; `update:workflow --active` is deprecated). The n8n service starts after
+  the init job completed. The owner account is managed by the environment (`N8N_INSTANCE_OWNER_*`); its bcrypt hash
+  is derived at start from `N8N_OWNER_PASSWORD`, which `make env` generates together with `N8N_ENCRYPTION_KEY`.
+- **The backend creates every business notification itself**, in the business transaction (including the new
+  `calendar.connection_expired` and `calendar.sync_failed`), so in-app notifications work without the optional
+  profile. This amends W1, W3 and W5 above, where n8n created notifications that the backend already creates.
+  n8n adds: e-mail dispatch (W4), the processing watchdog (W1, every 10 minutes), reminders (W3 weekly retention, W6 48 h
+  review), the schedules (W2 03:00 index check, W3 02:00 retention scan, W5 every 15 min retry and 04:00
+  reconcile, W6 01:00 housekeeping) and the provider digest (W7). The event paths of W2 (`document.activated` /
+  `document.superseded`) are not emitted by the backend; W2 is the scheduled path only.
+- **Outbox delivery uses a lease, not a cursor** (§2): `GET /internal/events?limit` returns the undelivered,
+  unleased events of every tenant in id order and leases them for 5 minutes (`leased_until`, `attempts + 1`);
+  `POST /internal/events/ack {ids}` marks them delivered; `POST /internal/events/dead {ids}` dead-letters them.
+  An event offered 10 times becomes `dead` (counted in `GET /platform/health`). A lease never skips a slow
+  tenant's events, which a single cursor across tenants would.
+- **W0** routes `notification.created` → W4; every other type is informational (the backend has already notified);
+  every branch acknowledges. Unacknowledged events (an error mid-way) come back after the lease.
+- **W1 is a scheduled sweep, not a per-upload wait**: every 10 minutes `GET /internal/documents/stalled?
+  older_than_minutes=30` lists versions still uploaded or processing, and W1 posts the `processing_stalled`
+  reminder for each (deduplicated per version). The first design (W0 starting W1 without waiting, W1 holding a
+  30-minute *Wait*) failed live on n8n 2.46.6: the fire-and-forget sub-workflow call answered "Workflow is not
+  active and cannot be executed" while the waited calls to W4 worked, and every such error held back the
+  acknowledgements of the whole batch. The sweep is stateless and survives n8n restarts.
+- **Internal API** (§5, 18 endpoints): the table above plus `POST /internal/events/dead` and
+  `GET /internal/documents/stalled`.
+  `POST /internal/notifications` accepts reminder types only (`document.processing_stalled`,
+  `document.review_reminder`, `retention.review_reminder`) with `{tenant_id, type, subject_id?, older_than_hours?}`;
+  the backend chooses recipients and parameters and deduplicates per subject/day. `GET …/render?tenant_id` returns
+  `{send, to, from_address, subject, text, html}`; `send` is false when e-mail is not a channel or the message
+  was already sent. `POST …/delivery {tenant_id, status: sent|failed|skipped}` is idempotent by notification id.
+  `GET /internal/health/providers` reports failovers, circuit openings and errors per provider in the last hour
+  (from `provider_events`) and, when degraded, the ready-to-send alert for `PLATFORM_ALERT_EMAIL` (platform
+  administrators are not employees and have no notification rows). The internal endpoints take no
+  `Idempotency-Key`: leases, dedupe keys and per-id delivery states make them idempotent.
+- **Network**: nginx answers `404` for `/api/v1/internal/`; n8n calls `http://api:8000` on the compose network.
+- **W4 retries**: the SMTP node retries 3 times (2 s apart), then reports `failed`. W4 returns an item on **every**
+  path (a no-op node when no e-mail is due): W0 acknowledges per returned item, and a path ending without output
+  left 119 events re-leased live until a fix (now a unit test).
+- **Run now**: every scheduled workflow also has a Manual Trigger wired to the same steps, so it can be started
+  from the UI or with `n8n execute --id=…` (the CLI cannot start from a Schedule trigger).
+- **Channels**: document notifications (`document.processed|failed|review_required`) and `retention.items_found`
+  now go by e-mail too (they were in-app only before M8); `supporting.uploaded` stays in-app only — it concerns
+  sick-leave evidence and names the file.
+- **Execution data**: with `saveDataSuccessExecution: none`, n8n 2.46.6 still writes an execution row with the
+  trigger's start data (the outbox event: ids only) but no node outputs; no stored execution contained a name,
+  an address or a rendered e-mail (checked live). Rows are pruned after 168 h.
+- **Memory**: n8n 2.46.6 ran out of its default JavaScript heap (≈ 256 MB) at start under a 512 MB limit; the
+  service now has a 1 GB limit and `--max-old-space-size=768` (`N8N_MEMORY_LIMIT`, `N8N_HEAP_MB`). Measured live:
+  140–560 MB (peak while starting), n8n-init 512 MB limit is enough.
+- **E-mail content**: `document.failed` e-mails omit the pipeline's error text (in-app shows it to the uploader).
+- **Licence re-verified 2026-11-06** (`LICENSE.md` on `master`): "Sustainable Use License, Version 1.0";
+  "You may use or modify the software only for your own internal business purposes or for non-commercial or
+  personal use"; files with `.ee.` in the name or `.ee` in the directory need an n8n Enterprise License. This
+  deployment is internal and uses no `.ee.` feature (the environment-managed owner is in
+  `instance-settings-loader`, not an `.ee` module).

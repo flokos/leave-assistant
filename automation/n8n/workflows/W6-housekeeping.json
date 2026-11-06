@@ -1,0 +1,214 @@
+{
+  "id": "laW6Housekeep001",
+  "name": "W6 — Housekeeping and review reminders",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 1 * * *"
+            }
+          ]
+        }
+      },
+      "id": "ad34737b-c68c-503e-a232-4b767eb1cea7",
+      "name": "Daily 01:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/maintenance/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "bfdadeab-625d-5fa6-9457-12bbe0e6586a",
+      "name": "Maintenance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/internal/documents/pending-review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "older_than_hours",
+              "value": "48"
+            }
+          ]
+        }
+      },
+      "id": "b611cf65-1747-54f7-9792-423fbd94f83c",
+      "name": "Reviews waiting 48 h",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "9dc6bff9-cac8-5e0b-a743-141a3ffaac31",
+      "name": "Per tenant",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/notifications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant_id: $json.tenant_id, type: 'document.review_reminder', older_than_hours: 48 }) }}"
+      },
+      "id": "811ef266-ed80-5b9a-b60b-8e33a2c2b7ee",
+      "name": "Remind reviewers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "ef0df19a-9ec2-5b41-8d8b-4d9f2960f2fa",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 01:00": {
+      "main": [
+        [
+          {
+            "node": "Maintenance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maintenance": {
+      "main": [
+        [
+          {
+            "node": "Reviews waiting 48 h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviews waiting 48 h": {
+      "main": [
+        [
+          {
+            "node": "Per tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Per tenant": {
+      "main": [
+        [
+          {
+            "node": "Remind reviewers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Maintenance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "laErrorHandler01"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

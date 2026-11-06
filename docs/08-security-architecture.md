@@ -398,3 +398,14 @@ HTTP on localhost only (optional self-signed TLS via nginx documented); same-ori
 per-IP rate limits (chat 20/min, uploads 10/min); request body limits; multipart streaming to storage (no temp files
 on disk unencrypted for supporting documents); dependency audit (`pip-audit`, `npm audit`) and `bandit` in CI; Docker
 images run as non-root with read-only root filesystems where possible; no `latest` tags.
+
+M8 notes (2026-11-06):
+- New permission `calendar.read_sync`: E/M for the sync jobs of their own requests, H and C for the tenant
+  (doc 09 §2.7 "C, H; owner for own requests"). Connecting the company calendar and retrying or reconciling stays
+  `calendar.manage_company` (C); a personal connection is `calendar.connect_personal` (self). Someone else's
+  connection answers `404`.
+- `/api/v1/internal/*` requires the `automation` role (any other principal: `403`, audited as `authz.denied`) and
+  is not routed by nginx (`404`); the automation principal still gets `403` on every user route.
+- OAuth: hashed single-use state, principal re-checked at the callback, PKCE, scope check, refresh tokens
+  encrypted with `APP_KEK` (AAD = connection id), access tokens in memory only, revocation deletes the tokens.
+- E-mails are rendered by the backend for the recipient only; n8n stores no successful execution data.

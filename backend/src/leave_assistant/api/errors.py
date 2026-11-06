@@ -78,6 +78,11 @@ _PROBLEM_STATUS = {
     "chat/proposal-hash-mismatch": 409,
     "chat/no-pending-proposal": 409,
     "chat/proposal-in-progress": 409,
+    "calendar/connection-expired": 409,
+    "calendar/not-connected": 404,
+    "calendar/oauth-state-invalid": 422,
+    "calendar/not-retryable": 409,
+    "calendar/insufficient-scope": 422,
 }
 _PROBLEM_TITLES = {
     "tenant/suspended": "Tenant suspended",
@@ -114,6 +119,11 @@ _PROBLEM_TITLES = {
     "chat/proposal-hash-mismatch": "The proposal changed since it was shown",
     "chat/no-pending-proposal": "This proposal is no longer waiting for a decision",
     "chat/proposal-in-progress": "This proposal is being executed",
+    "calendar/connection-expired": "The calendar connection expired",
+    "calendar/not-connected": "No such calendar connection",
+    "calendar/oauth-state-invalid": "The calendar authorisation link is invalid or expired",
+    "calendar/not-retryable": "This sync job cannot be retried",
+    "calendar/insufficient-scope": "Calendar access was not granted",
 }
 
 

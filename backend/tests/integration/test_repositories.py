@@ -53,6 +53,8 @@ def test_models_match_migrated_schema(migrated_database: str) -> None:
                             "ix_action_proposals_pending_expiry",
                             "uq_leave_requests_idempotency",
                             "ix_leave_request_events_proposal",
+                            "uq_calendar_connections_company",
+                            "uq_calendar_connections_personal",
                         }
                     )  # raw-SQL indexes (exclusion, HNSW, GIN, partial unique)
                 ),

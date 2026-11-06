@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -42,6 +42,7 @@ class JobService:
         tenant_id: UUID | None,
         dedupe_key: str | None = None,
         max_attempts: int | None = None,
+        run_after: datetime | None = None,
     ) -> Job:
         """Inside the caller's transaction (outbox pattern). A queued/running job with the same key is reused."""
         if dedupe_key is not None:
@@ -58,7 +59,7 @@ class JobService:
             updated_at=now,
             tenant_id=tenant_id,
             max_attempts=max_attempts or self._max_attempts,
-            run_after=now,
+            run_after=run_after or now,
             dedupe_key=dedupe_key,
         )
         await uow.jobs.add(job)

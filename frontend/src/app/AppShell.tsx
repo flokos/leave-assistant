@@ -11,7 +11,7 @@ import { type Locale, setLocale } from '../i18n'
 import { menuItemsFor } from './menu'
 
 function selectedKey(pathname: string): string {
-  const candidates = ['/leave', '/notifications', '/documents', '/approvals', '/team/availability', '/team/requests', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/balances', '/admin/audit', '/platform/tenants', '/platform/audit', '/system']
+  const candidates = ['/leave', '/notifications', '/documents', '/calendar', '/approvals', '/team/availability', '/team/requests', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/balances', '/admin/audit', '/platform/tenants', '/platform/audit', '/system']
   return candidates.find((c) => pathname === c || pathname.startsWith(c + '/')) ?? pathname
 }
 

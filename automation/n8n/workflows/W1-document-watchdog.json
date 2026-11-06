@@ -1,0 +1,175 @@
+{
+  "id": "laW1Documents001",
+  "name": "W1 — Document processing watchdog",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "f6a9ae57-f2aa-5914-a2d6-c4b95a687ce8",
+      "name": "Every 10 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/internal/documents/stalled",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "older_than_minutes",
+              "value": "30"
+            }
+          ]
+        }
+      },
+      "id": "9657e669-0f76-5080-a2c0-6e3b47abcc88",
+      "name": "Processing over 30 min",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "813b0973-9fd5-5780-9933-95b64e719a07",
+      "name": "Per version",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/notifications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant_id: $json.tenant_id, type: 'document.processing_stalled', subject_id: $json.version_id }) }}"
+      },
+      "id": "efd5f360-6e49-52a9-9a67-de90e38b406c",
+      "name": "Notify uploader and admins",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "afe9baaf-2fa1-5d37-9932-cbaf86071947",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 10 min": {
+      "main": [
+        [
+          {
+            "node": "Processing over 30 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processing over 30 min": {
+      "main": [
+        [
+          {
+            "node": "Per version",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Per version": {
+      "main": [
+        [
+          {
+            "node": "Notify uploader and admins",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Processing over 30 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "laErrorHandler01"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

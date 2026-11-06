@@ -189,6 +189,41 @@ rules as the pages, so they create the same notifications and audit entries, mar
 | `make chat-smoke ARGS="--business"` | live business flow: balance in Greek, the headline request with confirmation, the manager's approval in chat; the created request is cancelled at the end |
 | `GET /api/v1/chat/conversations/{id}/runs` | redacted run history (stages, tools, provider, timings) for the owner, or HR for audit |
 
+### Calendars (M8)
+Open **Calendar** in the menu. Every employee can connect their **own** calendar; company administrators also connect
+the **company leave calendar**. After a final approval the worker writes the absence (name, dates, availability —
+never the leave type or the reason) to the connected calendars; a cancellation removes it. The page shows the
+connection status, the synchronisation history (company administrators can retry failed jobs) and, for company
+administrators, a reconciliation report with **Link**, **Delete event** and **Ignore** actions.
+
+By default the calendar is the **mock** provider (`CALENDAR_PROVIDER=mock`): "Connect" completes immediately and
+events are stored in the database table `app.mock_calendar_events`. `MOCK_CALENDAR_FAIL_MODE` simulates failures
+(`transient_once`, `permanent`, `auth_expired` — the last one expires every connection made before the api started;
+re-authorise on the page and the parked jobs resume).
+
+**Google Calendar (optional).**
+1. In a Google Cloud project, enable the *Google Calendar API* and configure the OAuth consent screen in **Testing**
+   status with your own account as a test user (refresh tokens then expire after 7 days — re-authorise weekly, R-34).
+2. Create an OAuth client of type *Web application* with the redirect URI
+   `http://localhost:8080/api/v1/calendar/connections/google/callback` (or your `OAUTH_REDIRECT_BASE_URL`).
+3. Put `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `CALENDAR_PROVIDER=google` in `deploy/.env` and
+   restart the api (`make up-staged`). The company connection creates a calendar "Leave — {Company}" in the
+   authorising account; share it with your staff in Google Calendar.
+
+### E-mail and automation (M8)
+```bash
+make up-automation        # core + the automation profile: n8n-init imports and publishes W0–W7, then n8n starts
+```
+- Mailpit (http://localhost:8025) receives every notification e-mail, in the recipient's language, from
+  `no-reply@{company}.leave.local`. Mailpit's API: `GET http://localhost:8025/api/v1/messages`.
+- n8n's UI is on http://localhost:5678 (localhost only): sign in with `N8N_OWNER_EMAIL` and the generated
+  `N8N_OWNER_PASSWORD` from `deploy/.env`. Workflows W0–W7 and the error handler are imported from
+  `automation/n8n/workflows`; after editing in the UI run `make n8n-export` and commit the JSON.
+- Without the profile everything else still works: in-app notifications are created by the backend, and the worker
+  keeps its daily schedules; e-mails wait in the outbox and are sent when n8n runs.
+- `GET /api/v1/platform/health` (platform administrator) shows dead events, parked/failed calendar jobs and
+  provider health per company.
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged

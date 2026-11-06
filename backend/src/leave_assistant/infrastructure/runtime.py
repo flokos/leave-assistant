@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from leave_assistant.application.automation.service import OpsOptions
+from leave_assistant.application.calendar.ports import CalendarAdapters
 from leave_assistant.application.container import (
     DocumentAdapters,
     DocumentOptions,
@@ -17,10 +19,12 @@ from leave_assistant.application.container import (
 from leave_assistant.application.llm.health import HealthTracker
 from leave_assistant.application.llm.ports import ChatModel
 from leave_assistant.application.llm.router import ProviderEvent, ProviderRouter
-from leave_assistant.application.ports import IdentityAdmin
+from leave_assistant.application.ports import Clock, IdentityAdmin, UnitOfWorkFactory
 from leave_assistant.application.retrieval.context import EvidencePolicy
 from leave_assistant.config import Settings
 from leave_assistant.domain.agent.budget import TokenBudgets
+from leave_assistant.infrastructure.calendar.google import GoogleCalendarProvider, GoogleOAuthClient
+from leave_assistant.infrastructure.calendar.mock import MockCalendarProvider
 from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
 from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
 from leave_assistant.infrastructure.identity.jwks import JwksCache, KeyResolver
@@ -286,6 +290,27 @@ def build_document_adapters(
     )
 
 
+def build_calendar_adapters(
+    settings: Settings, uow_factory: UnitOfWorkFactory, clock: Clock
+) -> CalendarAdapters:
+    """`CALENDAR_PROVIDER=google` needs the OAuth client (doc 10 §2); the mock is the default (ADR-0020)."""
+    if settings.calendar_provider == "google":
+        if not settings.google_configured:
+            raise RuntimeError(
+                "CALENDAR_PROVIDER=google needs GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET"
+            )
+        assert settings.google_oauth_client_id and settings.google_oauth_client_secret
+        client_id = settings.google_oauth_client_id
+        secret = settings.google_oauth_client_secret.get_secret_value()
+        return CalendarAdapters(
+            provider=GoogleCalendarProvider(client_id, secret),
+            oauth=GoogleOAuthClient(client_id, secret),
+            redirect_uri=settings.oauth_redirect_uri,
+        )
+    mock = MockCalendarProvider(uow_factory, clock, fail_mode=settings.mock_calendar_fail_mode)
+    return CalendarAdapters(provider=mock, oauth=mock, redirect_uri=settings.oauth_redirect_uri)
+
+
 def build_runtime(
     settings: Settings,
     *,
@@ -315,14 +340,24 @@ def build_runtime(
             leeway_seconds=settings.jwt_leeway_seconds,
         )
     s3_client = make_s3_client(settings, timeout=60.0)
+    clock = SystemClock()
     services = Services.build(
         uow_factory=uow_factory,
         identity=identity,
         verifier=verifier,
-        clock=SystemClock(),
+        clock=clock,
         ids=Uuid7IdGenerator(),
         adapters=adapters or build_document_adapters(settings, role=role, s3_client=s3_client),
         options=document_options(settings),
+        calendar=build_calendar_adapters(settings, uow_factory, clock),
+        ops_options=OpsOptions(
+            public_base_url=settings.public_base_url,
+            mail_from_domain=settings.mail_from_domain,
+            platform_alert_email=settings.platform_alert_email,
+            lease_seconds=settings.outbox_lease_seconds,
+            max_attempts=settings.outbox_max_attempts,
+            providers=tuple(settings.llm_providers),
+        ),
     )
     return Runtime(
         settings=settings, engine=engine, services=services, admin_client=admin_client, s3_client=s3_client

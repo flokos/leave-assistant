@@ -1,0 +1,236 @@
+{
+  "id": "laW3Retention001",
+  "name": "W3 — Retention scan and reminders",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "4f264ab7-0c8c-5b3d-b57f-4f13ff17566d",
+      "name": "Daily 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/retention/scan",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "3521ebb5-68c2-5d6f-a5ed-bcb920621b7c",
+      "name": "Scan all tenants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "19ca2123-93c6-5da0-832e-81d43b609abe",
+      "name": "Mondays 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/internal/retention/pending",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "older_than_days",
+              "value": "7"
+            }
+          ]
+        }
+      },
+      "id": "1583b155-eb0a-5192-a712-22fc530cf04c",
+      "name": "Pending over 7 days",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        200
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "ec88d786-dd9d-5a86-affa-193923d192c3",
+      "name": "Per tenant",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/notifications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant_id: $json.tenant_id, type: 'retention.review_reminder', older_than_hours: 168 }) }}"
+      },
+      "id": "74c751d2-32b9-55ff-886a-b39647730297",
+      "name": "Remind HR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        200
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "laKeycloakAuto01",
+          "name": "Leave API (automation)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "963b3a62-090b-5f14-9187-a0c5d742c28b",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 02:00": {
+      "main": [
+        [
+          {
+            "node": "Scan all tenants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mondays 09:00": {
+      "main": [
+        [
+          {
+            "node": "Pending over 7 days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending over 7 days": {
+      "main": [
+        [
+          {
+            "node": "Per tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Per tenant": {
+      "main": [
+        [
+          {
+            "node": "Remind HR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Scan all tenants",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pending over 7 days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "laErrorHandler01"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

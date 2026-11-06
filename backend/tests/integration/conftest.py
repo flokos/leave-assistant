@@ -14,10 +14,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from leave_assistant.application.calendar.ports import CalendarAdapters
 from leave_assistant.application.container import Services
 from leave_assistant.application.tenancy.context import TenantContext
 from leave_assistant.config import Settings
 from leave_assistant.domain.tenancy import Employee
+from leave_assistant.infrastructure.calendar.mock import MockCalendarProvider
 from leave_assistant.infrastructure.db.migrations import upgrade_to_head
 from leave_assistant.infrastructure.db.session import create_engine, make_session_factory
 from leave_assistant.infrastructure.db.uow import SqlAlchemyUnitOfWorkFactory
@@ -40,6 +42,12 @@ OWNER_URL = f"postgresql+psycopg://app_owner:{os.environ.get('LEAVE_DB_OWNER_PAS
 RLS_URL = f"postgresql+psycopg://app_rls:{os.environ.get('LEAVE_DB_PASSWORD', 'app-rls-dev')}@{HOST}:{PORT}/{TEST_DB}"
 TENANT_TABLES = (
     "platform.jobs",
+    "platform.oauth_states",
+    "app.mock_calendar_events",
+    "app.calendar_reconciliation_items",
+    "app.calendar_events",
+    "app.calendar_sync_jobs",
+    "app.calendar_connections",
     "app.pending_interrupts",
     "app.action_proposals",
     "app.provider_events",
@@ -144,6 +152,7 @@ def db_services(
     clock: FixedClock,
     ids: SequentialIds,
     test_keys: TestKeys,
+    calendar_db_mock: MockCalendarProvider,
 ) -> Services:
     verifier = TokenVerifier(test_keys.resolver(), issuer=ISSUER, audience=AUDIENCE)
     return Services.build(
@@ -153,7 +162,14 @@ def db_services(
         clock=clock,
         ids=ids,
         adapters=fake_document_adapters(dimension=384),
+        calendar=CalendarAdapters(provider=calendar_db_mock, oauth=calendar_db_mock),
     )
+
+
+@pytest.fixture
+def calendar_db_mock(sql_uow_factory: SqlAlchemyUnitOfWorkFactory, clock: FixedClock) -> MockCalendarProvider:
+    """The mock calendar on `app.mock_calendar_events` (M8)."""
+    return MockCalendarProvider(sql_uow_factory, clock, fail_mode="none", valid_after_ms=0)
 
 
 @pytest.fixture

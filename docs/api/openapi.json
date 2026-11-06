@@ -327,6 +327,68 @@
         "title": "AuditEntryOut",
         "type": "object"
       },
+      "AutomationErrorIn": {
+        "properties": {
+          "execution_id": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node"
+          },
+          "workflow": {
+            "maxLength": 200,
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow"
+        ],
+        "title": "AutomationErrorIn",
+        "type": "object"
+      },
       "BalanceOut": {
         "additionalProperties": false,
         "properties": {
@@ -744,6 +806,113 @@
         "title": "CitationOut",
         "type": "object"
       },
+      "ConnectionOut": {
+        "properties": {
+          "calendar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "provider",
+          "status",
+          "calendar",
+          "scopes",
+          "last_success_at",
+          "last_error",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConnectionOut",
+        "type": "object"
+      },
+      "ConnectionsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "items"
+        ],
+        "title": "ConnectionsOut",
+        "type": "object"
+      },
       "ConversationOut": {
         "additionalProperties": false,
         "properties": {
@@ -786,6 +955,19 @@
         "title": "ConversationOut",
         "type": "object"
       },
+      "CountOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "CountOut",
+        "type": "object"
+      },
       "DecisionIn": {
         "additionalProperties": false,
         "properties": {
@@ -812,6 +994,30 @@
           "version"
         ],
         "title": "DecisionIn",
+        "type": "object"
+      },
+      "DeliveryIn": {
+        "properties": {
+          "status": {
+            "enum": [
+              "sent",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "status"
+        ],
+        "title": "DeliveryIn",
         "type": "object"
       },
       "DepartmentCreate": {
@@ -1716,71 +1922,20 @@
         "title": "EmployeeUpdate",
         "type": "object"
       },
-      "EventOut": {
-        "additionalProperties": false,
+      "EventsOut": {
         "properties": {
-          "actor_employee_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actor Employee Id"
-          },
-          "actor_kind": {
-            "title": "Actor Kind",
-            "type": "string"
-          },
-          "event_type": {
-            "title": "Event Type",
-            "type": "string"
-          },
-          "from_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "From Status"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "occurred_at": {
-            "format": "date-time",
-            "title": "Occurred At",
-            "type": "string"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "title": "Payload",
-            "type": "object"
-          },
-          "to_status": {
-            "title": "To Status",
-            "type": "string"
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/leave_assistant__api__routers__internal__EventOut"
+            },
+            "title": "Items",
+            "type": "array"
           }
         },
         "required": [
-          "id",
-          "event_type",
-          "from_status",
-          "to_status",
-          "actor_employee_id",
-          "actor_kind",
-          "occurred_at",
-          "payload"
+          "items"
         ],
-        "title": "EventOut",
+        "title": "EventsOut",
         "type": "object"
       },
       "ExcludedDateOut": {
@@ -1970,6 +2125,24 @@
         "title": "HolidayUpdate",
         "type": "object"
       },
+      "IdsIn": {
+        "properties": {
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "IdsIn",
+        "type": "object"
+      },
       "JobOut": {
         "additionalProperties": false,
         "properties": {
@@ -2118,7 +2291,7 @@
           },
           "events": {
             "items": {
-              "$ref": "#/components/schemas/EventOut"
+              "$ref": "#/components/schemas/leave_assistant__api__schemas__leave__EventOut"
             },
             "title": "Events",
             "type": "array"
@@ -2627,6 +2800,26 @@
           "created_at"
         ],
         "title": "LedgerEntryOut",
+        "type": "object"
+      },
+      "MaintenanceIn": {
+        "properties": {
+          "tasks": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasks"
+          }
+        },
+        "title": "MaintenanceIn",
         "type": "object"
       },
       "MeResponse": {
@@ -3513,6 +3706,311 @@
           "marked"
         ],
         "title": "ReadAllOut",
+        "type": "object"
+      },
+      "ReconciliationItemOut": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "connection_id": {
+            "format": "uuid",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "external_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Event Id"
+          },
+          "finding": {
+            "title": "Finding",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "finding",
+          "status",
+          "request_id",
+          "external_event_id",
+          "action",
+          "details",
+          "resolved_at"
+        ],
+        "title": "ReconciliationItemOut",
+        "type": "object"
+      },
+      "ReconciliationOut": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run At"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "run_id",
+          "run_at",
+          "counts",
+          "errors",
+          "items"
+        ],
+        "title": "ReconciliationOut",
+        "type": "object"
+      },
+      "ReindexIn": {
+        "properties": {
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "title": "ReindexIn",
+        "type": "object"
+      },
+      "ReminderIn": {
+        "properties": {
+          "older_than_hours": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Older Than Hours"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "document.processing_stalled",
+              "document.review_reminder",
+              "retention.review_reminder"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "type"
+        ],
+        "title": "ReminderIn",
+        "type": "object"
+      },
+      "RenderOut": {
+        "properties": {
+          "from_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Address"
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
+          },
+          "notification_id": {
+            "format": "uuid",
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "send": {
+            "title": "Send",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notification_id",
+          "tenant_id",
+          "type",
+          "send",
+          "status",
+          "to",
+          "from_address",
+          "subject",
+          "text",
+          "html"
+        ],
+        "title": "RenderOut",
         "type": "object"
       },
       "RequestStatus": {
@@ -5023,6 +5521,36 @@
         "title": "SimulateIn",
         "type": "object"
       },
+      "StartIn": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "company_shared",
+              "personal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "StartIn",
+        "type": "object"
+      },
+      "StartOut": {
+        "properties": {
+          "authorization_url": {
+            "title": "Authorization Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorization_url"
+        ],
+        "title": "StartOut",
+        "type": "object"
+      },
       "StepOut": {
         "additionalProperties": false,
         "properties": {
@@ -5318,6 +5846,142 @@
           "created_at"
         ],
         "title": "SupportingDocumentOut",
+        "type": "object"
+      },
+      "SyncJobOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "connection_id": {
+            "format": "uuid",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "connection_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Kind"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "request_number": {
+            "title": "Request Number",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "request_id",
+          "request_number",
+          "connection_id",
+          "connection_kind",
+          "operation",
+          "status",
+          "attempts",
+          "next_attempt_at",
+          "error_class",
+          "last_error",
+          "created_at",
+          "updated_at",
+          "finished_at"
+        ],
+        "title": "SyncJobOut",
+        "type": "object"
+      },
+      "SyncJobsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SyncJobOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SyncJobsOut",
         "type": "object"
       },
       "TeamEmployeeOut": {
@@ -6234,6 +6898,115 @@
           "excluded_dates"
         ],
         "title": "WorkingDaysOut",
+        "type": "object"
+      },
+      "leave_assistant__api__routers__internal__EventOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "type",
+          "payload",
+          "created_at",
+          "attempts"
+        ],
+        "title": "EventOut",
+        "type": "object"
+      },
+      "leave_assistant__api__schemas__leave__EventOut": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Employee Id"
+          },
+          "actor_kind": {
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "from_status",
+          "to_status",
+          "actor_employee_id",
+          "actor_kind",
+          "occurred_at",
+          "payload"
+        ],
+        "title": "EventOut",
         "type": "object"
       }
     }
@@ -8436,6 +9209,394 @@
         ]
       }
     },
+    "/api/v1/calendar/connections": {
+      "get": {
+        "operationId": "list_connections_api_v1_calendar_connections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Connections",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/connections/google/callback": {
+      "get": {
+        "description": "Completes the consent (identity from the stored state) and sends the browser back to the SPA.",
+        "operationId": "callback_api_v1_calendar_connections_google_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/connections/google/start": {
+      "post": {
+        "operationId": "start_api_v1_calendar_connections_google_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/connections/{connection_id}": {
+      "delete": {
+        "operationId": "revoke_api_v1_calendar_connections__connection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/reconcile": {
+      "post": {
+        "operationId": "reconcile_api_v1_calendar_reconcile_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reconcile",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/reconciliation": {
+      "get": {
+        "operationId": "reconciliation_api_v1_calendar_reconciliation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reconciliation",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/reconciliation/items/{item_id}/{action}": {
+      "post": {
+        "operationId": "act_api_v1_calendar_reconciliation_items__item_id___action__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "relink",
+                "ignore",
+                "delete-orphan"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Act",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/sync-jobs": {
+      "get": {
+        "operationId": "sync_jobs_api_v1_calendar_sync_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "succeeded",
+                    "parked",
+                    "dead"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "request_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncJobsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Jobs",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/sync-jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_api_v1_calendar_sync_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
     "/api/v1/chat/conversations": {
       "get": {
         "operationId": "list_conversations_api_v1_chat_conversations_get",
@@ -9616,6 +10777,743 @@
         ]
       }
     },
+    "/api/v1/internal/automation/errors": {
+      "post": {
+        "operationId": "automation_error_api_v1_internal_automation_errors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationErrorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Automation Error",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/calendar/reconcile": {
+      "post": {
+        "operationId": "calendar_reconcile_api_v1_internal_calendar_reconcile_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Calendar Reconcile Api V1 Internal Calendar Reconcile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Calendar Reconcile",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/calendar/retry-failed": {
+      "post": {
+        "operationId": "calendar_retry_api_v1_internal_calendar_retry_failed_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Calendar Retry Api V1 Internal Calendar Retry Failed Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Calendar Retry",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/documents/pending-review": {
+      "get": {
+        "operationId": "pending_review_api_v1_internal_documents_pending_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "older_than_hours",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "minimum": 0,
+              "title": "Older Than Hours",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pending Review Api V1 Internal Documents Pending Review Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pending Review",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/documents/stalled": {
+      "get": {
+        "operationId": "stalled_api_v1_internal_documents_stalled_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "older_than_minutes",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "minimum": 1,
+              "title": "Older Than Minutes",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stalled Api V1 Internal Documents Stalled Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stalled",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/documents/{version_id}/processing": {
+      "get": {
+        "operationId": "processing_api_v1_internal_documents__version_id__processing_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Processing Api V1 Internal Documents  Version Id  Processing Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Processing",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/events": {
+      "get": {
+        "description": "Leases undelivered events (5 min); unacknowledged ones come back after the lease, up to 10 times.",
+        "operationId": "events_api_v1_internal_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/events/ack": {
+      "post": {
+        "operationId": "ack_api_v1_internal_events_ack_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ack",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/events/dead": {
+      "post": {
+        "operationId": "dead_api_v1_internal_events_dead_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dead",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/health/providers": {
+      "get": {
+        "operationId": "provider_health_api_v1_internal_health_providers_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window_minutes",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 1440,
+              "minimum": 5,
+              "title": "Window Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Provider Health Api V1 Internal Health Providers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider Health",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/index/reindex": {
+      "post": {
+        "operationId": "reindex_api_v1_internal_index_reindex_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReindexIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Reindex Api V1 Internal Index Reindex Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reindex",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/index/status": {
+      "get": {
+        "operationId": "index_status_api_v1_internal_index_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Index Status Api V1 Internal Index Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Index Status",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/maintenance/run": {
+      "post": {
+        "operationId": "maintenance_api_v1_internal_maintenance_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Maintenance Api V1 Internal Maintenance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Maintenance",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/notifications": {
+      "post": {
+        "operationId": "create_notification_api_v1_internal_notifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Notification Api V1 Internal Notifications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Notification",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/notifications/{notification_id}/delivery": {
+      "post": {
+        "operationId": "delivery_api_v1_internal_notifications__notification_id__delivery_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delivery Api V1 Internal Notifications  Notification Id  Delivery Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delivery",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/notifications/{notification_id}/render": {
+      "get": {
+        "operationId": "render_api_v1_internal_notifications__notification_id__render_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Render",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/retention/pending": {
+      "get": {
+        "operationId": "retention_pending_api_v1_internal_retention_pending_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "older_than_days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "minimum": 0,
+              "title": "Older Than Days",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retention Pending Api V1 Internal Retention Pending Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retention Pending",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/api/v1/internal/retention/scan": {
+      "post": {
+        "operationId": "retention_scan_api_v1_internal_retention_scan_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Retention Scan Api V1 Internal Retention Scan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Retention Scan",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
     "/api/v1/leave/balances": {
       "get": {
         "operationId": "balances_api_v1_leave_balances_get",
@@ -10544,6 +12442,29 @@
           }
         },
         "summary": "Platform Audit",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/v1/platform/health": {
+      "get": {
+        "operationId": "platform_health_api_v1_platform_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Platform Health Api V1 Platform Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Platform Health",
         "tags": [
           "platform"
         ]

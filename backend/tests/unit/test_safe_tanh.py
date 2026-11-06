@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -32,16 +34,24 @@ class Pooler(nn.Module):
         return self.activation(self.dense(x))
 
 
+def reference_tanh(t: torch.Tensor) -> torch.Tensor:
+    """Scalar `math.tanh`: the test must not reach MKL's vector tanh itself (it crashed this very suite)."""
+    return torch.tensor([math.tanh(v) for v in t.flatten().tolist()], dtype=t.dtype).reshape(t.shape)
+
+
 def test_sigmoid_tanh_equals_tanh() -> None:
     x = torch.linspace(-20, 20, 4001)
-    assert torch.allclose(sigmoid_tanh(x), torch.tanh(x), atol=1e-6)
+    assert torch.allclose(sigmoid_tanh(x), reference_tanh(x), atol=1e-6)
 
 
 def test_rewrites_both_sites_without_changing_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
     torch.manual_seed(0)
     model = nn.ModuleDict({"pooler": Pooler(), "classifier": XLMRobertaClassificationHead()}).eval()
     features = torch.randn(3, 5, 8)
-    before = (model["pooler"](features), model["classifier"](features))
+    with monkeypatch.context() as m:  # the "before" outputs use the scalar reference, not MKL
+        m.setattr(torch, "tanh", reference_tanh)
+        m.setattr(nn.Tanh, "forward", lambda self, x: reference_tanh(x))
+        before = (model["pooler"](features), model["classifier"](features))
 
     assert avoid_mkl_tanh(model) == 2
     assert isinstance(model["pooler"].activation, SigmoidTanh)

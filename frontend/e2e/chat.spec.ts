@@ -15,13 +15,14 @@ test('employee asks a policy question in Greek and opens the cited source', asyn
   await expect(answer.getByTestId('sources')).toBeVisible({ timeout: 90_000 })
   await expect(answer.getByTestId('sources')).toContainText(/Κανονισμός Αδειών|Συχνές ερωτήσεις|Leave Policy/)
   await page.screenshot({ path: 'e2e/artifacts/chat-answer.png', fullPage: true })
-  await answer.getByTestId('cite-1').click()
+  await answer.getByTestId('cite-1').first().click() // a model may cite the same source twice
   await expect(page.getByTestId('citation-drawer')).toBeVisible()
   await page.keyboard.press('Escape')
-  // an off-corpus question gets the honest template, not an invented answer
+  // an off-corpus question gets an honest template, not an invented answer: the live classifier may route it to the
+  // knowledge path (insufficient evidence) or call it out of scope — both are correct refusals
   await page.getByTestId('chat-input').fill('Ποια είναι η πολιτική για κατοικίδια στο γραφείο;')
   await page.getByTestId('chat-send').click()
-  await expect(pane.getByTestId('outcome-insufficient_evidence')).toBeVisible({ timeout: 90_000 })
+  await expect(pane.getByTestId('outcome-insufficient_evidence').or(pane.getByTestId('outcome-scope'))).toBeVisible({ timeout: 90_000 })
   // the history survives a reload
   await page.reload()
   await expect(page.getByTestId('chat-pane').getByTestId('message-assistant')).toHaveCount(2)

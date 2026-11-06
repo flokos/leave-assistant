@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import builtins
+from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, select, tuple_, update
+from sqlalchemy import Select, delete, func, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from leave_assistant.application.notifications.models import EmailStatus, IntegrationEvent, Notification
@@ -93,6 +94,12 @@ class SqlNotificationRepository:
         row.email_attempts = notification.email_attempts
         await flush_or_conflict(self._s)
 
+    async def exists_dedupe(self, dedupe_key: str) -> bool:
+        stmt = select(NotificationRow.id).where(
+            NotificationRow.tenant_id == self._tenant, NotificationRow.dedupe_key == dedupe_key
+        )
+        return (await self._s.execute(stmt.limit(1))).scalar_one_or_none() is not None
+
     async def mark_all_read(self, recipient_employee_id: UUID, read_at: datetime) -> int:
         result = await self._s.execute(
             update(NotificationRow)
@@ -125,3 +132,102 @@ class SqlIntegrationEventRepository:
             )
         )
         await flush_or_conflict(self._s)
+
+    async def lease(
+        self, *, now: datetime, until: datetime, limit: int, max_attempts: int
+    ) -> builtins.list[IntegrationEvent]:
+        live = (
+            IntegrationEventRow.tenant_id == self._tenant,
+            IntegrationEventRow.delivered_at.is_(None),
+            IntegrationEventRow.dead.is_(False),
+            or_(IntegrationEventRow.leased_until.is_(None), IntegrationEventRow.leased_until < now),
+        )
+        # events that keep failing stop being offered (dead letter, counted in /platform/health)
+        await self._s.execute(
+            update(IntegrationEventRow)
+            .where(*live, IntegrationEventRow.attempts >= max_attempts)
+            .values(dead=True)
+        )
+        rows = (
+            (
+                await self._s.execute(
+                    select(IntegrationEventRow)
+                    .where(*live)
+                    .order_by(IntegrationEventRow.id)
+                    .limit(limit)
+                    .with_for_update(skip_locked=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            row.leased_until = until
+            row.attempts = row.attempts + 1
+        await flush_or_conflict(self._s)
+        return [_event_to_domain(r) for r in rows]
+
+    async def ack(self, ids: Sequence[UUID], now: datetime) -> int:
+        if not ids:
+            return 0
+        result = await self._s.execute(
+            update(IntegrationEventRow)
+            .where(
+                IntegrationEventRow.tenant_id == self._tenant,
+                IntegrationEventRow.id.in_(list(ids)),
+                IntegrationEventRow.delivered_at.is_(None),
+            )
+            .values(delivered_at=now, leased_until=None)
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
+
+    async def mark_dead(self, ids: Sequence[UUID]) -> int:
+        if not ids:
+            return 0
+        result = await self._s.execute(
+            update(IntegrationEventRow)
+            .where(
+                IntegrationEventRow.tenant_id == self._tenant,
+                IntegrationEventRow.id.in_(list(ids)),
+                IntegrationEventRow.delivered_at.is_(None),
+            )
+            .values(dead=True, leased_until=None)
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
+
+    async def counts(self) -> dict[str, int]:
+        row = (
+            await self._s.execute(
+                select(
+                    func.count().filter(IntegrationEventRow.dead.is_(True)),
+                    func.count().filter(
+                        IntegrationEventRow.delivered_at.is_(None), IntegrationEventRow.dead.is_(False)
+                    ),
+                ).where(IntegrationEventRow.tenant_id == self._tenant)
+            )
+        ).one()
+        return {"dead": int(row[0]), "undelivered": int(row[1])}
+
+    async def purge_delivered(self, before: datetime) -> int:
+        result = await self._s.execute(
+            delete(IntegrationEventRow).where(
+                IntegrationEventRow.tenant_id == self._tenant,
+                IntegrationEventRow.delivered_at.is_not(None),
+                IntegrationEventRow.delivered_at < before,
+            )
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
+
+
+def _event_to_domain(r: IntegrationEventRow) -> IntegrationEvent:
+    return IntegrationEvent(
+        id=r.id,
+        tenant_id=r.tenant_id,
+        type=r.type,
+        payload=dict(r.payload),
+        created_at=r.created_at,
+        delivered_at=r.delivered_at,
+        attempts=r.attempts,
+        dead=r.dead,
+        leased_until=r.leased_until,
+    )

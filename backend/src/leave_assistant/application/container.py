@@ -8,6 +8,11 @@ from typing import Protocol
 from leave_assistant.application.assistant.gateway import ToolGateway
 from leave_assistant.application.assistant.proposals import ProposalService
 from leave_assistant.application.audit.service import AuditService
+from leave_assistant.application.automation.service import InternalOpsService, OpsOptions
+from leave_assistant.application.calendar.connections import CalendarConnectionService
+from leave_assistant.application.calendar.ports import CalendarAdapters, unconfigured
+from leave_assistant.application.calendar.reconcile import ReconciliationService
+from leave_assistant.application.calendar.sync import CalendarSyncService
 from leave_assistant.application.chat.service import ChatService
 from leave_assistant.application.documents.ingestion import IngestionPipeline
 from leave_assistant.application.documents.service import DocumentLimits, DocumentService
@@ -122,6 +127,11 @@ class Services:
     chat: ChatService
     proposals: ProposalService
     tools: ToolGateway
+    calendar_adapters: CalendarAdapters
+    calendar_sync: CalendarSyncService
+    calendar_connections: CalendarConnectionService
+    calendar_reconcile: ReconciliationService
+    ops: InternalOpsService
 
     @classmethod
     def build(
@@ -134,8 +144,11 @@ class Services:
         ids: IdGenerator,
         adapters: DocumentAdapters,
         options: DocumentOptions | None = None,
+        calendar: CalendarAdapters | None = None,
+        ops_options: OpsOptions | None = None,
     ) -> Services:
         options = options or DocumentOptions()
+        calendar = calendar or unconfigured()
         audit = AuditService(clock, ids)
         planner = RoutingPlanner(clock)
         notifications = NotificationService(uow_factory, ids, clock)
@@ -170,6 +183,10 @@ class Services:
             reranker=adapters.reranker,
             rerank_candidates=options.rerank_candidates,
         )
+        calendar_sync = CalendarSyncService(
+            uow_factory, ids, clock, audit, notifications, jobs, calendar.provider, adapters.file_cipher
+        )
+        workflow.calendar = calendar_sync
         proposals = ProposalService(uow_factory, ids, clock, audit, leave_requests, approvals)
         tools = ToolGateway(
             uow_factory,
@@ -186,6 +203,39 @@ class Services:
             retrieval,
             proposals,
             adapters.tokenizer,
+        )
+        ingestion = IngestionPipeline(
+            uow_factory,
+            adapters.storage,
+            adapters.parser,
+            adapters.tokenizer,
+            adapters.embedder,
+            adapters.language,
+            security,
+            privacy,
+            security_policies,
+            ids,
+            clock,
+            audit,
+            notifications,
+            rules=rules,
+            max_pages=options.max_pages,
+        )
+        chat = ChatService(
+            uow_factory,
+            ids,
+            clock,
+            audit,
+            privacy,
+            reidentification,
+            security_policies,
+            adapters.language,
+            None,  # the LangGraph agent is attached by the runtime (it needs an async checkpointer pool)
+            proposals=proposals,
+            retention_days=options.conversation_retention_days,
+        )
+        calendar_reconcile = ReconciliationService(
+            uow_factory, ids, clock, audit, calendar.provider, calendar_sync
         )
         return cls(
             uow_factory=uow_factory,
@@ -218,23 +268,7 @@ class Services:
                 jobs,
                 limits=DocumentLimits(max_upload_mb=options.max_upload_mb, max_pages=options.max_pages),
             ),
-            ingestion=IngestionPipeline(
-                uow_factory,
-                adapters.storage,
-                adapters.parser,
-                adapters.tokenizer,
-                adapters.embedder,
-                adapters.language,
-                security,
-                privacy,
-                security_policies,
-                ids,
-                clock,
-                audit,
-                notifications,
-                rules=rules,
-                max_pages=options.max_pages,
-            ),
+            ingestion=ingestion,
             retrieval=retrieval,
             privacy=privacy,
             reidentification=reidentification,
@@ -252,21 +286,37 @@ class Services:
                 token_ttl_seconds=options.download_token_ttl_seconds,
             ),
             retention=RetentionService(uow_factory, ids, clock, audit, notifications, jobs, adapters.storage),
-            chat=ChatService(
+            chat=chat,
+            proposals=proposals,
+            tools=tools,
+            calendar_adapters=calendar,
+            calendar_sync=calendar_sync,
+            calendar_connections=CalendarConnectionService(
                 uow_factory,
                 ids,
                 clock,
                 audit,
-                privacy,
-                reidentification,
-                security_policies,
-                adapters.language,
-                None,  # the LangGraph agent is attached by the runtime (it needs an async checkpointer pool)
-                proposals=proposals,
-                retention_days=options.conversation_retention_days,
+                calendar.oauth,
+                calendar.provider,
+                adapters.file_cipher,
+                calendar_sync,
+                redirect_uri=calendar.redirect_uri,
             ),
-            proposals=proposals,
-            tools=tools,
+            calendar_reconcile=calendar_reconcile,
+            ops=InternalOpsService(
+                uow_factory,
+                ids,
+                clock,
+                audit,
+                notifications,
+                jobs,
+                calendar_sync,
+                calendar_reconcile,
+                proposals,
+                chat,
+                index_generation=ingestion.generation,
+                options=ops_options,
+            ),
         )
 
     def with_clock(self, clock: Clock) -> Services:
@@ -279,6 +329,8 @@ class Services:
             ids=self.ids,
             adapters=self.adapters,
             options=self.options,
+            calendar=self.calendar_adapters,
+            ops_options=self.ops.options,
         )
         services.chat.agent = self.chat.agent
         return services

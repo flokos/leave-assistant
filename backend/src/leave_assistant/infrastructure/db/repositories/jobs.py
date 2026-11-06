@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from leave_assistant.application.jobs.models import Job, JobStatus
@@ -153,3 +153,13 @@ class SqlJobRepository:
     async def counts(self) -> dict[str, int]:
         stmt = select(JobRow.status, func.count()).group_by(JobRow.status)
         return {str(status): int(count) for status, count in (await self._s.execute(stmt)).all()}
+
+    async def purge_finished(self, before: datetime) -> int:
+        result = await self._s.execute(
+            delete(JobRow).where(
+                JobRow.status == JobStatus.SUCCEEDED.value,
+                JobRow.finished_at.is_not(None),
+                JobRow.finished_at < before,
+            )
+        )
+        return int(getattr(result, "rowcount", 0) or 0)

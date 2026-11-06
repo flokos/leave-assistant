@@ -284,7 +284,6 @@ class IngestionPipeline:
                     "status": version.status.value,
                 },
                 dedupe_key=f"document.processed:{version.id}",
-                channels=("in_app",),
             )
             await uow.commit()
         return ProcessOutcome(version.id, version.status, len(chunks), parsed.pages, language)
@@ -424,7 +423,6 @@ class IngestionPipeline:
                         "error": error[:200],
                     },
                     dedupe_key=f"document.failed:{version.id}",
-                    channels=("in_app",),
                 )
             await uow.commit()
 
@@ -478,7 +476,6 @@ class IngestionPipeline:
                 "status": version.status.value,
             },
             dedupe_key=f"document.review_required:{version.id}",
-            channels=("in_app",),
         )
 
     @staticmethod
