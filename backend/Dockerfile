@@ -16,11 +16,11 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /uvx /bin/
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 # Dependencies first (cached layer); the project itself is installed in the next step.
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --group onnx --no-install-project
 COPY src ./src
 COPY alembic.ini ./
 COPY alembic ./alembic
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --group onnx   # M9: ONNX reranker runtime
 
 RUN useradd --system --uid 10001 --create-home app && chown -R app:app /app \
  && mkdir -p /models && chown app:app /models   # model cache volume (HF_HOME) must be writable by the app user

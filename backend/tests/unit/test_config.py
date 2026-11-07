@@ -31,3 +31,9 @@ def test_invalid_enum_values_are_rejected(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("RETRIEVAL_BACKEND", "elasticsearch")
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_empty_variables_fall_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    # `GEMINI_MODEL=` in deploy/.env: compose's `${GEMINI_MODEL:-…}` uses the default, and so must a sourced shell (M9)
+    monkeypatch.setenv("GEMINI_MODEL", "")
+    assert Settings(_env_file=None).gemini_model == "gemini-3.6-flash"  # type: ignore[call-arg]

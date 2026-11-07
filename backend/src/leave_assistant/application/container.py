@@ -42,6 +42,7 @@ from leave_assistant.application.ports import (
     Tokenizer,
     UnitOfWorkFactory,
     VaultCipher,
+    VectorIndex,
 )
 from leave_assistant.application.privacy.reidentification import ReidentificationService
 from leave_assistant.application.privacy.service import PseudonymisationService
@@ -76,6 +77,7 @@ class DocumentAdapters:
     input_classifier: SimilarityClassifier | None = None  # M7: user-input screening (own benign set)
     judge: LlmJudge | None = None
     reranker: Reranker | None = None
+    vector_index: VectorIndex | None = None  # M9: None = pgvector (ADR-0011)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +94,7 @@ class DocumentOptions:
     download_token_ttl_seconds: int = 60
     rerank_candidates: int = 20
     conversation_retention_days: int = 90
+    retrieval_hybrid: bool = True  # False = vector-only (M9 comparison)
 
 
 @dataclass(slots=True)
@@ -182,6 +185,8 @@ class Services:
             default_k=options.retrieval_k,
             reranker=adapters.reranker,
             rerank_candidates=options.rerank_candidates,
+            vector_index=adapters.vector_index,
+            hybrid=options.retrieval_hybrid,
         )
         calendar_sync = CalendarSyncService(
             uow_factory, ids, clock, audit, notifications, jobs, calendar.provider, adapters.file_cipher

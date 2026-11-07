@@ -126,16 +126,32 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   a hashed single-use nonce. Found and fixed on the way: the outbox grant, notification dedupe, the n8n heap, W4
   ending without output, document notifications without e-mail, and the M6 tanh test reaching MKL itself.
 
-### M9 — Observability and evaluation (M)
+### M9 — Observability and evaluation (M) — **done 2026-11-06** (worklog: `docs/development/worklog/M9.md`)
 - Langfuse profile (ClickHouse, Valkey, SeaweedFS blobs) documented and tested in the evaluation-session
   configuration on the 7 GB reference machine (`make eval-session`, decided Q-05); dataset `leave-eval-v1` in Langfuse; harness for retrieval metrics (pgvector vs Chroma × rerankers ×
   hybrid/vector); RAGAS runs; agent/security metrics; latency measurements; the retrieval-comparison report and the
   reranker decision (ADR-0014 updated with results); evaluation docs.
 - Exit: `docs/evaluation/*` contain actual results with configuration and date; default backend/reranker set from
   evidence; known weaknesses listed.
+- Delivered as planned except:
+  - The live answers and agent scenarios ran on Mistral only. Gemini's answer model allows 20 requests per day on
+    the free tier, and that quota ran out during the run.
+  - The RAGAS judge is `mistral-large-4`: Medium and Small have no free quota.
+  - Reranker A's runtime variants were not timed (user decision: its PyTorch latency already rules it out).
+  - The trace check reads Langfuse v4's observations API (the trace list endpoint is gone).
+- Decided from evidence: pgvector stays; hybrid stays; reranker B on **ONNX fp32**; τ 0.5 → 0.22.
+- Found and fixed on the way:
+  - The full-text leg ANDed every word and matched almost nothing.
+  - `make chat-perf` loaded the models twice in one container; with that fixed, NFR-PERF-01 passes (R-31 closed).
+  - Empty `.env` variables overrode the defaults on the host.
+  - The harness missed the `search_policies` tool's evidence.
+  - langchain-mistralai's usage merge (a local patch in the evaluation project).
 
 ### M10 — Hardening and documentation completion (M)
 - Carried over from M8 (user decision): the manual Google Calendar end-to-end checklist (doc 10 §2, worklog M8).
+- From M9: its own outcome for the verifier fallback (R-36); a live Gemini measurement when its quota allows (R-03);
+  a department-name lookup for `get_team_availability` (S19); stop NER masking ordinary policy words in document
+  chunks, with recogniser precision measured on the corpus (R-30, `docs/evaluation/rag-quality.md` §3.2).
 - Platform admin UI completion, security policy UI, audit export, backup/restore script and test, resource limits
   and `WORKER_MODE=embedded` validation on the 7 GB machine, troubleshooting guide, final ADR sync, README.
 - Exit: clean-clone install test following only the docs; all suites green; documentation review against brief §13.

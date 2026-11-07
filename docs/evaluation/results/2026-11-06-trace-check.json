@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-06",
+  "commit": "7f7ba88-dirty",
+  "conversation": "01a1b295-b46c-77e9-b50e-71a3d8a9f167",
+  "done": {
+    "run_id": "01a1b296-05f5-7712-9869-badf9d9e9b3a",
+    "outcome": "answered",
+    "usage": {
+      "input_tokens": 987,
+      "output_tokens": 136,
+      "provider": "gemini",
+      "model": "gemini-3.6-flash"
+    }
+  },
+  "traces": 1,
+  "observations": 15,
+  "generations": 1,
+  "emails": [],
+  "phones": [],
+  "names": [],
+  "tenant_tagged": true,
+  "user_ids": [
+    "428fa21003d6c044"
+  ],
+  "user_id_opaque": true,
+  "placeholders_seen": [
+    "EMAIL_0002",
+    "PERSON_0005",
+    "PHONE_0001"
+  ],
+  "passed": true
+}

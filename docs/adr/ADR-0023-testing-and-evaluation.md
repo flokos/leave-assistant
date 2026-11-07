@@ -37,3 +37,20 @@ Compose `test` profile; `make` targets; optional GitHub Actions mirror.
 
 ## Consequences
 Milestone exit criteria reference named suites; evaluation documents carry confidence intervals and limitations.
+
+## Implementation note (M9, 2026-11-06)
+- **Dataset:** `evaluation/datasets/leave-eval-v1.yaml` (71 items: 32 scenarios, 30 retrieval probes and 9 unanswerable probes; labels committed
+  before any measurement). The decision rule was pre-registered in `docs/evaluation/README.md`.
+- **Harness:**
+  - location: the backend venv on the host (`leave_assistant.evaluation`);
+  - outputs: the retrieval grid, reranker runtimes, live answers, live agent scenarios, security figures,
+    performance and the trace check.
+- **RAGAS:** in the separate `evaluation/` project.
+- **Live budget:** a call budget counted at the router sink.
+- **Deviations, each with its reason in the README:**
+  - The live answers are pinned to one provider (Mistral), because Gemini's answer model allows 20 requests a day
+    on the free tier.
+  - The judge is `mistral-large-4` (Medium and Small have no free quota). It is paced client-side and saves each
+    repetition to disk, because a full run takes hours on the free plan.
+  - Results come only from harness output with commit, configuration, date and corpus fingerprint
+    (`docs/evaluation/results/`).

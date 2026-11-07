@@ -1,6 +1,6 @@
 # ADR-0011 — Retrieval backend: pgvector as default, ChromaDB as an evaluation profile behind one port
 
-**Status:** Accepted (baseline v0.1, 2026-11-04; default to be confirmed with M9 results) · **Related:** ADR-0003, ADR-0012
+**Status:** Accepted, final (baseline v0.1, 2026-11-04; default confirmed by the M9 results, 2026-11-06) · **Related:** ADR-0003, ADR-0012
 
 ## Context
 Brief §7.6 selects both ChromaDB and pgvector to compare retrieval approaches on the same corpus, embeddings and
@@ -40,3 +40,14 @@ HNSW index maintenance in PostgreSQL; `eval` profile adds one container when nee
 ## Consequences
 The M9 report (`docs/evaluation/retrieval-comparison.md`) must be produced before this ADR's status changes from
 "to be confirmed" to final.
+
+## Results (M9, 2026-11-06)
+`docs/evaluation/retrieval-comparison.md`. Built as decided: a `VectorIndex` port with `PgVectorIndex` (default) and
+`ChromaVectorIndex` (eval profile; one collection per tenant, cosine; its version allow list is computed in
+PostgreSQL under RLS, so Chroma never decides visibility), plus `ChromaSync` copying the exact pgvector embeddings.
+On the 34 labelled queries of `leave-eval-v1`, Chroma returns **the same rankings** as pgvector in every
+configuration, with 0 boundary violations, and a slower search (p50 123–179 ms vs 99–108 ms: the allow-list
+round trip plus an HTTP hop). By the pre-registered rule (simpler option on a tie) **pgvector stays the default**.
+Chroma remains available for evaluation (`RETRIEVAL_BACKEND=chroma`, `make eval-session`). The run also found that
+the full-text leg had been matching almost nothing: an AND of every word of a whole question. It is fixed to OR
+the stemmed terms; see the report §4.

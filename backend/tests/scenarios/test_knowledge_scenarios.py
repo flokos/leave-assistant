@@ -28,7 +28,16 @@ from leave_assistant.seed.run import employee_principal
 from tests.fakes.identity import FakeIdentityAdmin
 
 pytestmark = [pytest.mark.scenario, pytest.mark.asyncio(loop_scope="module")]
-SCENARIOS = yaml.safe_load(Path(__file__).with_name("s01_s09.yaml").read_text(encoding="utf-8"))
+# M9: the scenarios live in the evaluation dataset (evaluation/datasets/leave-eval-v1.yaml, `scenario_test: true`)
+SCENARIOS = [
+    item
+    for item in yaml.safe_load(
+        (Path(__file__).resolve().parents[3] / "evaluation/datasets/leave-eval-v1.yaml").read_text(
+            encoding="utf-8"
+        )
+    )["items"]
+    if item.get("scenario_test")
+]
 HOST = os.environ.get("TEST_DATABASE_HOST", "127.0.0.1")
 PORT = os.environ.get("POSTGRES_PORT", "5432")
 

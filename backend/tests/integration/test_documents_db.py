@@ -99,6 +99,15 @@ async def test_seed_uploads_corpus_and_processing_indexes_markdown_under_rls(
             "carry over unused days", language="en", reader=reader, limit=10
         )
         assert english
+        # M9: whole questions match too (any stemmed word, ranked) — an AND of every word matched nothing
+        questions = await uow.chunks.keyword_search(
+            "Πόσες ημέρες κανονικής άδειας δικαιούμαι τον χρόνο;", language="el", reader=reader, limit=10
+        )
+        assert questions and questions[0].document_id == faq.document.id
+        english_question = await uow.chunks.keyword_search(
+            "Can I carry over the days I did not take?", language="en", reader=reader, limit=10
+        )
+        assert english_question
     # the other tenant sees nothing — through the service and through raw SQL as app_rls
     stranger = principal_for(seeded["employees"]["brightwater"]["BWS-004"])  # type: ignore[index]
     assert not (await db_services.retrieval.search(stranger, "κανονικής άδειας")).hits

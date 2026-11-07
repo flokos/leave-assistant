@@ -74,6 +74,13 @@ import-linter 2.15, ruff 0.17.3, mypy 2.4.1, pip-audit.
 
 Evaluation (separate uv project `evaluation/`, own lock — see §9): ragas 0.4.3, **langchain-community < 0.4** (0.3.31),
 datasets 5.1.0, langfuse 5.1.0, langchain-google-genai 4.4.3, langchain-groq, pandas.
+**As built (M9, 2026-11-06; `evaluation/uv.lock`, 125 packages, Python 3.14):** ragas 0.4.3, langchain-community
+0.3.31, langchain-core 1.7.6, **langchain-mistralai 1.1.6 instead of langchain-groq** (the judge is Mistral, after
+the Groq signup was blocked), langchain-google-genai 4.4.3, langfuse 5.1.0, datasets 5.1.0, pandas 3.1.1. The
+backend's `onnx` group (onnxruntime 1.31.1, optimum 2.1.0, optimum-onnx 0.1.0) is now installed in the api image,
+because the deployed reranker runs on ONNX (ADR-0014). langchain-mistralai 1.1.6 cannot combine token usage across
+multiple generations (Mistral's nested `*_tokens_details`), so the judge uses a subclass that merges it
+(`leave_eval/ragas_run.py`).
 
 ## 4. Machine-learning models
 
@@ -98,9 +105,9 @@ Excluded: `jinaai/jina-reranker-v2-base-multilingual` and newer Jina rerankers (
 | SeaweedFS | `chrislusf/seaweedfs:4.52` | Apache-2.0; S3 API for boto3 and for Langfuse blobs (`LANGFUSE_S3_*_FORCE_PATH_STYLE=true`) |
 | Mailpit | `axllent/mailpit:v1.33.0` | MIT; replaces MailHog |
 | Chroma (eval) | `chromadb/chroma:1.5.9` | equals client version |
-| Langfuse (observability) | `langfuse/langfuse:4`, `langfuse/langfuse-worker:4` | MIT core; needs PostgreSQL, ClickHouse, Redis/Valkey, S3 |
+| Langfuse (observability) | `langfuse/langfuse:4.76.0`, `langfuse/langfuse-worker:4.76.0` (pinned in M9) | MIT core; needs PostgreSQL, ClickHouse, Redis/Valkey, S3. v4 has dropped `GET /api/public/traces`; read traces via `/api/public/v2/observations` |
 | ClickHouse | `clickhouse/clickhouse-server:26.3.62.3` | tag from Langfuse's own compose file |
-| Valkey | `valkey/valkey:8` | BSD-3; Langfuse documents Redis/Valkey |
+| Valkey | `valkey/valkey:8.1.11-alpine` (pinned in M9) | BSD-3; Langfuse documents Redis/Valkey |
 | Base images | `python:3.14-slim` (+ `tesseract-ocr tesseract-ocr-ell tesseract-ocr-eng`), `node:24-alpine` (build), `nginx:alpine` | Vite 8.3 requires Node ≥ 20.19 / ≥ 22.12 |
 | Host tooling (verified) | Docker 29.9.2, Compose v5.6.1, Python 3.14.4, Node 22.22.1, git 2.53 | |
 
@@ -177,7 +184,7 @@ one-line change if Gemini quotas prove unusable (decided Q-04 — no paid tier).
 | keycloak | 600–900 MB | 1 GB | `JAVA_OPTS_KC_HEAP="-Xms256m -Xmx512m"`, optimised build |
 | seaweedfs | 100–300 MB | 512 MB | single `weed server -s3 -filer` |
 | mailpit | 20–40 MB | 128 MB | |
-| api | 0.9–1.6 GB | 2 GB | e5-small + int8 reranker + spaCy models resident |
+| api | 0.9–1.6 GB | 2 GB (**3.5 GB** in embedded mode, `make up-staged`) | e5-small + reranker + spaCy models resident. *M9 measured:* in embedded mode (ingestion child in the same cgroup), one chat turn then the document suite peaked at **3.06 GB with the ONNX reranker** and 2.86 GB with PyTorch; at the old 3 GB limit the api was OOM-killed once. Disabling ONNX Runtime's memory arena saved nothing and cost ≈ 9 % latency |
 | worker | 1.2–2.5 GB (Docling peaks) | 3 GB | lazy-loaded, unloaded when idle |
 | frontend (nginx) | 10–20 MB | 64 MB | |
 | n8n | 250–500 MB | 768 MB | |
@@ -206,6 +213,7 @@ one-line change if Gemini quotas prove unusable (decided Q-04 — no paid tier).
 | `+ observability` | 6.5–10 GB | **16 GB recommended** |
 | everything incl. `eval` | 7–11 GB | 16 GB |
 | evaluation session (`core` minus frontend/n8n, embedded worker, `observability` with reduced ClickHouse/Valkey settings) | 5–6.5 GB | the 7.1 GB reference machine (decided Q-05) |
+| *measured M9 (2026-11-06)*: `observability` with `deploy/clickhouse/low-memory-*.xml` | langfuse-web 335–860 MB (Node heap 1 GB, limit 1.25 GB), worker 230–360 MB, ClickHouse 26–86 MB, Valkey 5–8 MB: **≈ 1.3 GB at peak** | fits beside postgres + seaweedfs + chroma, or beside the staged core stack for a trace check; the harness runs on the host |
 
 Disk: images ≈ 8–10 GB; Python environment ≈ 3.5 GB (measured for the resolved set with CPU torch); models ≈ 3–4 GB;
 data volumes small. CPU: 4 cores suffice; ingestion and reranking are the hot spots. No GPU required or assumed.

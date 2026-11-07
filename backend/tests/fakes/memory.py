@@ -63,6 +63,7 @@ from leave_assistant.application.ports import (
     HolidayRepository,
     IdempotencyRepository,
     IndexGenerationRepository,
+    IndexRow,
     InjectionFinding,
     InjectionFindingRepository,
     IntegrationEventRepository,
@@ -967,6 +968,21 @@ class _Chunks:
             LegHit(c.id, d.id, c.version_id, rank, score)
             for rank, (score, c, d) in enumerate(scored[:limit], 1)
         ]
+
+    async def visible_version_ids(self, *, reader: Reader) -> list[UUID]:
+        return list(dict.fromkeys(c.version_id for c, _ in self._candidates(reader)))
+
+    async def index_rows(self) -> list[IndexRow]:
+        rows: list[IndexRow] = []
+        for chunk in sorted(self._rows(), key=lambda c: str(c.id)):
+            version = self._s.document_versions.get(chunk.version_id)
+            if not chunk.retrievable or chunk.embedding is None or version is None or not version.retrievable:
+                continue
+            document = self._s.documents.get(version.document_id)
+            if document is None or document.deleted_at is not None:
+                continue
+            rows.append(IndexRow(chunk.id, document.id, chunk.version_id, list(chunk.embedding)))
+        return rows
 
     async def keyword_search(
         self, query: str, *, language: str | None, reader: Reader, limit: int

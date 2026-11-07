@@ -1,0 +1,11 @@
+<!-- Per-query limits for the low-memory profile (M9): below the server cap, two threads per query. -->
+<clickhouse>
+    <profiles>
+        <default>
+            <max_threads>2</max_threads>
+            <max_memory_usage>600000000</max_memory_usage>
+            <max_block_size>8192</max_block_size>
+            <max_insert_threads>1</max_insert_threads>
+        </default>
+    </profiles>
+</clickhouse>

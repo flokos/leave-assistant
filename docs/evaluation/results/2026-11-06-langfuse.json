@@ -1,0 +1,16 @@
+{
+  "dataset": "leave-eval-v1",
+  "items": 71,
+  "runs": {
+    "pgvector+A+vector": {
+      "items": 18,
+      "run": "2026-11-06-pgvector+A+vector",
+      "dataset_run_id": "9c402210d488842f"
+    },
+    "pgvector+B+hybrid+onnx": {
+      "items": 18,
+      "run": "2026-11-06-pgvector+B+hybrid+onnx",
+      "dataset_run_id": "9ad88ca6deeed5ce"
+    }
+  }
+}

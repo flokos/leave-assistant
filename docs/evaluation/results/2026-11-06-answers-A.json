@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-06",
+  "commit": "7f7ba88-dirty",
+  "providers": "mistral",
+  "configs": {
+    "pgvector+A+vector": {
+      "samples": 18,
+      "file": "2026-11-06-answers-pgvector+A+vector.jsonl",
+      "tau": 0.135
+    }
+  },
+  "calls": 39,
+  "by_model": {
+    "mistral/ministral-8b-2512": 17,
+    "mistral/ministral-14b-2512": 22
+  },
+  "provider_events": {
+    "selected": 39
+  }
+}

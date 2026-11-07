@@ -224,6 +224,41 @@ make up-automation        # core + the automation profile: n8n-init imports and 
 - `GET /api/v1/platform/health` (platform administrator) shows dead events, parked/failed calendar jobs and
   provider health per company.
 
+### Observability and evaluation (M9)
+**Langfuse** (traces of every assistant run, the evaluation dataset and experiments) runs in the `observability`
+profile; **Chroma** (only for the retrieval comparison) in the `eval` profile. Both are optional.
+
+```bash
+make env                 # generates the Langfuse, ClickHouse, Valkey and S3 secrets into deploy/.env (once)
+make up-observability    # Langfuse web + worker, ClickHouse (low-memory settings), Valkey; UI http://localhost:3000
+```
+Sign in with `LANGFUSE_INIT_USER_EMAIL` and the generated `LANGFUSE_INIT_USER_PASSWORD` from `deploy/.env`. The
+organisation, project and API keys are created at the first start; set `LANGFUSE_ENABLED=true` and restart the api
+(`make up-staged`) to trace assistant runs (inputs are pseudonymised and masked again before they leave the backend).
+Langfuse needs about 1.3 GB on top of the core stack, so on the 7 GB machine run it only when needed.
+
+The evaluation (doc 11, `docs/evaluation/`) runs on the host against the seeded dev database:
+
+```bash
+make eval-session        # stops frontend, n8n, worker, api and keycloak; starts Chroma and Langfuse
+make eval-offline        # retrieval comparison, reranker runtimes, τ calibration, security figures
+make eval-live           # live answers (pinned to Mistral, EVAL_ANSWER_PROVIDERS) + live agent scenarios
+make eval-ragas          # RAGAS scores (judge mistral-large-4, ≈ 45 min per repetition on the free plan; resumable)
+make eval-report         # performance figures
+make eval-session-end    # back to `make up-staged`
+make eval-trace          # with LANGFUSE_ENABLED=true make up-staged: one traced chat turn, checked for leaks
+make chat-perf           # NFR-PERF-01 in a one-off api container (stop the api first on the 7 GB machine)
+```
+**Memory on the 7 GB machine.** Run one heavy step at a time. On 2026-11-06, the api at its 3.5 GB embedded limit,
+the host-side integration suite, Langfuse, a RAGAS run and a browser together exhausted RAM and swap.
+systemd-oomd then killed the editor and the SeaweedFS container. Stop Langfuse (`make eval-session-end` or `docker
+compose … stop langfuse-web langfuse-worker clickhouse valkey`) before `make test-integration`. Start long runs
+detached (`setsid nohup make eval-ragas > ragas.log 2>&1 &`); RAGAS keeps finished repetitions in
+`results/<date>-ragas.partial.jsonl` and resumes from them.
+Live steps use the free-tier keys and stop at `EVAL_MAX_CALLS` provider calls (pause `EVAL_PACE_SECONDS` between
+turns). The harness refuses to run when documents other than the seed corpus are retrievable — remove test uploads
+first. Results land in `docs/evaluation/results/` with the commit, the date and a corpus fingerprint.
+
 ## Low-memory hosts (< 4 GB free)
 ```bash
 make up-staged
