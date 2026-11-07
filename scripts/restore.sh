@@ -7,7 +7,8 @@
 # dropped, recreated with their owners from deploy/postgres/init/01-init.sh and restored; the volumes in the backup
 # (seaweed, n8n, clickhouse-data) are emptied and refilled. The roles must exist, which they do on any volume
 # initialised by the init script with the same deploy/.env. deploy/.env must hold the keys the backup was made with.
-# Afterwards: `make up-staged` (or `make up`), then `scripts/restore.sh --check <dir>` compares the row counts.
+# Afterwards: `scripts/restore.sh --check <dir>` compares the row counts (before starting the stack: the worker's
+# scheduled jobs delete expired and archived conversations and write audit rows at start), then `make up-staged`.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -66,4 +67,4 @@ restore_volume seaweed.tar.gz seaweed
 restore_volume n8n.tar.gz n8n
 restore_volume clickhouse.tar.gz clickhouse-data
 
-log "restore complete. Next: make up-staged (or make up), then scripts/restore.sh --check $DIR"
+log "restore complete. Next: scripts/restore.sh --check $DIR (now, before the stack starts: its scheduled jobs change rows), then make up-staged"

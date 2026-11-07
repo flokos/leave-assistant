@@ -86,4 +86,4 @@ readiness through the frontend proxy; `readyz` names the failing dependency), `m
 |---|---|
 | `make backup` says postgres is not running | Start the stack first (`make up-staged`). |
 | After a restore the app shows errors decrypting documents or calendar tokens | `deploy/.env` holds different keys than when the backup was made. Restore the `APP_KEK`, `VAULT_HMAC_KEY`, `VAULT_KEK` and `N8N_ENCRYPTION_KEY` that were kept with the backup ([backup-restore.md](backup-restore.md)). |
-| `make restore-check` reports differences | The stack wrote new rows after the restore (for example a periodic job), or the restore was partial; the script's log names each table. |
+| `make restore-check` reports differences | Run it before starting the stack: at start the scheduled jobs delete expired and archived conversations and write audit rows. Otherwise the restore was partial; the script's log names each table. |

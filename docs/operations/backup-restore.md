@@ -2,7 +2,12 @@
 
 `scripts/backup.sh` and `scripts/restore.sh` (doc 03 §6.5), wrapped by `make backup`, `make restore` and
 `make restore-check`. The procedure was tested end to end in M10 together with the clean-clone installation test
-(worklog M10): backup → all volumes wiped → fresh clone installed by the docs → restore → row counts compared.
+(worklog M10): backup → all volumes wiped → fresh clone installed by the docs → restore → row counts compared →
+end-to-end suite (16/16, including an encrypted supporting document downloaded after the restore).
+
+**Run the check before starting the stack.** At start the worker's scheduled jobs delete expired and archived
+assistant conversations and write audit rows (M10 test: 13 archived conversations and 4 audit rows changed within a
+minute of the start), so a check after the start reports those as differences.
 
 ## What is backed up
 
@@ -49,8 +54,8 @@ ClickHouse) are stopped for the seconds their volume is archived, then started a
 
 ```bash
 make restore DIR=/path/to/backups/2026-11-07     # asks for confirmation; replaces databases and volumes
+make restore-check DIR=/path/to/backups/2026-11-07   # row counts against the manifest — before starting the stack
 make up-staged                                   # start everything again
-make restore-check DIR=/path/to/backups/2026-11-07   # row counts against the manifest
 ```
 
 The restore stops every container, starts PostgreSQL alone, drops and recreates each database with its owner from
