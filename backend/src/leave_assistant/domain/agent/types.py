@@ -47,6 +47,8 @@ class Outcome(StrEnum):
     EXECUTED = "executed"
     REJECTED = "rejected"  # the user declined the proposal (or it was superseded / expired)
     FAILED = "failed"  # the confirmed operation broke a business rule at execution time
+    # M10 (R-36): the verifier rejected every draft or the plan loop hit its cap; the text is the deterministic fallback
+    FALLBACK = "fallback"
 
 
 class ProviderErrorKind(StrEnum):

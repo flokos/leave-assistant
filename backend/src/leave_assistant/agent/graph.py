@@ -115,6 +115,23 @@ PRE_ROUTER: tuple[tuple[Intent, re.Pattern[str]], ...] = (
         re.compile(r"εκκρεμεί για έγκριση|ενέκρινε|approve (request|#)|pending approvals", re.I),
     ),
     (Intent.AVAILABILITY, re.compile(r"ποιος λείπει|ποιοι λείπουν|who is (off|away|absent)", re.I)),
+    (  # M10 (R-36): last, after every action rule — a question about rules or permissions is a policy question
+        Intent.POLICY_QUESTION,
+        re.compile(
+            r"^\s*(who|can|may|is it (allowed|possible)|am i allowed|do i need|what happens)\b"
+            r"|^\s*(ποιος|ποια|ποιοι|μπορώ|μπορεί|επιτρέπεται|γίνεται|χρειάζεται|τι ισχύει)\b",
+            re.I,
+        ),
+    ),
+)
+
+# a permission question with concrete details ("can I take 3 days from Monday?") may be an action request
+CONCRETE = re.compile(
+    r"\d|\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|june|july"
+    r"|august|september|october|november|december|tomorrow|next week)\b"
+    r"|\b(δευτέρα|τρίτη|τετάρτη|πέμπτη|παρασκευή|σάββατο|κυριακή|αύριο|επόμενη εβδομάδα)"
+    r"|\b(ιανουαρ|φεβρουαρ|μαρτ|απριλ|απρίλ|μαΐ|ιουν|ιούν|ιουλ|ιούλ|αυγο[υύ]στ|σεπτ[εέ]μβρ|οκτ[ωώ]βρ|νο[εέ]μβρ|δεκ[εέ]μβρ)",
+    re.I,
 )
 
 
@@ -311,6 +328,8 @@ class AgentGraph:
         _status(runtime, "classifying")
         text = state["messages"][-1]["content"]
         for intent, pattern in PRE_ROUTER:
+            if intent is Intent.POLICY_QUESTION and CONCRETE.search(text):
+                continue  # dates, numbers or a request number: possibly an action, the classifier decides
             if pattern.search(text):
                 return {"intent": intent.value, "confidence": 1.0, "route": self._route(intent, 1.0)}
         user = LlmSafeText(f"<user>{text}</user>")
@@ -527,7 +546,7 @@ class AgentGraph:
         if iterations >= MAX_PLAN_ITERATIONS:
             return {
                 "pending_calls": [],
-                "answer": _answer(fallback(state.get("tool_steps", []), language), Outcome.ANSWERED),
+                "answer": _answer(fallback(state.get("tool_steps", []), language), Outcome.FALLBACK),
             }
         principal = runtime.context.principal
         bound = allowed_tools(
@@ -664,7 +683,7 @@ class AgentGraph:
                 return {"feedback": "; ".join(problems)}
             return {
                 "feedback": "",
-                "answer": _answer(fallback(state.get("tool_steps", []), language), Outcome.ANSWERED),
+                "answer": _answer(fallback(state.get("tool_steps", []), language), Outcome.FALLBACK),
             }
         ordered = [refs[n - 1] for n in cited]
         renumbered = tuple(replace(r, n=i) for i, r in enumerate(ordered, start=1))

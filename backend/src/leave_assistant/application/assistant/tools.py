@@ -110,7 +110,9 @@ class AvailabilityArgs(Args):
     from_date: date = Field(description=f"first day, {DATE_HELP}")
     to_date: date = Field(description=f"last day, {DATE_HELP}")
     department: str | None = Field(
-        None, max_length=16, description="department code; default your own department"
+        None,
+        max_length=64,
+        description="department code or name as the user wrote it; default your own department",
     )
 
     @model_validator(mode="after")
