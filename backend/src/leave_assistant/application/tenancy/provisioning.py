@@ -91,11 +91,13 @@ class TenantProvisioningService:
         require(principal, Action.MANAGE_TENANTS)
         slug = validate_slug(cmd.slug)
         name = validate_name(cmd.name, "name")
-        timezone = validate_timezone(cmd.timezone)
-        settings = TenantSettings.from_dict(cmd.settings)
         context = TenantContext.for_principal(principal)
         async with self._uow(context) as uow:
             existing = await uow.tenants.get_by_slug(slug)
+            defaults = await uow.platform_settings.get()  # M10: what the creation leaves out
+        timezone = validate_timezone(cmd.timezone or defaults.timezone)
+        locale = cmd.default_locale or defaults.default_locale
+        settings = TenantSettings.from_dict({**defaults.tenant_settings.to_dict(), **(cmd.settings or {})})
         if existing is not None:
             if not allow_existing:
                 raise ConflictError(f"tenant slug {slug!r} already exists")
@@ -114,7 +116,7 @@ class TenantProvisioningService:
             slug=slug,
             name=name,
             status=TenantStatus.ACTIVE,
-            default_locale=cmd.default_locale,
+            default_locale=locale,
             timezone=timezone,
             settings=settings,
             created_at=now,
@@ -129,7 +131,7 @@ class TenantProvisioningService:
                 "admin.tenant.created",
                 resource_type="tenant",
                 resource_id=tenant.id,
-                details={"slug": slug, "default_locale": cmd.default_locale, "timezone": timezone},
+                details={"slug": slug, "default_locale": locale.value, "timezone": timezone},
             )
             await uow.commit()
         await self.ensure_security_policy(context, tenant.id, updated_by=principal.user_id)

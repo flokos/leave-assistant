@@ -847,6 +847,20 @@ class PiiVaultCounterRow(Base):
     next_seq: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
+class PlatformSettingsRow(Base):
+    """`platform.settings` (M10): one row (id = 1) — the defaults a new company gets."""
+
+    __tablename__ = "settings"
+    __table_args__ = {"schema": "platform"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    default_locale: Mapped[str] = mapped_column(String(2), nullable=False)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    tenant_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class SecurityPolicyDefaultsRow(Base):
     """`platform.security_policy_defaults`: one row (id = 1) — tenant defaults and the ranges tenants may use."""
 

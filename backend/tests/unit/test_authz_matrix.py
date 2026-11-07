@@ -48,7 +48,9 @@ MATRIX: list[tuple[Action, dict[str, Scope]]] = [
     (Action.CONNECT_PERSONAL_CALENDAR, {E: SELF, M: SELF, H: SELF, C: SELF}),
     (Action.READ_CALENDAR_SYNC, {E: SELF, M: SELF, H: TENANT, C: TENANT}),
     (Action.MANAGE_SECURITY_POLICY, {C: TENANT}),
+    (Action.MANAGE_TENANT_SETTINGS, {C: TENANT}),
     (Action.MANAGE_SECURITY_DEFAULTS, {P: PLAT}),
+    (Action.MANAGE_PLATFORM_SETTINGS, {P: PLAT}),
     (Action.MANAGE_TENANTS, {P: PLAT}),
     (Action.READ_TENANT_DATA, {}),
     (Action.CHAT, {E: TENANT, M: TENANT, H: TENANT, C: TENANT}),
@@ -155,7 +157,12 @@ def test_nobody_decides_their_own_request(world: World) -> None:
 def test_platform_admin_never_reads_tenant_data(world: World) -> None:
     platform = Principal(user_id="p", username="p", roles=frozenset({Role.PLATFORM_ADMIN}))
     for action in Action:
-        if action in {Action.MANAGE_TENANTS, Action.MANAGE_SECURITY_DEFAULTS, Action.READ_AUDIT_PLATFORM}:
+        if action in {
+            Action.MANAGE_TENANTS,
+            Action.MANAGE_SECURITY_DEFAULTS,
+            Action.MANAGE_PLATFORM_SETTINGS,
+            Action.READ_AUDIT_PLATFORM,
+        }:
             assert authorize(platform, action).allowed
         else:
             assert not authorize(platform, action, ResourceRef("doc", tenant_id=world.a.tenant.id)).allowed
@@ -163,7 +170,12 @@ def test_platform_admin_never_reads_tenant_data(world: World) -> None:
 
 def test_tenant_roles_cannot_use_platform_actions(world: World) -> None:
     admin = principal_for(world.a.employees["company_admin"])
-    for action in (Action.MANAGE_TENANTS, Action.MANAGE_SECURITY_DEFAULTS, Action.READ_AUDIT_PLATFORM):
+    for action in (
+        Action.MANAGE_TENANTS,
+        Action.MANAGE_SECURITY_DEFAULTS,
+        Action.MANAGE_PLATFORM_SETTINGS,
+        Action.READ_AUDIT_PLATFORM,
+    ):
         assert not authorize(admin, action).allowed
 
 

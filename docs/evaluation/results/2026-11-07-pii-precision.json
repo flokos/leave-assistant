@@ -1,0 +1,168 @@
+{
+  "date": "2026-11-07",
+  "commit": "84646db-dirty",
+  "corpus_fingerprint": "99e6750960b45e4b",
+  "chunks": 50,
+  "counts": {
+    "conversation": {
+      "ADDRESS/presidio": 9,
+      "EMAIL/presidio": 6,
+      "PERSON/presidio": 6
+    },
+    "document": {
+      "EMAIL/presidio": 6
+    }
+  },
+  "watched_findings": [
+    {
+      "tenant": "aegean",
+      "document": "Οδηγός Εξαιρέσεων",
+      "chunk": "049a2403-0ba5-51e9-babd-9fbede09d411",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "εγκρίνοντος",
+      "context": "εται στο αρχείο ελέγχου με το όνομα του εγκρίνοντος, την ημερομηνία και την αιτιολογία.",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Αργίες 2026",
+      "chunk": "5089139b-b90d-5e88-838e-76befc06e768",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Αγίου Πνεύματος",
+      "context": "ωτομαγιά | | 1 Ιουνίου 2026 | Δευτέρα | Αγίου Πνεύματος | | 15 Αυγούστου 2026 | Σάββατο | Κοίμη",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Αργίες 2026",
+      "chunk": "5089139b-b90d-5e88-838e-76befc06e768",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Θεοτόκου",
+      "context": " Αυγούστου 2026 | Σάββατο | Κοίμηση της Θεοτόκου | | 28 Οκτωβρίου 2026 | Τετάρτη | Εθνικ",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Leave Policy (English translation)",
+      "chunk": "8b93da41-dd5e-5145-a1a9-e06699642dcb",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "This Leave Policy of Aegean Logistics S.A.",
+      "context": "This Leave Policy of Aegean Logistics S.A. defines the leave types, employee entit",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Leave Policy (English translation)",
+      "chunk": "8b93da41-dd5e-5145-a1a9-e06699642dcb",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Piraeus",
+      "context": "plies to all full-time employees in the Piraeus offices and the warehouses. Requests ar",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Διαδικασία Αναρρωτικής Άδειας",
+      "chunk": "903e5968-6af4-5144-8ff7-09d43476ba59",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Τµήµα Ανθρώπινου Δυναμικού",
+      "context": " µόνο το Τµήµα Ανθρώπινου Δυναμικού. Το Τµήµα Ανθρώπινου Δυναμικού ελέγχει τη βεβαίωση και εγκρίνει την άδ",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Κανονισμός Αδειών",
+      "chunk": "bbcdd990-136b-576b-a008-4c37ea2d501a",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Πειραιά",
+      "context": "αση πλήρους απασχόλησης στα γραφεία του Πειραιά και στις αποθήκες. Οι αιτήσεις υποβάλλο",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Διαδικασία Αναρρωτικής Άδειας",
+      "chunk": "d5459f68-7fec-56c3-b3af-0b6b6c08f138",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Τµήµατος Ανθρώπινου Δυναμικού",
+      "context": "το διάστηµα αυτό απαιτείται έγκριση του Τµήµατος Ανθρώπινου Δυναμικού. Τµήµα Ανθρώπινου Δυναμικού, εσωτερικό ",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Συχνές ερωτήσεις / FAQ",
+      "chunk": "da0ce7f1-b21b-56dc-87b9-9f992f67d9b9",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "Who approves",
+      "context": "Τι ισχύει για την αναρρωτική άδεια; Who approves my request? Your manager approves reque",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Συχνές ερωτήσεις / FAQ",
+      "chunk": "da0ce7f1-b21b-56dc-87b9-9f992f67d9b9",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "Yes",
+      "context": "ρες ημέρες χρειάζεται ιατρική βεβαίωση. Yes. The assistant checks your balance and ",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "aegean",
+      "document": "Συχνές ερωτήσεις / FAQ",
+      "chunk": "da0ce7f1-b21b-56dc-87b9-9f992f67d9b9",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "and submits it only after you confirm",
+      "context": " the working days, shows you a proposal and submits it only after you confirm.",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "brightwater",
+      "document": "Public Holidays 2026",
+      "chunk": "081f7b8f-a43e-5fbc-bfca-29e0d90f347f",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "St Brigid's",
+      "context": "ar's Day | | 2 February 2026 | Monday | St Brigid's Day | | 17 March 2026 | Tuesday | St Pa",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "brightwater",
+      "document": "Public Holidays 2026",
+      "chunk": "081f7b8f-a43e-5fbc-bfca-29e0d90f347f",
+      "entity": "PERSON",
+      "source": "presidio",
+      "text": "St Patrick's",
+      "context": "gid's Day | | 17 March 2026 | Tuesday | St Patrick's Day | | 6 April 2026 | Monday | Easter ",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "brightwater",
+      "document": "Public Holidays 2026",
+      "chunk": "081f7b8f-a43e-5fbc-bfca-29e0d90f347f",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "St Stephen's",
+      "context": "s Day | | 26 December 2026 | Saturday | St Stephen's Day |",
+      "kept_in_document_profile": false
+    },
+    {
+      "tenant": "brightwater",
+      "document": "Employee Leave Handbook",
+      "chunk": "3d89435f-df3e-5fc5-8534-0b18f15ae524",
+      "entity": "ADDRESS",
+      "source": "presidio",
+      "text": "Dublin",
+      "context": "oftware Ltd. for all employees based in Dublin. It is maintained by the People team an",
+      "kept_in_document_profile": false
+    }
+  ]
+}

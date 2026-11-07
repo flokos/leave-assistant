@@ -40,6 +40,7 @@ from leave_assistant.application.ports import (
     NotificationRepository,
     OAuthStateRepository,
     PendingInterruptRepository,
+    PlatformSettingsRepository,
     ProposalRepository,
     ProviderEventRepository,
     ReconciliationItemRepository,
@@ -98,6 +99,7 @@ from leave_assistant.infrastructure.db.repositories.notifications import (
     SqlIntegrationEventRepository,
     SqlNotificationRepository,
 )
+from leave_assistant.infrastructure.db.repositories.platform_settings import SqlPlatformSettingsRepository
 from leave_assistant.infrastructure.db.repositories.proposals import (
     SqlPendingInterruptRepository,
     SqlProposalRepository,
@@ -145,6 +147,7 @@ class SqlAlchemyUnitOfWork:
     index_generations: IndexGenerationRepository
     jobs: JobRepository
     pii_vault: VaultRepository
+    platform_settings: PlatformSettingsRepository
     security_defaults: SecurityDefaultsRepository
     security_policies: SecurityPolicyRepository
     injection_findings: InjectionFindingRepository
@@ -207,6 +210,7 @@ class SqlAlchemyUnitOfWork:
         self.index_generations = SqlIndexGenerationRepository(session, tenant_id)
         self.jobs = SqlJobRepository(session)
         self.pii_vault = SqlVaultRepository(session, tenant_id)
+        self.platform_settings = SqlPlatformSettingsRepository(session)
         self.security_defaults = SqlSecurityDefaultsRepository(session)
         self.security_policies = SqlSecurityPolicyRepository(session, tenant_id)
         self.injection_findings = SqlInjectionFindingRepository(session, tenant_id)
