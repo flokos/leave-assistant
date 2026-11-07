@@ -3,8 +3,9 @@
 
 Resolution order: the code (case-insensitive) → the exact name (case, accents and whitespace folded) → every word of
 the department's name, reduced to its stem, appears among the stems of the text (Greek case endings and English
-plurals differ between the question and the stored name). The match must be unique; otherwise nothing is returned
-and the caller reports "not found" rather than guessing.
+plurals differ between the question and the stored name) → one distinctive word stem in common ("Οικονομικών" for
+"Οικονομικές Υπηρεσίες"; generic words such as "τμήμα" or "department" do not count). Each step must give a unique
+match; otherwise nothing is returned and the caller reports "not found" rather than guessing.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from leave_assistant.domain.tenancy.entities import Department
 _ENDINGS = ("ουσ", "ων", "ου", "ησ", "εσ", "οσ", "ασ", "ισ", "α", "η", "ο", "ι", "ε", "σ", "υ", "s")
 _WORD = re.compile(r"\w+")
 _MIN_STEM = 3
+_GENERIC = frozenset({"τμημ", "τμηματ", "υπηρεσι", "department", "dept", "team", "the", "του", "τησ", "των"})
 
 
 def stem(word: str) -> str:
@@ -46,4 +48,8 @@ def resolve_department(text: str, departments: Sequence[Department]) -> Departme
         return exact[0]
     words = stems(wanted)
     by_stems = [d for d in departments if (name := stems(d.name)) and name <= words]
-    return by_stems[0] if len(by_stems) == 1 else None
+    if by_stems:
+        return by_stems[0] if len(by_stems) == 1 else None
+    distinctive = {w for w in words if len(w) >= 4 and w not in _GENERIC}
+    partial = [d for d in departments if stems(d.name) & distinctive]
+    return partial[0] if len(partial) == 1 else None

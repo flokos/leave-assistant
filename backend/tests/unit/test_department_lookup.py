@@ -32,6 +32,8 @@ def test_code_name_and_greek_inflections_resolve() -> None:
     )  # genitive plural, extra word (S19)
     assert resolve_department("Ανθρώπινου Δυναμικού", AEGEAN) is AEGEAN[2]  # genitive singular
     assert resolve_department("Αποθήκης", AEGEAN) is AEGEAN[3]
+    assert resolve_department("Οικονομικών", AEGEAN) is fin  # one distinctive word of the name
+    assert resolve_department("τμήμα", AEGEAN) is None  # a generic word alone matches nothing
 
 
 def test_english_plurals_and_unknown_or_ambiguous_names() -> None:
@@ -43,6 +45,10 @@ def test_english_plurals_and_unknown_or_ambiguous_names() -> None:
     twins = [dept("S1", "Sales North"), dept("S2", "Sales")]
     assert resolve_department("Sales North", twins) is twins[0]  # exact name first
     assert resolve_department("North Sales team", twins) is None  # both match by stems → no guess
+    assert resolve_department("Sales", twins) is twins[1]  # exact name
+    regions = [dept("SN", "Sales North"), dept("SS", "Sales South")]
+    assert resolve_department("North", regions) is regions[0]  # one distinctive word, one department
+    assert resolve_department("sales", regions) is None  # a word shared by two departments → no guess
 
 
 def test_stems_keep_a_minimum_length() -> None:
