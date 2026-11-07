@@ -44,6 +44,7 @@ readiness through the frontend proxy; `readyz` names the failing dependency), `m
 | A version is `FAILED` with `pii_not_configured` | `APP_KEK`, `VAULT_HMAC_KEY` or `VAULT_KEK` is empty: run `make env` (fills empty keys) and restart. Documents are never published without pseudonymisation (fail closed). |
 | A version is `FAILED` with `pii_scan_failed` or `no_text` | Presidio errored, or the file has no text layer and OCR found nothing. Re-upload or check the file; scans need Tesseract (present in the image only). |
 | A version is `PENDING_REVIEW` or `QUARANTINED` | The injection scan scored it medium or high (doc 08 §8.2): an HR administrator reviews it in *Review queue*. Thresholds: *Security policy*. |
+| The api is OOM-killed during `make ingest` with `make up-staged` | Before M10 the drain started a second worker inside the api next to the embedded one (two ingestion children under one limit). `make ingest` now waits for the embedded worker instead [M10 clean-clone test]. |
 | A long PDF takes minutes | Docling's layout and table models on this CPU: about 6–7 s per page, about 60 s per document overall (R-28). |
 | Answers contain placeholders such as `PERSON_0002` where policy wording should be | Documents processed before M10 were over-pseudonymised (R-30). Re-process them: `docker compose -f deploy/compose.yaml --profile core exec -T api python -m leave_assistant.documents.reindex --force`, then `make ingest`. |
 

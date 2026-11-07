@@ -8,6 +8,7 @@ import signal
 import socket
 import sys
 import time
+from typing import Any
 
 from leave_assistant.application.jobs.models import JobStatus
 from leave_assistant.config import get_settings
@@ -26,6 +27,11 @@ async def _main(drain: bool, once: bool, wait_seconds: float) -> int:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
+    if drain and settings.worker_mode == "embedded":
+        # M10 (clean-clone test): `make ingest` runs inside the api container; with the embedded worker a second
+        # draining worker there doubled the ingestion children under one memory limit and the api was OOM-killed.
+        # The embedded worker processes the queue already, so the drain only waits for it to finish.
+        return await _follow(settings, stop, wait_seconds)
     runtime = build_runtime(settings, role="worker")
     if not drain:
         await runtime.start_agent()  # conversation cleanup deletes checkpoints
@@ -65,6 +71,24 @@ async def _main(drain: bool, once: bool, wait_seconds: float) -> int:
             runner=runner,
         )
         return 0
+    finally:
+        await runtime.aclose()
+
+
+async def _follow(settings: Any, stop: asyncio.Event, wait_seconds: float) -> int:
+    """Wait until no job is queued or running (the embedded worker does the work), then report like a drain."""
+    runtime = build_runtime(settings, role="worker")
+    try:
+        deadline = time.monotonic() + wait_seconds
+        sys.stdout.write("embedded worker: waiting for the queue to empty\n")
+        while not stop.is_set() and time.monotonic() < deadline:
+            if await runtime.services.jobs.active_count() == 0:
+                break
+            await asyncio.sleep(5.0)
+        counts = await runtime.services.jobs.counts()
+        sys.stdout.write(f"drained (embedded worker): counts={counts}\n")
+        idle = counts.get(JobStatus.QUEUED.value, 0) == 0 and counts.get(JobStatus.RUNNING.value, 0) == 0
+        return 0 if idle else 2
     finally:
         await runtime.aclose()
 
