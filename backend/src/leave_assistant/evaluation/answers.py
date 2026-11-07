@@ -197,6 +197,9 @@ async def _answer_items(
             },
             "conversation_id": str(conversation.id),
             "error": error,
+            # the verifier's rejections per draft; since M10 an exhausted verifier is the outcome `fallback` (R-36)
+            "verifier_problems": details.get("grounding_problems") or [],
+            "verifier_exhausted": (done.get("outcome") or run_outcome) == "fallback",
         }
         samples.append(sample)
         sys.stdout.write(
