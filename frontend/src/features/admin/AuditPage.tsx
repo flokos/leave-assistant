@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../../shared/dates'
 import { PageHeader } from '../../shared/PageHeader'
 import { ProblemAlert } from '../../shared/ProblemAlert'
+import { ExportAuditButton } from '../settings/ExportAuditButton'
 import { type AuditEntryOut, useAudit } from './api'
 
 export function AuditTable({ entries, loading }: { entries: AuditEntryOut[]; loading: boolean }) {
@@ -32,7 +33,8 @@ export default function AuditPage() {
   const { t } = useTranslation()
   const [action, setAction] = useState('')
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
-  const audit = useAudit({ action, from: range?.[0]?.toISOString(), to: range?.[1]?.toISOString() })
+  const filters = { action, from: range?.[0]?.toISOString(), to: range?.[1]?.toISOString() }
+  const audit = useAudit(filters)
   return (
     <PageHeader
       title={t('admin.audit')}
@@ -40,6 +42,7 @@ export default function AuditPage() {
         <Space>
           <Input placeholder={t('admin.action')} value={action} onChange={(e) => setAction(e.target.value)} allowClear style={{ width: 240 }} />
           <DatePicker.RangePicker onChange={(v) => setRange(v as [Dayjs | null, Dayjs | null] | null)} showTime />
+          <ExportAuditButton scope="tenant" filters={filters} />
         </Space>
       }
     >

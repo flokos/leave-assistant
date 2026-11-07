@@ -35,6 +35,7 @@ const OUTCOME_COLORS: Record<string, string> = {
   executed: 'green',
   failed: 'red',
   rejected: 'default',
+  fallback: 'orange', // M10 (R-36): the verifier rejected every draft; the text is the deterministic fallback
 }
 const TOOL_COLORS: Record<string, string> = { started: 'processing', ok: 'success', denied: 'error', not_found: 'warning', invalid: 'warning', error: 'error' }
 
