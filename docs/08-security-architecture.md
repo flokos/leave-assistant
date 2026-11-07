@@ -33,7 +33,7 @@ flowchart LR
         DB[(PostgreSQL RLS)]
     end
     subgraph External["External (semi-trusted transport)"]
-        LLM[Gemini / Groq]
+        LLM[Gemini / Mistral]
         GC[Google Calendar]
     end
     U -->|pseudonymise, screen| P
@@ -134,6 +134,9 @@ is built per request; services receive it explicitly (no globals except the DB c
 | Post ledger adjustments (audited, with reason) — M2 | — | — | ✓ | — | — |
 | Read tenant-wide balances — M2 | — | — | ✓ | ✓ | — |
 | Read/mark own notifications — M2 | ✓ (self) | ✓ (self) | ✓ (self) | ✓ (self) | — |
+| Company settings (locale, timezone, work week, conversation retention, card lifetime, HR fallback) — M10 | — | — | — | ✓ | — |
+| Platform settings (defaults of new companies) — M10 | — | — | — | — | ✓ |
+| Export the audit log as CSV (audited `audit.exported`) — M10 | — | — | ✓ (tenant) | ✓ (tenant) | platform events only |
 
 - Implemented as `authorize(principal, action, resource) -> Decision` in `application/authz`; the same function
   backs REST endpoints and the tool gateway; deny-by-default; every denial is audited with `outcome=denied`.
@@ -253,6 +256,25 @@ M6 amendment: a value the viewer typed into their own conversation is restored i
 - Fail closed: missing `VAULT_HMAC_KEY`/`VAULT_KEK` or an engine error makes the version `FAILED`
   (`pii_not_configured` / `pii_scan_failed`), never `ACTIVE`; the API answers `503 security/not-configured` on
   vault writes. The log scrubber masks e-mails, IBANs, Greek phones, AMKA and AFM in free text; placeholders pass.
+
+### 7.7 M10 amendment: precision filter for document text (2026-11-07, R-30)
+M9 found ordinary policy wording pseudonymised in the evidence the LLM reads ("Who approves" → `PERSON_0002`, "Τμήμα
+Ανθρώπινου Δυναμικού" → `ADDRESS_0004`; docs/evaluation/rag-quality.md §3.2). spaCy reports one fixed score per entity,
+so the 0.4 threshold cannot separate them. Document chunks are now detected with a **document profile**
+(`application/privacy/filters.py`): a statistical PERSON finding is kept only when it has at least two capitalised
+tokens and no common word (questions, articles, roles, "St"/"Άγιος" of holiday names); a statistical ADDRESS
+(spaCy LOCATION) finding only when it carries a number or a street word; neither when it is an organisational term
+(built-in HR terms in both languages plus the tenant's department names). Not filtered: the known-entity layer (every
+employee, in every Greek case), the pattern recognisers (e-mail, phone, AMKA, AFM, IBAN, ID card) and everything in
+user messages and tool results, where a missed name is a leak and a masked word costs little.
+
+Measured on the seed corpus (`evaluation/pii_precision.py`, `results/2026-11-07-pii-precision.json`, hand-labelled):
+the conversation profile produced 15 statistical PERSON/ADDRESS findings in the policy documents, all 15 false
+positives (holiday names, cities, sentence fragments, the HR department, the company name); the document profile
+keeps none of them and keeps the 6 e-mail addresses. The seed policies name no real persons, so recall on documents
+cannot be measured on this corpus; the unit tests keep real names and addresses (two-token names, street addresses).
+Existing documents are re-processed with `reindex --force`. GLiNER/XLM-R were not evaluated: the errors were removable
+deterministically and the memory budget has no room for another NER model (ADR-0017 amendment).
 
 ## 8. Prompt-injection and content security (brief §9.4–§9.5, ADR-0018)
 
@@ -387,7 +409,7 @@ it is not rejected/cancelled/withdrawn; HR may attach on the employee's behalf (
 | Secret | Where | Rotation |
 |--------|-------|----------|
 | DB passwords (4 roles), Keycloak admin, SeaweedFS S3 keys, n8n owner/encryption key, Langfuse salts | `.env` / Docker secrets | manual, documented |
-| Gemini, Groq API keys | `.env` | manual; keys are never logged; health endpoint reports presence only |
+| Gemini, Mistral (Groq) API keys | `.env` | manual; keys are never logged; health endpoint reports presence only |
 | Google OAuth client id/secret | `.env` | manual |
 | `APP_KEK` (32 bytes) for supporting documents and OAuth refresh tokens; `VAULT_HMAC_KEY`, `VAULT_KEK` | `.env` | re-wrap procedure in operations docs; key version stored with each ciphertext |
 | JWT verification | JWKS from Keycloak (public) | automatic |

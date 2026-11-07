@@ -4,8 +4,8 @@ This directory is the single source of truth for *why* and *how* the system is b
 It is organised so that an engineer who has never seen the project can read it top to bottom
 and implement the system without reconstructing the original discussions.
 
-**Status:** Architecture baseline v0.1 (2026-11-04), kept current during implementation — M0 and M1 delivered (see
-[development/worklog/](development/worklog/)). The baseline was produced before any application code existed
+**Status:** Architecture baseline v0.1 (2026-11-04), kept current during implementation — M0–M10 delivered (see
+[development/worklog/](development/worklog/) and [changes since the baseline](development/changes-since-baseline.md)). The baseline was produced before any application code existed
 (brief §16: "Do not start implementing the application yet").
 Every statement about versions, licences and limits was verified on **2026-11-04** and is
 marked as such; anything not verified is explicitly labelled *assumption* or *to verify*.
@@ -29,6 +29,7 @@ marked as such; anything not verified is explicitly labelled *assumption* or *to
 | 12 | [Implementation roadmap and milestones](12-implementation-roadmap.md) | 20 |
 | 13 | [Risk register](13-risk-register.md) | 21 |
 | 14 | [Decision log, assumptions and decided questions](14-decision-log-and-open-questions.md) | 22 + closing section of §16 |
+| 15 | [Technology justification](15-technology-justification.md) — every technology and tool: why, alternatives, trade-offs, evidence | 4, brief §13 "Technology decisions" |
 | adr | [Architecture Decision Records](adr/README.md) | 19 |
 
 Deliverable 18 (documentation structure) is this file plus the
@@ -41,34 +42,40 @@ Deliverable 18 (documentation structure) is this file plus the
 - Diagrams are Mermaid. They render on GitHub, GitLab and in most IDEs.
 - "The brief" means [`../PROJECT_BRIEF.md`](../PROJECT_BRIEF.md) (the master project brief).
   Section references such as *brief §4.6* point into it.
-- Nothing here claims that any code, test or measurement exists yet. Sections that must be
-  filled with real results during implementation are marked **[to be filled during Mx]**.
+- The baseline (written before any code) claimed no code, test or measurement. Since implementation began, every
+  result in these documents comes from an executed run, cited with its milestone and date; amendments are marked
+  with the milestone that made them (e.g. *M9 note*), and no **[to be filled]** marker remains.
 
 ## Live documents (implementation phase)
 
 | Document | Purpose |
 |----------|---------|
-| [operations/installation.md](operations/installation.md) | Prerequisites, first start, profiles, low-memory start-up, troubleshooting |
+| [operations/installation.md](operations/installation.md) | Prerequisites, first start, seed data, document ingestion, profiles, running the tests |
+| [operations/configuration.md](operations/configuration.md) | Every environment variable (generated from `deploy/.env.example`) |
+| [operations/troubleshooting.md](operations/troubleshooting.md) | Symptoms, causes and fixes by area |
+| [operations/backup-restore.md](operations/backup-restore.md) | Backup, restore and the keys that must be kept |
+| [development/changes-since-baseline.md](development/changes-since-baseline.md) | Architectural changes made during implementation, with reasons |
+| [evaluation/](evaluation/summary.md) | Evaluation protocol, results, security assessment, known weaknesses, future improvements |
 | [development/process.md](development/process.md) | Methodology, AI-assisted process, definition of done, conventions |
 | [development/worklog/](development/worklog/) | One entry per milestone: what was built, measurements, problems, changes versus the plan |
 | [api/](api/README.md) | Generated OpenAPI snapshot (`openapi.json`, checked by `make contract`) and contract notes |
 
 ## Documentation plan for the implementation phase
 
-The brief (§13) requires documentation to remain a first-class deliverable. The structure below
-will be created incrementally; this architecture package is its seed.
+The brief (§13) requires documentation to remain a first-class deliverable. The structure as built (M10); the
+plan's separate `motivation/` folder and `problems-encountered.md` were folded into docs 00/01 (motivation,
+requirements) and the worklogs plus [troubleshooting](operations/troubleshooting.md) (problems):
 
 ```
 docs/
 ├── README.md                      # this index
-├── 00-14 …                        # architecture baseline (this package) — kept current, not frozen
-├── adr/                           # one ADR per decision; superseded ADRs are never deleted
-├── motivation/                    # problem statement, business requirements (extracted from the brief)
-├── development/                   # methodology, AI-assisted process log, problems encountered, changes
-│   ├── process.md
-│   ├── worklog/                   # one short entry per milestone: what was done, what changed and why
-│   └── problems-encountered.md
-├── operations/                    # install, compose, env vars, DB init, seed data, ingestion, tests, troubleshooting
-├── evaluation/                    # datasets, methodology, actual results, security assessment, known weaknesses
-└── api/                           # generated OpenAPI snapshot + human-written contract notes
+├── 00-15 …                        # architecture package (kept current, not frozen) and the technology justification
+├── adr/                           # one ADR per decision; amendments appended, superseded ADRs never deleted
+├── development/
+│   ├── process.md                 # methodology, AI-assisted process, definition of done
+│   ├── changes-since-baseline.md  # architectural changes during implementation, with reasons
+│   └── worklog/                   # one entry per milestone: built, measured, problems, deviations
+├── operations/                    # installation, configuration (generated), troubleshooting, backup and restore
+├── evaluation/                    # protocol, results, security assessment, known weaknesses, summary
+└── api/                           # generated OpenAPI snapshot + contract notes
 ```

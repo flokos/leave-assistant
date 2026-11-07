@@ -96,8 +96,8 @@ tenant tables have `tenant_id` (+ RLS). `→` marks a foreign key.
 ### 4.1 Platform schema (`platform`, no tenant RLS)
 | Table | Columns | Notes |
 |-------|---------|-------|
-| `tenants` | `slug unique`, `name`, `status (active\|suspended)`, `default_locale (el\|en)`, `timezone`, `settings jsonb` (work week, upload limits, conversation retention days, proposal ttl, `allow_hr_fallback`), `keycloak_group_id` | Created by platform admins; `settings` validated by a Pydantic schema |
-| `platform_settings` | `key unique`, `value jsonb`, `updated_by` | Provider policy defaults, global limits |
+| `tenants` | `slug unique`, `name`, `status (active\|suspended)`, `default_locale (el\|en)`, `timezone`, `settings jsonb` (work week, upload limits, conversation retention days, proposal ttl, `allow_hr_fallback`; M10: `max_upload_mb` here is superseded by `security_policies.max_upload_mb` since M5 and is not editable by companies), `keycloak_group_id` | Created by platform admins; `settings` validated by a Pydantic schema |
+| `settings` (M10; planned as `platform_settings` key/value) | one row (`id = 1`): `default_locale`, `timezone`, `tenant_settings jsonb`, `updated_by`, `updated_at` | The values a new company gets when its creation leaves them out (migration 0008). Provider configuration stays in the environment |
 | `security_policy_defaults` | `risk_low_max`, `risk_medium_max`, `injection_llm_judge bool`, `max_upload_mb`, … | Copied into `app.security_policies` at tenant creation; platform admin can update defaults only |
 
 ### 4.2 Tenancy and organisation (`app`)

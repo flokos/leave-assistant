@@ -188,7 +188,7 @@ items carry `supporting_documents` (count; `0` for managers/administrators). Rev
 | Retention | CRUD `/admin/retention-policies` (C) · `GET /admin/retention/review-items` (H) · `POST …/{id}/decide` (H) | |
 | Security | `GET/PUT /admin/security-policy` (C) | Thresholds within platform-allowed ranges |
 | Tenant settings | `GET/PUT /admin/settings` | Work week, timezone, locale, limits |
-| Audit | `GET /admin/audit?from=&to=&action=` (H, C) · `GET /admin/audit/export` | Export audited |
+| Audit | `GET /admin/audit?from=&to=&action=` (H, C) · `GET /admin/audit/export` | Export audited (M10: CSV, see note) |
 
 ### 2.9 Platform administration (`/platform/*`, role P)
 `GET/POST /platform/tenants`, `GET/PATCH /platform/tenants/{id}`, `POST …/suspend|resume`, `POST …/bootstrap-admin`
@@ -197,12 +197,29 @@ temporary password **once**; the user must change it at first login), `GET/PUT /
 `GET /platform/health` (providers, queues, dead events/jobs), `GET /platform/audit` (platform events only).
 No endpoint under `/platform` returns tenant business data or document content.
 
+M10 notes (2026-11-07):
+- `GET/PUT /admin/settings` (C): `{name, slug, default_locale, timezone, settings}`; `PUT` takes
+  `{default_locale?, timezone?, settings?}`, merges `settings` into the current ones and refuses keys other than
+  `work_week`, `conversation_retention_days`, `proposal_ttl_minutes`, `allow_hr_fallback` (`422`, upload size belongs
+  to the security policy). Audited `admin.tenant.settings_changed`.
+- `GET/PUT /platform/settings` (P): `{default_locale, timezone, tenant_settings, updated_by}`, the values a new
+  company gets when `POST /platform/tenants` leaves them out (`default_locale` and `timezone` are now optional there;
+  `settings` is merged over the platform's). Audited `platform.settings.changed`. Provider configuration stays in the
+  environment (doc 03 §7).
+- `GET /admin/audit/export` (H, C) and `GET /platform/audit/export` (P, platform events only): the list filters
+  `from`, `to`, `action`; `text/csv` UTF-8 with BOM, RFC 4180, columns `occurred_at, action, outcome, actor_kind,
+  actor_id, actor_roles, resource_type, resource_id, request_id, thread_id, details` (`details` as JSON); at most
+  10,000 rows, a capped file ends with a `# truncated …` line and carries `X-Audit-Truncated: true`; `X-Audit-Rows`
+  gives the count. Each export is audited (`audit.exported`, with the filters and the row count).
+- Run outcome `fallback` (doc 04 §6.3) can appear in `done.outcome`, messages and runs.
+
 M5 notes (2026-11-05): `GET/PUT /admin/security-policy` (C) and `GET/PUT /platform/security-defaults` (P) are
 implemented (`PUT` without `Idempotency-Key`, full-replacement semantics on the given fields; ranges validated →
 `422`). Retention: `GET /admin/retention-policies` is readable by H and C, writes are C; `document_class =
 leave_record` is refused (never deleted); `GET /admin/retention/review-items?status=` defaults to `pending`;
 `POST …/{id}/decide` takes `{decision: approved_delete|retained, comment?}` and answers `409
-retention/invalid-decision` for an already-decided item. The security-policy and defaults UI arrives with M10.
+retention/invalid-decision` for an already-decided item. The security-policy and defaults UI arrived with M10
+(*Security policy*, *Platform settings*).
 
 ### 2.10 Internal (`/internal/*`, role A or the worker's internal token; not routed from the browser)
 See doc 06 §5 for the catalogue. Responses carry IDs, counts and statuses only.

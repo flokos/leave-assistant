@@ -17,7 +17,8 @@ honest evaluation.
    accepted because all seed data is fictional, prompts are pseudonymised and sensitive categories never leave the
    host. The README and operations docs state that real personal or company data must not be used under free tiers.
    No paid tier. Gemini remains primary as the brief selects; `LLM_PROVIDER_ORDER` makes Groq-first a configuration
-   change if Gemini quotas prove unusable.
+   change if Gemini quotas prove unusable. *M6/M9: the Groq signup was blocked and Mistral is the second provider; Gemini
+   allows 20 answer requests per day on the free tier, so the M9 evaluation pinned Mistral (docs/evaluation).*
 2. **Evaluation on the reference machine (Q-05).** The 7.1 GB machine is treated as the only machine. An
    evaluation-session mode (`make eval-session`) stops `frontend` and `n8n`, runs the worker embedded in the API
    process, starts the `observability` profile with reduced ClickHouse/Valkey memory settings, and runs offline

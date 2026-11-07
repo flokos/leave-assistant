@@ -15,14 +15,14 @@ links back to the one it replaces.
 | [0007](ADR-0007-langgraph-topology.md) | LangGraph topology and trusted runtime context | Accepted |
 | [0008](ADR-0008-langgraph-checkpointer.md) | PostgreSQL checkpointer in its own schema/role; pseudonymised state | Accepted |
 | [0009](ADR-0009-tool-gateway.md) | Tool gateway: propose → validate → confirm → execute | Accepted |
-| [0010](ADR-0010-llm-provider-router.md) | LLM provider router and failover policy | Accepted |
+| [0010](ADR-0010-llm-provider-router.md) | LLM provider router and failover policy | Accepted (M6: Mistral as second provider) |
 | [0011](ADR-0011-retrieval-backend.md) | pgvector default, ChromaDB evaluation profile | Accepted (default confirmed at M9) |
 | [0012](ADR-0012-hybrid-retrieval.md) | Hybrid retrieval with PostgreSQL FTS, RRF and reranking | Accepted |
 | [0013](ADR-0013-embeddings-e5-small.md) | Local embeddings with multilingual-e5-small | Accepted |
-| [0014](ADR-0014-reranker-selection.md) | Reranker chosen by evaluation; Jina excluded | Proposed (M9) |
+| [0014](ADR-0014-reranker-selection.md) | Reranker chosen by evaluation; Jina excluded | Accepted (M9: B on ONNX fp32) |
 | [0015](ADR-0015-docling-and-chunking.md) | Docling + Tesseract OCR + structure-aware chunking | Accepted |
 | [0016](ADR-0016-object-storage-and-encryption.md) | Storage port over SeaweedFS; envelope encryption | Accepted |
-| [0017](ADR-0017-pii-pseudonymisation-vault.md) | PII detection, pseudonym vault, authorised re-identification | Accepted |
+| [0017](ADR-0017-pii-pseudonymisation-vault.md) | PII detection, pseudonym vault, authorised re-identification | Accepted (M10: document precision filter) |
 | [0018](ADR-0018-prompt-injection-defence.md) | Prompt-injection defence in depth; risk tiers | Accepted |
 | [0019](ADR-0019-n8n-scope-and-job-queue.md) | n8n scope; outbox; PostgreSQL job queue | Accepted |
 | [0020](ADR-0020-calendar-sync.md) | Google Calendar outbox sync and reconciliation | Accepted |

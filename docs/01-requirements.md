@@ -172,7 +172,7 @@ management as a concrete, bounded domain (brief §2, §3, §17).
 | FR-AGENT-05 | Graph state, conversation history and business records are stored separately. | P1 | §6.1 |
 | FR-AGENT-06 | Error recovery: bounded node retries for transient errors, provider failover, safe fallback messages, no partial business effects. | P1 | §4.2, §6 |
 | FR-AGENT-07 | Responses in the user's language (EL/EN) regardless of document language. | P1 | §11 |
-| FR-AGENT-08 | Provider abstraction with Gemini primary and Groq failover, timeouts, bounded retries, health tracking, selection logging, env configuration; no failover on invalid output, security or authorization errors. | P1 | §4.2 |
+| FR-AGENT-08 | Provider abstraction with Gemini primary and Groq failover (as built: Mistral, M6 — ADR-0010 amendment), timeouts, bounded retries, health tracking, selection logging, env configuration; no failover on invalid output, security or authorization errors. | P1 | §4.2 |
 
 ### 5.8 PII and content security (FR-PII, FR-SEC)
 | ID | Requirement | Pri | Source |
@@ -293,8 +293,9 @@ Supporting-document requirements are advisory (warning + HR review) until upload
 ## 8. Constraints
 
 - C-01 Local-only Docker Compose; no mandatory cloud; external APIs limited to Gemini, Groq, Google Calendar (free tiers).
+  Amended M6: Mistral (free plan) is used in place of Groq, whose signup was blocked (user decision, ADR-0010).
 - C-02 Reference machine today: 4 cores / 7.1 GB RAM / no GPU (measured 2026-11-04).
-- C-03 Runtime LLMs: Gemini and Groq only. Claude is a development tool only.
+- C-03 Runtime LLMs: Gemini and Groq only (as built: Gemini and Mistral, see C-01). Claude is a development tool only.
 - C-04 Selected technologies (brief §4–§12) are the default; deviations go through ADRs and doc 14.
 - C-05 Documentation must never reference an employer, recruitment process or interview.
 

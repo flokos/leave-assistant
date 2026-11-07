@@ -38,7 +38,11 @@ test-e2e: ## Playwright smoke against the running stack (LLM_PROVIDER_ORDER=fake
 contract: ## regenerate docs/api/openapi.json and the frontend types; fail if either changed
 	cd backend && $(UV) run --no-sync python -m leave_assistant.openapi > ../docs/api/openapi.json
 	cd frontend && $(NPM) run --silent api:types
+	python3 scripts/env_reference.py --check
 	git diff --exit-code -- docs/api/openapi.json frontend/src/api/schema.d.ts
+
+docs-env: ## regenerate docs/operations/configuration.md from deploy/.env.example (M10)
+	python3 scripts/env_reference.py
 
 build: env ## build the api and frontend images
 	$(COMPOSE) --profile core build
@@ -159,6 +163,20 @@ token: ## print an access token for EMAIL=<seed user e-mail> (dev realm, direct 
 
 smoke: ## liveness/readiness through the frontend proxy
 	@curl -fsS http://localhost:$${FRONTEND_PORT:-8080}/api/v1/healthz && echo && curl -sS http://localhost:$${FRONTEND_PORT:-8080}/api/v1/readyz && echo
+
+backup: ## back up databases and volumes into DIR (OBS=1 adds Langfuse); keep deploy/.env with it (M10)
+	@test -n "$(DIR)" || (echo "usage: make backup DIR=<directory> [OBS=1]" && exit 1)
+	scripts/backup.sh "$(DIR)" $(if $(OBS),--with-observability)
+
+restore: ## restore a backup from DIR (asks for confirmation; replaces all data), then make up-staged (M10)
+	@test -n "$(DIR)" || (echo "usage: make restore DIR=<directory>" && exit 1)
+	scripts/restore.sh "$(DIR)"
+
+restore-check: ## compare the running stack's row counts with the backup manifest in DIR (M10)
+	scripts/restore.sh --check "$(DIR)"
+
+peaks: ## memory peak (cgroup memory.peak) and current usage per running container (M10, NFR-RES-01)
+	@scripts/mem_peaks.sh
 
 stats: ## memory/cpu per container (one sample)
 	docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"

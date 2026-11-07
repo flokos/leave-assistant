@@ -316,6 +316,10 @@ deploy/
 
 ### 6.5 Backup and restore
 - `pg_dump` per database + SeaweedFS volume snapshot; documented script `scripts/backup.sh`. Restore tested in M10.
+- M10 as built: `scripts/backup.sh` / `scripts/restore.sh` (`make backup`, `make restore`, `make restore-check`): the
+  four databases with `pg_dump -Fc`, the `seaweed` and `n8n` volumes (and ClickHouse with `OBS=1`) as archives, a
+  manifest with row counts; `deploy/.env` (the keys) is kept with the backup by the operator, never copied by the
+  script. Procedure and the tested restore: docs/operations/backup-restore.md.
 
 ## 7. Cross-cutting concerns
 

@@ -131,7 +131,7 @@ Node 24 LTS (host Node 22.22 also satisfies Vite) · Vite 8.3.x · React 19.2.x 
   pseudonymisation, sensitive categories never leave the host (R-04, Q-04).
 - Capabilities used: function calling, structured output, system instructions, streaming (`langchain-google-genai` 4.4).
 
-### 7.2 Groq (failover; co-primary during development)
+### 7.2 Groq (failover; co-primary during development) — *not used live: replaced by Mistral in M6 (below)*
 - Developer-plan base limits (official page): e.g., `openai/gpt-oss-120b` and `qwen/qwen3.8-27b` 30 RPM / 1K RPD /
   8K TPM / 200K TPD; free tier may be lower; limits are per organisation.
 - Tool use (official page): `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `openai/gpt-oss-120b/20b`, `qwen/qwen3.8-27b`,

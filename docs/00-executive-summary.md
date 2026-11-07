@@ -19,7 +19,8 @@ a developer machine with Docker Compose. Employees talk to an assistant that:
 5. after final approval, synchronises company/personal Google Calendars and notifies everyone involved;
 6. records every step in an audit trail.
 
-The LLM (Gemini primary, Groq failover) **coordinates** the conversation. FastAPI + PostgreSQL **decide**:
+The LLM (Gemini primary; Mistral as the live failover since M6, because the Groq signup was blocked) **coordinates**
+the conversation. FastAPI + PostgreSQL **decide**:
 identity, tenant, permissions, business rules, balances, approvals, execution, audit. Claude Code is the
 development tool only and is not part of the runtime.
 
@@ -90,7 +91,7 @@ flowchart LR
 | Area | Brief's direction | Baseline decision | Status | ADR |
 |------|-------------------|-------------------|--------|-----|
 | Deployment | Docker Compose, local only | Compose with **profiles**: `core`, `automation`, `observability`, `eval` | accepted + refined | 0025 |
-| LLM providers | Gemini primary, Groq alternative; failover | Provider router with health tracking, error classification, bounded retries; model IDs via env | accepted | 0010 |
+| LLM providers | Gemini primary, Groq alternative; failover | Provider router with health tracking, error classification, bounded retries; model IDs via env. *As built (M6): Mistral replaced Groq as the live second provider* | accepted, amended | 0010 |
 | Backend | Python/FastAPI/PostgreSQL/SQLAlchemy/Pydantic | Modular monolith + worker process, layered (API → application → domain → infrastructure) | accepted | 0001, 0002 |
 | Identity | Keycloak, OIDC, RBAC, tenant-aware | **Single realm**, tenant claim from group/attribute mapper, platform admins without tenant | accepted + refined | 0004 |
 | Tenancy | Shared DB + RLS | RLS with transaction-scoped `SET LOCAL`, non-owner runtime role, `FORCE ROW LEVEL SECURITY`, leak tests | accepted | 0003 |
@@ -194,7 +195,7 @@ ADR-0028 (business rules) and ADR-0029 (operating decisions). Headlines:
 - Annual entitlement granted up-front and pro-rated on hire; carry-over 5 days to 31 March; whole days; no negatives.
 - Sick leave never routes to managers: ≤ 3 days without document is auto-acknowledged, otherwise HR review.
 - A manager's own request goes to the manager override or HR; HR may act as audited fallback approver.
-- Free tiers only, fictional data only; Gemini primary with Groq-first available by configuration; no paid tier.
+- Free tiers only, fictional data only; Gemini primary, Mistral second (M6), Groq selectable by configuration; no paid tier.
 - Evaluation runs on the 7 GB reference machine in an "evaluation session" mode; no larger host required.
 - Managers see leave type (never sick-leave reasons or documents); calendars and team views show absence only.
 - Chat history: 90 days, owner-only text; HR sees redacted run history, audited.
