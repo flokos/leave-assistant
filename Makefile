@@ -133,6 +133,10 @@ ingest: ## process every queued document job now (drains the queue inside the ap
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.worker --drain
 	$(MAKE) --no-print-directory jobs
 
+retry-failed: ## re-queue every FAILED document version (e.g. processed before `make models` finished), then drain (M10)
+	$(COMPOSE) --profile core exec -T api python -m leave_assistant.documents.reprocess_failed
+	$(MAKE) --no-print-directory ingest
+
 jobs: ## job queue and document version status overview
 	$(COMPOSE) --profile core exec -T postgres psql -U postgres -d leave -c "SELECT status, type, count(*) FROM platform.jobs GROUP BY 1, 2 ORDER BY 1, 2" -c "SELECT t.slug, d.title, v.version_no, v.status, v.pages, v.language, (SELECT count(*) FROM app.document_chunks c WHERE c.version_id = v.id) AS chunks, left(coalesce(v.processing_error, ''), 60) AS error FROM app.document_versions v JOIN app.documents d ON d.id = v.document_id JOIN platform.tenants t ON t.id = d.tenant_id ORDER BY t.slug, d.title, v.version_no"
 

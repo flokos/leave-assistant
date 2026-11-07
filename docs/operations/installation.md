@@ -14,12 +14,14 @@ following it from a clean clone.
 
 ## First start
 ```bash
-make env            # copies deploy/.env.example to deploy/.env — review the values (dev passwords, ports)
+make env            # copies deploy/.env.example to deploy/.env and generates every key — review the values, add
+                    # GEMINI_API_KEY and/or MISTRAL_API_KEY for the assistant (configuration.md)
 make build          # builds the api and frontend images; the first build downloads ~2.5 GB of Python wheels
-make up             # core profile; waits until every service is healthy (Keycloak imports the realm on first start)
+make models         # once, before the first seed: downloads the embedding, reranker and Docling models (2.5 GB)
+                    # into the `models` volume and exports the reranker to ONNX (a one-off container, ~9 min)
+make up             # core profile (`make up-staged` on hosts with less than 4 GB free); waits until healthy
 make bootstrap      # applies the database migrations and seeds the two fictional companies (idempotent)
 make smoke          # liveness + readiness through the frontend proxy (readyz reports `schema` until migrated)
-make models         # once: downloads the embedding and Docling models (~1.2 GB) into the `models` volume
 make ingest         # processes the seeded company documents (parsing, OCR, chunking, embeddings); shows the status table
 ```
 Then open:

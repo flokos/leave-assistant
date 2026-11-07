@@ -42,9 +42,9 @@ RAGAS. Everything runs locally with Docker Compose. Why each of these was chosen
 ```bash
 make env          # creates deploy/.env and generates every key; add GEMINI_API_KEY and/or MISTRAL_API_KEY
 make build
+make models       # once, before the first seed: embedding, reranker and document models (2.5 GB)
 make up-staged    # or `make up` on hosts with more than 4 GB free RAM
 make bootstrap    # migrations + seed of the two fictional companies (idempotent)
-make models       # once: downloads the embedding, reranker and document models
 make ingest       # processes the seeded company documents
 make smoke        # liveness + readiness through the frontend proxy
 ```

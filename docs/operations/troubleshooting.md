@@ -39,6 +39,8 @@ readiness through the frontend proxy; `readyz` names the failing dependency), `m
 | Symptom | Cause / fix |
 |---|---|
 | A document stays `PENDING` / `PROCESSING` | The worker is not running or is busy: `make jobs` shows the queue; `make ingest` drains it inside the api container. A job without a heartbeat for 30 minutes (`job_stale_after_seconds`) is reclaimed. |
+| Seeded documents are `FAILED` with `FileNotFoundError: /models/docling/…` or "Not able to find a model file" | They were processed before `make models` had finished (the embedded worker starts at once). `make retry-failed` re-queues every failed version and drains the queue [M10 clean-clone test]. |
+| `make models` is killed (exit 137) or the api is OOM-killed during it | Older Makefiles ran the download inside the running api; it now runs in a one-off container with its own limit. Update and re-run `make models` [M10]. |
 | A version is `FAILED` with `pii_not_configured` | `APP_KEK`, `VAULT_HMAC_KEY` or `VAULT_KEK` is empty: run `make env` (fills empty keys) and restart. Documents are never published without pseudonymisation (fail closed). |
 | A version is `FAILED` with `pii_scan_failed` or `no_text` | Presidio errored, or the file has no text layer and OCR found nothing. Re-upload or check the file; scans need Tesseract (present in the image only). |
 | A version is `PENDING_REVIEW` or `QUARANTINED` | The injection scan scored it medium or high (doc 08 §8.2): an HR administrator reviews it in *Review queue*. Thresholds: *Security policy*. |
