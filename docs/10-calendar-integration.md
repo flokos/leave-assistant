@@ -180,3 +180,10 @@ The worker processes calendar jobs with concurrency 2 to stay polite under retri
   calendar it happens the same way.
 - **API**: `GET /calendar/sync-jobs` returns request numbers and the connection kind; company administrators
   retry; employees see the jobs of their own requests (new permission `calendar.read_sync`, doc 08).
+
+## 10. M10 status of the Google manual checklist (2026-11-08)
+Not run. The checklist (worklog M8) needs a Google Cloud OAuth client in *Testing* status with the user's account as a
+test user, and consent in the browser; none was available during M10. The Google adapter's mapping and error
+classification remain covered by the recorded-response tests, and the full flow by the mock adapter (end-to-end
+`calendar.spec.ts`). Running it needs only `CALENDAR_PROVIDER=google`, `GOOGLE_OAUTH_CLIENT_ID` and
+`GOOGLE_OAUTH_CLIENT_SECRET` in `deploy/.env` and the redirect URI of §2 registered in the client.

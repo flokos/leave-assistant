@@ -205,6 +205,23 @@ one-line change if Gemini quotas prove unusable (decided Q-04 — no paid tier).
 | frontend (nginx) | 5 MiB | |
 | **core total (idle)** | **≈ 0.4 GB** | the estimates above apply once embedding/reranker/Docling models are resident (M4–M6) |
 
+### 10.1b Measured at M10 (staged `core`, embedded worker, clean clone — 2026-11-07/08, reference machine)
+cgroup `memory.peak` per container (`make peaks`) over the clean install (models, seed, ingestion of the 17 seed
+documents) and over the restore test with the end-to-end suite:
+
+| Container | Peak, clean install with ingestion | Peak, end-to-end suite after restore | Limit |
+|-----------|------------------------------------|---------------------------------------|-------|
+| api (+ ingestion child) | 3,433 MB | 2,766 MB | 3,584 MB |
+| keycloak | 850 MB | 537 MB | 1,024 MB |
+| postgres | 199 MB | 226 MB | 768 MB |
+| seaweedfs | 91 MB | 141 MB | 512 MB |
+| mailpit | 28 MB | 28 MB | 128 MB |
+| frontend | 13 MB | 13 MB | 64 MB |
+| **sum of peaks** | **≈ 4.6 GB** | **≈ 3.7 GB** | 6.1 GB |
+
+At rest the staged core uses about 1.3 GB. The models volume holds 2.5 GB (e5, reranker B and its ONNX export,
+Docling layout/TableFormer; reranker candidate A only with `make models ALL=1`). NFR-RES-01 (≤ 6 GB) is met.
+
 ### 10.2 Totals and host recommendations
 | Profiles | Estimated RAM | Host |
 |----------|---------------|------|

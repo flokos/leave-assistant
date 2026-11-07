@@ -34,3 +34,10 @@ Profiles and healthchecks in one compose file plus a dev override.
 
 ## Consequences
 NFR-RES-01 is measured at M10 and the budget table corrected with real numbers.
+
+## M10 result (2026-11-08)
+Measured in the clean-clone test (doc 02 §10.1b): the staged `core` profile peaked at about 4.6 GB summed over its
+containers during ingestion, within the 6 GB of NFR-RES-01. The test also showed that memory limits per container are
+not enough on their own: work that loads models must not run inside the api container next to its own models
+(`make models` and `make chat-perf` now use one-off containers; `make ingest` waits for the embedded worker instead of
+starting a second one).

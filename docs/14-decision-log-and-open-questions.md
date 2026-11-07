@@ -114,4 +114,4 @@ account/project identifiers, and the actual free-tier quota numbers read from AI
 ## 7. Documentation plan
 See [docs/README.md](README.md#documentation-plan-for-the-implementation-phase). Ownership: each milestone updates the
 affected architecture documents, adds ADR amendments where decisions changed, and writes a worklog entry; M9 fills
-`docs/evaluation/`; M10 completes `docs/operations/` and the final review against brief §13.
+`docs/evaluation/`; M10 completes `docs/operations/` and the final review against brief §13. *M10: done* — operations pages, doc 15 and the §13 review table in worklog M10.
