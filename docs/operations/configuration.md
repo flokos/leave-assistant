@@ -6,7 +6,8 @@ empty key and password into the git-ignored `deploy/.env`. The backend reads the
 `backend/src/leave_assistant/config.py` (pydantic-settings: an empty value means "use the default", unknown values of
 enumerated flags fail at start-up); Compose passes them to the containers (`deploy/compose.yaml`).
 
-Secrets are never shown here: *(generated)* means `make env` fills an empty value with a random one; *(dev value)*
+Secrets are never shown here: *(your key)* is a key from an external account you add yourself; *(generated)* means
+`make env` fills an empty value with a random one; *(dev value)*
 means the example carries a development value (for example `postgres-dev`) that must be replaced on anything but a
 local, non-exposed machine. Neither belongs in git. The milestone in each section title says when the variables were
 introduced.
@@ -82,9 +83,9 @@ introduced.
 
 | Variable | Example | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | *(generated)* | aistudio.google.com → Get API key (free tier; content may be used by Google) |
-| `GROQ_API_KEY` | *(generated)* | console.groq.com → API Keys (free tier) |
-| `MISTRAL_API_KEY` | *(generated)* | console.mistral.ai → API Keys (free Experiment plan, phone verification) |
+| `GEMINI_API_KEY` | *(your key)* | aistudio.google.com → Get API key (free tier; content may be used by Google) |
+| `GROQ_API_KEY` | *(your key)* | console.groq.com → API Keys (free tier) |
+| `MISTRAL_API_KEY` | *(your key)* | console.mistral.ai → API Keys (free Experiment plan, phone verification) |
 | `GEMINI_MODEL_FAST` | `gemini-3.5-flash-lite` | classify / condense / summarise (stable, verified 2026-11-05) |
 | `GEMINI_MODEL` | `gemini-3.6-flash` | grounded answers |
 | `GEMINI_THINKING_LEVEL` | `low` | Gemini 3 thinking depth (minimal\|low\|medium\|high); thoughts count against the output cap |
@@ -124,7 +125,7 @@ CALENDAR_PROVIDER=mock needs nothing. For =google create an OAuth client (type "
 | Variable | Example | Purpose |
 |---|---|---|
 | `GOOGLE_OAUTH_CLIENT_ID` | — |  |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | *(generated)* |  |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | *(your key)* |  |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | the SPA as the browser sees it (OAuth return, links in e-mails) |
 | `OAUTH_REDIRECT_BASE_URL` | — | default: PUBLIC_BASE_URL |
 | `MOCK_CALENDAR_FAIL_MODE` | `none` | none \| transient_once \| auth_expired \| permanent (drills and tests) |

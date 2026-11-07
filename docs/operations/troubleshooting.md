@@ -11,6 +11,7 @@ readiness through the frontend proxy; `readyz` names the failing dependency), `m
 
 | Symptom | Cause / fix |
 |---|---|
+| Calendar *Connect* returns to the page but stays "Not connected"; or a provider is used although no key was set | An `.env` written from an older `.env.example` has `NAME=   # comment` lines: Docker Compose reads the comment as the value (`OAUTH_REDIRECT_BASE_URL`, `GROQ_API_KEY` …). Remove the comment after empty values (`NAME=`) and restart [M10 clean-clone test]. |
 | `keycloak` stays `starting` for more than 2 minutes | The first start initialises its database (slow on small machines); `make logs SERVICE=keycloak`. If the `keycloak` database is missing, the init script ran before it was added: reset the `pgdata` volume (data loss) or create the database and role by hand as in `deploy/postgres/init/01-init.sh`. |
 | A port is already in use | Change `FRONTEND_PORT`, `KEYCLOAK_PORT`, `MAILPIT_PORT`, `POSTGRES_PORT` (or `API_PORT` for `make up-dev`) in `deploy/.env`. |
 | Build fails downloading wheels | Retry; the uv cache mount keeps what was already downloaded. Adding a Python dependency rebuilds a large layer (about 10 minutes). |

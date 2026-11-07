@@ -29,7 +29,8 @@ empty key and password into the git-ignored `deploy/.env`. The backend reads the
 `backend/src/leave_assistant/config.py` (pydantic-settings: an empty value means "use the default", unknown values of
 enumerated flags fail at start-up); Compose passes them to the containers (`deploy/compose.yaml`).
 
-Secrets are never shown here: *(generated)* means `make env` fills an empty value with a random one; *(dev value)*
+Secrets are never shown here: *(your key)* is a key from an external account you add yourself; *(generated)* means
+`make env` fills an empty value with a random one; *(dev value)*
 means the example carries a development value (for example `postgres-dev`) that must be replaced on anything but a
 local, non-exposed machine. Neither belongs in git. The milestone in each section title says when the variables were
 introduced.
@@ -55,6 +56,7 @@ def render(source: str) -> str:
             rows.clear()
 
     started = False
+    pending: dict[str, str] = {}
     for line in source.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -69,7 +71,10 @@ def render(source: str) -> str:
             continue
         if stripped.startswith("#"):
             text = stripped.lstrip("#").strip()
-            if text and not rows:
+            own = re.match(r"^([A-Z][A-Z0-9_]*):\s*(.*)$", text)
+            if own:  # "# NAME: text" above an empty variable (an inline comment would become its value)
+                pending[own.group(1)] = own.group(2)
+            elif text and not rows:
                 notes.append(text)
             elif text:  # a comment between variables of the same group: keep it as a row note
                 rows.append(f"| | | {_cell(text)} |")
@@ -80,10 +85,14 @@ def render(source: str) -> str:
         name = variable.group("name")
         value = variable.group("value").strip()
         if SECRET.search(name) and not name.endswith("_PORT"):
-            shown = "*(generated)*" if not value else "*(dev value)*"
+            if name.endswith("_API_KEY") or name.startswith("GOOGLE_OAUTH"):
+                shown = "*(your key)*"  # an external account; never generated
+            else:
+                shown = "*(generated)*" if not value else "*(dev value)*"
         else:
             shown = f"`{value}`" if value else "—"
-        rows.append(f"| `{name}` | {shown} | {_cell(variable.group('comment') or '')} |")
+        comment = variable.group("comment") or pending.pop(name, "")
+        rows.append(f"| `{name}` | {shown} | {_cell(comment)} |")
     flush()
     return "\n".join(out).rstrip() + "\n"
 
