@@ -45,14 +45,14 @@ Then open:
 The full list is in `backend/src/leave_assistant/seed/data.py`. `make token EMAIL=<user>` prints an access token for
 `curl` (dev realm: direct access grants are enabled on the SPA client for this purpose only).
 
-### What each role sees (M3)
+### What each role sees (M3–M10)
 | Role | Workspace menu |
 |------|----------------|
-| Employee | *My leave* (balances, request wizard: check → submit, history, request detail with modify/cancel), *Notifications* |
+| Employee | *Assistant* (chat with citations and confirmation cards), *My leave* (balances, request wizard: check → submit, history, request detail with modify/cancel, supporting documents), *Notifications*, *Documents*, *Calendar* |
 | Manager | + *Approvals* (approve/reject with comment), *Team availability*, *Team requests* |
-| HR Administrator | the manager pages (HR-fallback steps flagged) + *Balances* (with ledger adjustments) and *Audit log* |
-| Company Administrator | *Employees* (create → one-time temporary password, edit, roles, deactivate), *Departments* (manager designation), *Leave types & policies*, *Public holidays* (incl. CSV import), *Approval rules* (incl. routing simulation), *Balances*, *Audit log* |
-| Platform Administrator | *Companies* (create, suspend/resume, first administrator → one-time password), *Platform audit* |
+| HR Administrator | the manager pages (HR-fallback steps flagged) + *Balances* (with ledger adjustments), *Review queue*, *Retention*, *Audit log* (with CSV export) |
+| Company Administrator | *Employees* (create → one-time temporary password, edit, roles, deactivate), *Departments* (manager designation), *Leave types & policies*, *Public holidays* (incl. CSV import), *Approval rules* (incl. routing simulation), *Company settings* (language, timezone, work week, conversation retention, card lifetime, HR fallback), *Security policy* (risk tiers, chat screening, upload limits), *Balances*, *Review queue*, *Retention*, *Audit log* (with CSV export) |
+| Platform Administrator | *Companies* (create, suspend/resume, first administrator → one-time password), *Platform audit* (with CSV export), *Platform settings* (defaults of new companies, global security defaults and the ranges companies may use) |
 
 The menu is a convenience only: the API authorises every call (FR-UI-04), and opening a route of another role shows
 a polite notice. EN/EL is switched in the header; the choice is remembered per browser.
@@ -61,7 +61,7 @@ a polite notice. EN/EL is switched in the header; the choice is remembered per b
 ```bash
 TOKEN=$(make -s token EMAIL=platform.admin)
 curl -s -X POST localhost:8080/api/v1/platform/tenants -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
-  -H 'Content-Type: application/json' -d '{"slug":"newco","name":"New Co","default_locale":"en","timezone":"Europe/Dublin"}'
+  -H 'Content-Type: application/json' -d '{"slug":"newco","name":"New Co","timezone":"Europe/Dublin"}'   # omitted values come from Platform settings (M10)
 curl -s -X POST localhost:8080/api/v1/platform/tenants/<id>/bootstrap-admin -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' \
   -d '{"email":"admin@newco.example","first_name":"Ada","last_name":"Lovelace","locale":"en"}'

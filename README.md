@@ -4,44 +4,72 @@ A multilingual (Greek/English), multi-tenant leave-management assistant that let
 and request leave in natural language, while deterministic backend services own identity, tenancy, business rules,
 approvals, execution and audit. The LLM coordinates; the backend decides.
 
-**Project status: implementation phase — M0 (foundation), M1 (identity, tenancy, audit, seed), M2 (leave domain), M3 (frontend foundation), M4 (document platform), M5 (content security and privacy), M6 (agent core: knowledge), M7 (agentic operations: tools, confirmation cards, approvals in chat) M8 (integrations: calendar sync with mock and Google providers, n8n automation, e-mail via Mailpit) and M9 (observability and evaluation: self-hosted Langfuse, dataset `leave-eval-v1`, retrieval/RAGAS/agent/security/latency results in `docs/evaluation/`, reranker decided from evidence) done; next M10 (hardening and documentation).** The architecture package in
-[`docs/`](docs/README.md) was completed first, as the project brief requires; code is added milestone by milestone
-(roadmap in [docs/12](docs/12-implementation-roadmap.md)).
+**Project status: all milestones M0–M10 are implemented.** The architecture package in [`docs/`](docs/README.md)
+was written first, as the project brief requires; code followed milestone by milestone (roadmap in
+[docs/12](docs/12-implementation-roadmap.md), one worklog per milestone in
+[docs/development/worklog/](docs/development/worklog/)). All data is fictional; the LLM providers run on free tiers.
 
 | Start here | |
 |------------|--|
 | [Project brief](PROJECT_BRIEF.md) | Product motivation, requirements and established technology decisions |
-| [Documentation index](docs/README.md) | Reading order for the architecture package |
-| [Executive summary](docs/00-executive-summary.md) | The design in ten minutes, including recommended changes to the brief |
-| [Decision log and open questions](docs/14-decision-log-and-open-questions.md) | What was accepted, what is recommended for change, and the decisions taken on the formerly open questions |
+| [Documentation index](docs/README.md) | Reading order for the whole documentation |
+| [Executive summary](docs/00-executive-summary.md) | The design in ten minutes |
+| [Installation](docs/operations/installation.md) | From a clean clone to a running stack, seed data and tests |
+| [Evaluation summary](docs/evaluation/summary.md) | Measured results against the targets, security assessment, known weaknesses, future improvements |
 | [Architecture Decision Records](docs/adr/README.md) | Why each significant decision was made |
+| [Changes since the baseline](docs/development/changes-since-baseline.md) | What changed during implementation, and why |
 
-## Planned stack (verified 2026-11-04)
+## What it does
+- **Employees** ask about leave policies in Greek or English and get answers grounded in the company's documents,
+  with citations, in the language they asked in; they check balances and request, change or cancel leave through
+  the chat or the forms — every change is shown on a confirmation card first.
+- **Managers and HR** approve in the app or in the chat, see team availability, review supporting documents for sick
+  leave and the documents held back by the content-security checks.
+- **Company administrators** manage employees, departments, leave types and policies, holidays, approval rules,
+  company settings, the security policy, calendars and the audit log (with CSV export).
+- **Platform administrators** create companies and set the platform defaults and the global security policy; they
+  never see a company's business data.
 
-Python 3.14 · FastAPI · PostgreSQL 18 with pgvector and row-level security · SQLAlchemy 2.1 · LangGraph 1.2 ·
-Gemini and Groq (runtime LLMs, free tiers) · Keycloak 26 · SeaweedFS (S3) · Docling + Tesseract · Sentence Transformers
-(multilingual-e5-small) · Presidio · n8n Community Edition · Mailpit · React 19 + TypeScript + Ant Design · Langfuse v4 ·
-Pytest + RAGAS. Everything runs locally with Docker Compose.
+## Stack as built
+Python 3.14 · FastAPI · PostgreSQL 18 with pgvector, full-text search and row-level security · SQLAlchemy 2.1 ·
+LangGraph 1.2 · Gemini (primary) and Mistral (second provider; free tiers) · Keycloak 26 · SeaweedFS (S3) · Docling +
+Tesseract · Sentence Transformers (multilingual-e5-small) and a cross-encoder reranker on ONNX Runtime · Presidio ·
+n8n Community Edition · Mailpit · React 19 + TypeScript + Ant Design · Langfuse v4 · Pytest, Vitest, Playwright,
+RAGAS. Everything runs locally with Docker Compose. Why each of these was chosen, and what else was considered:
+[technology justification](docs/15-technology-justification.md).
 
 ## Quick start
-
 ```bash
-make env && make build && make up    # or `make up-staged` on hosts with < 4 GB free RAM
-make bootstrap                       # migrations + seed of the two fictional companies (idempotent)
-make smoke                            # liveness + readiness through the frontend proxy
+make env          # creates deploy/.env and generates every key; add GEMINI_API_KEY and/or MISTRAL_API_KEY
+make build
+make up-staged    # or `make up` on hosts with more than 4 GB free RAM
+make bootstrap    # migrations + seed of the two fictional companies (idempotent)
+make models       # once: downloads the embedding, reranker and document models
+make ingest       # processes the seeded company documents
+make smoke        # liveness + readiness through the frontend proxy
 ```
-Then open http://localhost:8080 (application), http://localhost:8081 (Keycloak) and http://localhost:8025 (Mailpit).
-Details, profiles and troubleshooting: [docs/operations/installation.md](docs/operations/installation.md).
+Then open http://localhost:8080 (application; seed users and their roles are listed in the installation guide),
+http://localhost:8081 (Keycloak) and http://localhost:8025 (Mailpit). Full guide, profiles and tests:
+[installation](docs/operations/installation.md) · every variable: [configuration](docs/operations/configuration.md) ·
+problems: [troubleshooting](docs/operations/troubleshooting.md) · [backup and restore](docs/operations/backup-restore.md).
 
 ## How this repository is organised
-
 ```
-docs/        architecture package, ADRs, operations, evaluation results (M9) and development logs
-backend/     FastAPI application, LangGraph agent, worker          (M0–M2: API + leave domain; M4: documents, ingestion worker, retrieval; M5: PII vault, injection scoring, supporting documents, retention; M6: provider router, LangGraph agent, chat API with SSE; M7: tool gateway, proposals, approval interrupts, resume, run history; M8: calendar outbox and providers, OAuth, reconciliation, internal API, e-mail rendering)
-frontend/    React + TypeScript SPA                                   (M3: role workspaces, E2E; M4: documents library + search; M5: review queue, supporting documents, retention; M6: assistant chat with citations; M7: confirmation cards and tool progress; M8: calendar page)
-deploy/      Docker Compose, Keycloak realm export, init scripts      (M0: core profile)
-automation/  n8n workflows as JSON, credentials template, init script  (M8)
-evaluation/  dataset leave-eval-v1, RAGAS and Langfuse sync (own uv project) (M9)
+docs/        architecture package (00–15), ADRs, operations, evaluation results, development process and worklogs
+backend/     FastAPI application, LangGraph agent, job worker, evaluation harness, migrations, tests
+frontend/    React + TypeScript single-page application, Vitest and Playwright tests
+deploy/      Docker Compose (profiles core, automation, observability, eval), Keycloak realm, init scripts
+automation/  n8n workflows as JSON, credentials template, init script
+evaluation/  dataset leave-eval-v1, RAGAS and Langfuse sync (its own uv project)
+scripts/     key generation, backup and restore, configuration reference, memory peaks
 ```
 
-Claude Code is used as the development assistant; it is not a runtime component of the application.
+Claude Code was used as the development assistant ([development process](docs/development/process.md)); it is not a
+runtime component of the application.
+
+## Further reading
+- [Technology justification](docs/15-technology-justification.md) — every technology and tool in this repository:
+  why it was chosen, the alternatives, advantages, disadvantages, operational implications and what the milestones
+  measured.
+- [Technology stack, versions and licences](docs/02-technology-stack.md) — the resolver-verified version set.
+- [Risk register](docs/13-risk-register.md) and [known weaknesses](docs/evaluation/known-weaknesses.md).
