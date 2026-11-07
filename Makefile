@@ -125,9 +125,9 @@ bootstrap: migrate seed ## first start: migrate, then seed
 rollover: ## run the leave rollover now (statuses, year grants, carry-over, expiry) for all tenants
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.leave.rollover
 
-models: ## download the embedding and Docling models into the models volume (once; ~1 GB)
-	$(COMPOSE) --profile core exec -T -u root api chown -R app:app /models   # volumes created before M4 belong to root
-	$(COMPOSE) --profile core exec -T api python -m leave_assistant.infrastructure.ml.prefetch
+models: ## download the embedding, reranker (+ ONNX export) and Docling models into the models volume (once; ALL=1 adds reranker candidate A)
+	$(COMPOSE) --profile core run --rm --no-deps -T -u root api chown -R app:app /models   # volumes created before M4 belong to root
+	API_MEMORY_LIMIT=3584M $(COMPOSE) --profile core run --rm --no-deps -T api python -m leave_assistant.infrastructure.ml.prefetch $(if $(ALL),--all)   # one-off container (M10): never inside the running api
 
 ingest: ## process every queued document job now (drains the queue inside the api container), then show the status table
 	$(COMPOSE) --profile core exec -T api python -m leave_assistant.worker --drain
