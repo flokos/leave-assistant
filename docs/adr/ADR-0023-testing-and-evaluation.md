@@ -39,7 +39,7 @@ Compose `test` profile; `make` targets; optional GitHub Actions mirror.
 Milestone exit criteria reference named suites; evaluation documents carry confidence intervals and limitations.
 
 ## Implementation note (M9, 2026-11-06)
-- **Dataset:** `evaluation/datasets/leave-eval-v1.yaml` (32 scenarios plus 30 retrieval probes; labels committed
+- **Dataset:** `evaluation/datasets/leave-eval-v1.yaml` (71 items: 32 scenarios, 30 retrieval probes and 9 unanswerable probes; labels committed
   before any measurement). The decision rule was pre-registered in `docs/evaluation/README.md`.
 - **Harness:**
   - location: the backend venv on the host (`leave_assistant.evaluation`);

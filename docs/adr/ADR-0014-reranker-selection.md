@@ -52,7 +52,7 @@ M6: both candidates are wired behind the `Reranker` port and downloaded by `make
 
 **Decision: B with the ONNX fp32 runtime** (`RERANKER_BACKEND=onnx`, exported by `make models` into
 `/models/onnx/`), 10 candidates, τ recalibrated to **0.22**. A is the only candidate with a significant quality
-gain, but it is about 13× slower per turn. No runtime could bring it under the 3 s target on this CPU (rule 3 of the
+gain, but it is about 13× slower per turn excluding LLM time (35.4 vs 2.6 s; rerank 35 vs 2.1 s). No runtime could bring it under the 3 s target on this CPU (rule 3 of the
 pre-registered protocol), so its ONNX/int8 variants were not timed. int8 is slower than fp32 here: the i5-3320M
 has no AVX2, and the quantised kernels need it. 20 candidates double the latency for +0.008 nDCG@5. The reserve
 candidate (`mxbai-rerank-base-v2`) was not needed: B passes both criteria. Re-evaluate A on a host with AVX2/VNNI or

@@ -213,7 +213,7 @@ one-line change if Gemini quotas prove unusable (decided Q-04 — no paid tier).
 | `+ observability` | 6.5–10 GB | **16 GB recommended** |
 | everything incl. `eval` | 7–11 GB | 16 GB |
 | evaluation session (`core` minus frontend/n8n, embedded worker, `observability` with reduced ClickHouse/Valkey settings) | 5–6.5 GB | the 7.1 GB reference machine (decided Q-05) |
-| *measured M9 (2026-11-06)*: `observability` with `deploy/clickhouse/low-memory-*.xml` | langfuse-web 335–860 MB (Node heap 1 GB, limit 1.25 GB), worker 230–300 MB, ClickHouse 37–56 MB, Valkey 5–7 MB: **≈ 1.2 GB** | fits beside postgres + seaweedfs + chroma, or beside the staged core stack for a trace check; the harness runs on the host |
+| *measured M9 (2026-11-06)*: `observability` with `deploy/clickhouse/low-memory-*.xml` | langfuse-web 335–860 MB (Node heap 1 GB, limit 1.25 GB), worker 230–360 MB, ClickHouse 26–86 MB, Valkey 5–8 MB: **≈ 1.3 GB at peak** | fits beside postgres + seaweedfs + chroma, or beside the staged core stack for a trace check; the harness runs on the host |
 
 Disk: images ≈ 8–10 GB; Python environment ≈ 3.5 GB (measured for the resolved set with CPU torch); models ≈ 3–4 GB;
 data volumes small. CPU: 4 cores suffice; ingestion and reranking are the hot spots. No GPU required or assumed.

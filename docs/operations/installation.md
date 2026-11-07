@@ -235,7 +235,7 @@ make up-observability    # Langfuse web + worker, ClickHouse (low-memory setting
 Sign in with `LANGFUSE_INIT_USER_EMAIL` and the generated `LANGFUSE_INIT_USER_PASSWORD` from `deploy/.env`. The
 organisation, project and API keys are created at the first start; set `LANGFUSE_ENABLED=true` and restart the api
 (`make up-staged`) to trace assistant runs (inputs are pseudonymised and masked again before they leave the backend).
-Langfuse needs about 1.2 GB on top of the core stack, so on the 7 GB machine run it only when needed.
+Langfuse needs about 1.3 GB on top of the core stack, so on the 7 GB machine run it only when needed.
 
 The evaluation (doc 11, `docs/evaluation/`) runs on the host against the seeded dev database:
 

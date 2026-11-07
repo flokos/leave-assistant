@@ -63,7 +63,7 @@ with the `io`, `metadata` and `trace_context` field groups.
 
 | Check | Result |
 |---|---|
-| trace recorded for the turn's session | 1 trace, 20 observations, 2 generations (Gemini 429 → Mistral answer) |
+| trace recorded for the turn's session | 1 trace, 15 observations, 1 generation (answered by Gemini `gemini-3.6-flash`) |
 | e-mail addresses anywhere in the payload | **none** |
 | phone numbers | **none** |
 | the user's names (vault originals) | **none** |

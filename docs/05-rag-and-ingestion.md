@@ -171,7 +171,7 @@ sequenceDiagram
   and the measured p95 latency on the reference machine (ADR-0014). Jina rerankers are excluded (non-commercial licence).
   **Decided in M9 (2026-11-06): candidate B on ONNX fp32** (`RERANKER_BACKEND=onnx`; exported by `make models` into
   `/models/onnx/<model>`, `safe_tanh` applied before export). Same scores as PyTorch, rerank p50 1.88 s vs 2.72 s.
-  A is better (+0.034 nDCG@5) but about 13× slower per turn; int8 is slower than fp32 on the AVX-only CPU. The
+  A is better (+0.034 nDCG@5) but about 13× slower per turn excluding LLM time (35.4 vs 2.6 s); int8 is slower than fp32 on the AVX-only CPU. The
   backends are `torch | onnx | onnx-int8`. 10 candidates at 256 tokens stay (ADR-0014, retrieval comparison §3).
 
 ### 6.4 Evidence threshold

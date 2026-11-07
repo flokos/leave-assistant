@@ -40,7 +40,7 @@ the LLM received: B 25/25, A 22/22 (document level; the verifier enforces it per
 - The deployed configuration meets the faithfulness target.
 - A is not significantly better on any RAGAS metric: every paired interval includes 0. The context precision
   difference comes from one item, S07 (§3.4).
-- This agrees with the retrieval decision (A +0.034 nDCG@5 at about 13× the rerank time,
+- This agrees with the retrieval decision (A +0.034 nDCG@5 at about 13× the time per turn excluding LLM, 17× the rerank time,
   [retrieval comparison](retrieval-comparison.md)). Answer quality gives no reason to revisit it.
 - Judge variance (sd ≤ 0.018) is small next to the item-level spread. The intervals are wide because there are 17
   items, not because of the judge.
