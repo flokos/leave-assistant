@@ -117,13 +117,27 @@ rate in `tests/security/test_agent_actions.py`.
 | Family | Metric | Source | Target (initial, to be revised with data) |
 |--------|--------|--------|-------------------------------------------|
 | Retrieval | hit@5, MRR, nDCG@5 per query (labelled relevant chunk ids) | harness | hit@5 ≥ 0.9 on S01–S04, S07–S08 |
-| RAG quality | RAGAS faithfulness, answer relevancy, context precision, context recall | RAGAS with Gemini/Groq judge via LangChain wrappers; 3 repetitions | faithfulness ≥ 0.85 |
+| RAG quality | RAGAS faithfulness, answer relevancy, context precision, context recall | RAGAS with Gemini/Groq judge via LangChain wrappers; 3 repetitions (M9: `mistral-large-4` judge, evaluation README amendment) | faithfulness ≥ 0.85 |
 | Grounding behaviour | insufficient-evidence correctness (S05/S06/S09/S20), citation precision (verified citations / total) | harness | 100 % / ≥ 0.95 |
 | Agent | tool-selection accuracy, action success rate, unauthorized-action rate | harness (fake + live) | ≥ 0.9 / ≥ 0.9 / **0** |
 | Language | answer language = user language | lingua on outputs | ≥ 0.98 |
 | Security | block rate per injection family; false-positive quarantine rate on the benign seed corpus | harness | ≥ 0.95 / ≤ 0.05 |
 | Performance | p50/p95 latency per stage (retrieve, rerank, LLM, total); ingestion time per document type | harness timers | NFR-PERF targets |
 | Cost/quota | tokens per scenario, calls per scenario, failover count | provider events | budget never exceeded |
+
+**M9 results (2026-11-06, reference machine; deployed configuration pgvector + hybrid + reranker B on ONNX, τ 0.22;
+details in `docs/evaluation/`):**
+
+| Family | Target | Actual | Met |
+|---|---|---|---|
+| Retrieval | hit@5 ≥ 0.9 on S01–S04, S07–S08 | 1.0 on those six; 0.971 over all 34 labelled queries (nDCG@5 0.883) | yes |
+| RAG quality | faithfulness ≥ 0.85 | 0.887 [0.755, 0.980] over 17 items × 3 judge repetitions (`mistral-large-4`); 0.943 without the one verifier fallback (R02) | yes |
+| Grounding | insufficient evidence 100 % / citation precision ≥ 0.95 | S05, S06 and S09 refused (scenario suite 12/12 at τ 0.22); S20 and the other boundary items: 0 violations; citations 25/25 name a supplied document | yes |
+| Agent (live, Mistral) | ≥ 0.9 / ≥ 0.9 / 0 | tool selection 0.91 (strict 0.73), action success 0.91, unauthorized **0** | yes (strict tool selection no; R-33) |
+| Language | ≥ 0.98 | 47/47 (36 live answers + 11 live agent scenarios) | yes |
+| Security | block ≥ 0.95 / false positives ≤ 0.05 | chat attacks 8/8 blocked; document fixtures 18/18 at the expected tier (held 1.0, quarantined 0.857: hidden footnotes are held, not quarantined); benign corpus 0 false positives | yes for blocking; quarantine 0.857 below 0.95 |
+| Performance | NFR-PERF-01 p50 ≤ 3 s | p50 2.70 s, p95 3.36 s (`make chat-perf`, one-off container) | p50 yes, p95 no |
+| Cost/quota | budget never exceeded | each live run stayed within `EVAL_MAX_CALLS` (39 + 39 answer calls, 29 agent calls); 0 failovers in the pinned runs; Gemini unmeasured (20 requests/day, R-03) | yes |
 
 ## 8. Experiment protocol (Langfuse)
 - Dataset `leave-eval-v1` uploaded to Langfuse (items = scenarios with expected outputs and relevant chunk ids).
@@ -147,6 +161,12 @@ guard). GitHub Actions is optional (free tier) and mirrors the same targets; the
 - Milestone exit criteria (doc 12) reference the suites by name.
 
 ## 11. Known limitations of the evaluation approach (to be expanded with findings)
+*M9 findings (`docs/evaluation/known-weaknesses.md`, `rag-quality.md` §3):*
+- The judge is least reliable on cross-lingual answers (a Greek question over an English corpus).
+- RAGAS scores the verifier fallback as an answer, at 0 (R-36).
+- Over-pseudonymised policy text is invisible to both RAGAS and the retrieval metrics (R-30).
+- The production primary (Gemini) could not be measured on its free tier (R-03).
+
 Small dataset (30) → report confidence intervals, not single numbers; judge bias; Greek NER recall of
 `el_core_news_md` is unmeasured until M5; reranker calibration (τ) is model-specific and must be re-tuned when the
 model changes; latency figures are specific to the reference machine.

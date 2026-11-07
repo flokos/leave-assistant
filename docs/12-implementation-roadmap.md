@@ -150,7 +150,8 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 ### M10 — Hardening and documentation completion (M)
 - Carried over from M8 (user decision): the manual Google Calendar end-to-end checklist (doc 10 §2, worklog M8).
 - From M9: its own outcome for the verifier fallback (R-36); a live Gemini measurement when its quota allows (R-03);
-  a department-name lookup for `get_team_availability` (S19).
+  a department-name lookup for `get_team_availability` (S19); stop NER masking ordinary policy words in document
+  chunks, with recogniser precision measured on the corpus (R-30, `docs/evaluation/rag-quality.md` §3.2).
 - Platform admin UI completion, security policy UI, audit export, backup/restore script and test, resource limits
   and `WORKER_MODE=embedded` validation on the 7 GB machine, troubleshooting guide, final ADR sync, README.
 - Exit: clean-clone install test following only the docs; all suites green; documentation review against brief §13.

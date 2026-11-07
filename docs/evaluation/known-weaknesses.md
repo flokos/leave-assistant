@@ -22,9 +22,10 @@ evidence. Risks with an owner and a contingency are in doc 13.
 
 ## Product weaknesses found
 7. **Verifier fallback counted as an answer** (R-36). When both drafts fail verification, users get a canned
-   fallback, but the run outcome is `answered`: 2 of 18 live answers in both configurations. R02's draft cited
-   sources it had not been given; R29 ("can I change an approved leave before it starts?") was classified as an
-   action and the verifier demanded a `prepare_` tool.
+   fallback, but the run outcome is `answered`: 2 of 18 live answers in both configurations. R02 ("who approves a
+   leave request longer than five days?") was classified as an action and the verifier demanded a `prepare_` tool;
+   R29's drafts ("can I change an approved leave before it starts?") cited sources they had not been given. RAGAS
+   scored R02's fallback 0, which lowers mean faithfulness by about 0.055 ([RAG quality](rag-quality.md) §3.1).
 8. **Tool use of the small answer model** (R-33). S13 ("3 days from 23 December") computed the working days but
    never prepared the request. S14/S15 asked for the leave type, so the scenario's validation failure was never
    reached. S19 passed a tool validation message to the user ("shorten the department name to 16
@@ -41,7 +42,13 @@ evidence. Risks with an owner and a contingency are in doc 13.
 12. **The hidden-footnote injection family is held for review, not quarantined** (2 of 2 fixtures). They never
     reach retrieval unreviewed, but they depend on an HR reviewer.
 13. **No free judge for routine use.** `mistral-large-4` is metered at 20k tokens/min, so a full RAGAS run (2
-    configurations × 3 repetitions) takes about two hours on the free plan.
+    configurations × 3 repetitions) took about 4.5 hours on the free plan.
+
+14. **Over-pseudonymisation of policy text** (R-30). NER masks ordinary words in document chunks before the LLM sees
+    them: "Who approves" became `PERSON_0002`, and the Greek "Τμήμα Ανθρώπινου Δυναμικού" (the HR department) became
+    `ADDRESS_0004`. This affected 4 of 18 answer items. Readers see restored text, but the model reasons over the
+    placeholders, and neither RAGAS nor the retrieval metrics can detect it ([RAG quality](rag-quality.md) §3.2).
 
 ## RAG quality findings
-See [RAG quality](rag-quality.md) §3.
+See [RAG quality](rag-quality.md) §3. Cross-lingual answers (a Greek question over an English corpus) get the lowest
+faithfulness scores even when correct, so the judge is least reliable there (§3.3).

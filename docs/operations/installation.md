@@ -243,7 +243,7 @@ The evaluation (doc 11, `docs/evaluation/`) runs on the host against the seeded 
 make eval-session        # stops frontend, n8n, worker, api and keycloak; starts Chroma and Langfuse
 make eval-offline        # retrieval comparison, reranker runtimes, τ calibration, security figures
 make eval-live           # live answers (pinned to Mistral, EVAL_ANSWER_PROVIDERS) + live agent scenarios
-make eval-ragas          # RAGAS scores (judge mistral-large-4, ≈ 1 h per repetition on the free plan; resumable)
+make eval-ragas          # RAGAS scores (judge mistral-large-4, ≈ 45 min per repetition on the free plan; resumable)
 make eval-report         # performance figures
 make eval-session-end    # back to `make up-staged`
 make eval-trace          # with LANGFUSE_ENABLED=true make up-staged: one traced chat turn, checked for leaks
