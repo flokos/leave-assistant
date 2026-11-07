@@ -27,7 +27,6 @@ PROJECT=leave-assistant
 PGIMAGE=pgvector/pgvector:0.8.7-pg18   # already present locally; has tar and gzip
 mkdir -p "$DIR"
 DIR=$(cd "$DIR" && pwd)
-UIDGID="$(id -u):$(id -g)"
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*"; }
 
@@ -51,8 +50,8 @@ copy_volume() {  # <volume> <archive> <services to stop while copying…>
     if running "$service"; then "${COMPOSE[@]}" stop "$service" >/dev/null 2>&1; stopped+=("$service"); fi
   done
   log "archiving volume $volume"
-  docker run --rm -v "${PROJECT}_${volume}:/data:ro" -v "$DIR:/backup" "$PGIMAGE" \
-    sh -c "tar czf /backup/$archive -C /data . && chown $UIDGID /backup/$archive"
+  # streamed through stdout, so the archive belongs to the calling user (Docker may remap the container's root)
+  docker run --rm -v "${PROJECT}_${volume}:/data:ro" "$PGIMAGE" tar czf - -C /data . > "$DIR/$archive"
   for service in "${stopped[@]}"; do "${COMPOSE[@]}" start "$service" >/dev/null 2>&1; done
 }
 

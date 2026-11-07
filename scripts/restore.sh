@@ -59,8 +59,8 @@ restore_volume() {  # <archive> <volume>
   [[ -f "$DIR/$archive" ]] || return 0
   log "restoring volume $volume"
   docker volume create "${PROJECT}_${volume}" >/dev/null
-  docker run --rm -v "${PROJECT}_${volume}:/data" -v "$DIR:/backup:ro" "$PGIMAGE" \
-    sh -c "find /data -mindepth 1 -delete && tar xzf /backup/$archive -C /data"
+  docker run --rm -i -v "${PROJECT}_${volume}:/data" "$PGIMAGE" \
+    sh -c "find /data -mindepth 1 -delete && tar xzf - -C /data" < "$DIR/$archive"
 }
 restore_volume seaweed.tar.gz seaweed
 restore_volume n8n.tar.gz n8n
