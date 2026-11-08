@@ -14,12 +14,14 @@ following it from a clean clone.
 
 ## First start
 ```bash
-make env            # copies deploy/.env.example to deploy/.env — review the values (dev passwords, ports)
+make env            # copies deploy/.env.example to deploy/.env and generates every key — review the values, add
+                    # GEMINI_API_KEY and/or MISTRAL_API_KEY for the assistant (configuration.md)
 make build          # builds the api and frontend images; the first build downloads ~2.5 GB of Python wheels
-make up             # core profile; waits until every service is healthy (Keycloak imports the realm on first start)
+make models         # once, before the first seed: downloads the embedding, reranker and Docling models (2.5 GB)
+                    # into the `models` volume and exports the reranker to ONNX (a one-off container, ~9 min)
+make up             # core profile (`make up-staged` on hosts with less than 4 GB free); waits until healthy
 make bootstrap      # applies the database migrations and seeds the two fictional companies (idempotent)
 make smoke          # liveness + readiness through the frontend proxy (readyz reports `schema` until migrated)
-make models         # once: downloads the embedding and Docling models (~1.2 GB) into the `models` volume
 make ingest         # processes the seeded company documents (parsing, OCR, chunking, embeddings); shows the status table
 ```
 Then open:
@@ -45,14 +47,14 @@ Then open:
 The full list is in `backend/src/leave_assistant/seed/data.py`. `make token EMAIL=<user>` prints an access token for
 `curl` (dev realm: direct access grants are enabled on the SPA client for this purpose only).
 
-### What each role sees (M3)
+### What each role sees (M3–M10)
 | Role | Workspace menu |
 |------|----------------|
-| Employee | *My leave* (balances, request wizard: check → submit, history, request detail with modify/cancel), *Notifications* |
+| Employee | *Assistant* (chat with citations and confirmation cards), *My leave* (balances, request wizard: check → submit, history, request detail with modify/cancel, supporting documents), *Notifications*, *Documents*, *Calendar* |
 | Manager | + *Approvals* (approve/reject with comment), *Team availability*, *Team requests* |
-| HR Administrator | the manager pages (HR-fallback steps flagged) + *Balances* (with ledger adjustments) and *Audit log* |
-| Company Administrator | *Employees* (create → one-time temporary password, edit, roles, deactivate), *Departments* (manager designation), *Leave types & policies*, *Public holidays* (incl. CSV import), *Approval rules* (incl. routing simulation), *Balances*, *Audit log* |
-| Platform Administrator | *Companies* (create, suspend/resume, first administrator → one-time password), *Platform audit* |
+| HR Administrator | the manager pages (HR-fallback steps flagged) + *Balances* (with ledger adjustments), *Review queue*, *Retention*, *Audit log* (with CSV export) |
+| Company Administrator | *Employees* (create → one-time temporary password, edit, roles, deactivate), *Departments* (manager designation), *Leave types & policies*, *Public holidays* (incl. CSV import), *Approval rules* (incl. routing simulation), *Company settings* (language, timezone, work week, conversation retention, card lifetime, HR fallback), *Security policy* (risk tiers, chat screening, upload limits), *Balances*, *Review queue*, *Retention*, *Audit log* (with CSV export) |
+| Platform Administrator | *Companies* (create, suspend/resume, first administrator → one-time password), *Platform audit* (with CSV export), *Platform settings* (defaults of new companies, global security defaults and the ranges companies may use) |
 
 The menu is a convenience only: the API authorises every call (FR-UI-04), and opening a route of another role shows
 a polite notice. EN/EL is switched in the header; the choice is remembered per browser.
@@ -61,7 +63,7 @@ a polite notice. EN/EL is switched in the header; the choice is remembered per b
 ```bash
 TOKEN=$(make -s token EMAIL=platform.admin)
 curl -s -X POST localhost:8080/api/v1/platform/tenants -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
-  -H 'Content-Type: application/json' -d '{"slug":"newco","name":"New Co","default_locale":"en","timezone":"Europe/Dublin"}'
+  -H 'Content-Type: application/json' -d '{"slug":"newco","name":"New Co","timezone":"Europe/Dublin"}'   # omitted values come from Platform settings (M10)
 curl -s -X POST localhost:8080/api/v1/platform/tenants/<id>/bootstrap-admin -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' \
   -d '{"email":"admin@newco.example","first_name":"Ada","last_name":"Lovelace","locale":"en"}'
@@ -298,29 +300,16 @@ Install the git hooks once with `pip install pre-commit && pre-commit install`.
 
 ## Configuration
 All settings are environment variables documented in `deploy/.env.example` (each with the milestone that first uses
-it). The backend reads them through `backend/src/leave_assistant/config.py`; unknown values for enumerated flags fail
+it); the generated reference is [configuration.md](configuration.md). The backend reads them through `backend/src/leave_assistant/config.py`; unknown values for enumerated flags fail
 fast at start-up.
 
 ## Data, reset, backup
 - Named volumes: `pgdata` (PostgreSQL: `leave`, `keycloak`, `n8n`, `langfuse` databases), `seaweed` (objects), `models`
   (downloaded ML models), `mailpit`.
 - Full reset: `docker compose -f deploy/compose.yaml --profile core down -v` (deletes all data).
-- Backup/restore scripts arrive in M10 (doc 03 §6.5).
+- Backup and restore: `make backup DIR=…` / `make restore DIR=…` — see [backup-restore.md](backup-restore.md) (keep
+  `deploy/.env` with every backup: it holds the encryption keys).
 
 ## Troubleshooting
-| Symptom | Likely cause / fix |
-|---------|--------------------|
-| `keycloak` stays `starting` for > 2 minutes | First start initialises its database (slow on small machines); check `make logs SERVICE=keycloak`. If the `keycloak` database is missing, the init script ran before it was added — reset the `pgdata` volume. |
-| `readyz` reports `keycloak` failing while the console works | The API reaches Keycloak on `http://keycloak:8080` (backchannel); `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` must be set together with the full-URL `KC_HOSTNAME`. |
-| `readyz` reports `s3` failing | The bucket is created by the API at start-up; check SeaweedFS logs and `S3_ACCESS_KEY/S3_SECRET_KEY` in `deploy/.env`. |
-| Port already in use | Change `FRONTEND_PORT`, `KEYCLOAK_PORT`, `MAILPIT_PORT` (or `API_PORT` for `up-dev`) in `deploy/.env`. |
-| `api` exits with code 132 (illegal instruction) | An AVX-only CPU hit MKL's vector `tanh` (doc 13 R-27). The models already avoid that kernel; also set `MKL_CBWR=AVX` in `deploy/.env` and restart. |
-| A card says it expired, or Confirm answers `409 chat/proposal-expired` | Cards are valid for the tenant's `proposal_ttl_minutes` (default 15); ask again for a new card. `409 chat/no-pending-proposal` means a newer message replaced it. |
-| Chat answers `503 chat/provider-unavailable`, or the stream ends with that error | HTTP 503: no provider is configured (no key). Stream error: every provider failed or its circuit breaker is open (60 s; 10 min after a bad key or model). Check `make logs SERVICE=api` for `provider` events. |
-| `api` OOM-killed | Raise the memory limit in `deploy/compose.yaml` or use `make up-staged`. |
-| Build fails downloading wheels | Retry; the uv cache mount keeps already-downloaded packages. |
-| `readyz` reports `schema` failing | Migrations not applied or behind the code: `make migrate`. |
-| `readyz` reports `keycloak` failing with HTTP 404 | Realm not imported (first start happened without the realm file): `docker compose … rm -sf keycloak && make up-staged` re-imports; existing realms are never overwritten — delete the realm in the console to re-import. |
-| `make seed` fails with "identity provider returned HTTP 401" | `KEYCLOAK_ADMIN_CLIENT_SECRET` in `deploy/.env` differs from the value imported into the realm (placeholders resolve at import time); align them or re-import the realm. |
-| Login works but the API answers 401 "invalid issuer" | `KC_PUBLIC_URL` (issuer) must match what the browser uses, e.g. `http://localhost:8081`; the API validates `iss` against `KEYCLOAK_PUBLIC_URL`. |
-| Login answers "Account is not fully set up" | The user has a temporary password: complete the password change in the browser (direct-grant tooling cannot do it). |
+See [troubleshooting.md](troubleshooting.md): symptoms by area (start-up, identity, documents, assistant,
+integrations, observability, backup) with causes and fixes.

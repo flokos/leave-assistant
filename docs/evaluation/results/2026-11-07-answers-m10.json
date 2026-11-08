@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-07",
+  "commit": "c29e3eb",
+  "providers": "mistral",
+  "configs": {
+    "pgvector+B+hybrid+onnx": {
+      "samples": 6,
+      "file": "2026-11-07-answers-pgvector+B+hybrid+onnx-m10.jsonl",
+      "tau": 0.22
+    }
+  },
+  "calls": 21,
+  "by_model": {
+    "mistral/ministral-8b-2512": 8,
+    "mistral/ministral-14b-2512": 13
+  },
+  "provider_events": {
+    "selected": 15,
+    "retry": 6,
+    "error": 3
+  }
+}

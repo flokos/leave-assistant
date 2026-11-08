@@ -54,6 +54,7 @@ from leave_assistant.application.supporting.service import SupportingDocumentSer
 from leave_assistant.application.tenancy.departments import DepartmentService
 from leave_assistant.application.tenancy.employees import EmployeeService
 from leave_assistant.application.tenancy.provisioning import TenantProvisioningService
+from leave_assistant.application.tenancy.settings import SettingsService
 from leave_assistant.domain.documents.chunking import ChunkingRules
 
 
@@ -125,6 +126,7 @@ class Services:
     reidentification: ReidentificationService
     security: InjectionScanService
     security_policies: SecurityPolicyService
+    settings: SettingsService  # M10
     supporting: SupportingDocumentService
     retention: RetentionService
     chat: ChatService
@@ -279,6 +281,7 @@ class Services:
             reidentification=reidentification,
             security=security,
             security_policies=security_policies,
+            settings=SettingsService(uow_factory, clock, audit),
             supporting=SupportingDocumentService(
                 uow_factory,
                 adapters.storage,

@@ -11,6 +11,7 @@ the configuration, the date and a fingerprint of the corpus they ran on (doc 11 
 | `agent-and-security.md` | tool selection, action success, unauthorized actions (live and deterministic); injection and PII figures |
 | `performance.md` | latency per stage, NFR-PERF-01, ingestion time per document type, memory of the evaluation session |
 | `known-weaknesses.md` | what the numbers do not show and what is known to be weak |
+| `summary.md` | the final report: results against the targets, M10 follow-ups, security assessment, future improvements |
 | `results/` | the raw outputs (Markdown + CSV/JSONL) behind every table |
 
 ## 1. Dataset `leave-eval-v1`

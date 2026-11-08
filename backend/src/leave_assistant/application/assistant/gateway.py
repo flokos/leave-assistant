@@ -61,6 +61,7 @@ from leave_assistant.application.privacy.service import PseudonymisationService
 from leave_assistant.application.retrieval.context import EvidencePolicy, build_context
 from leave_assistant.application.retrieval.service import RetrievalService
 from leave_assistant.application.tenancy.context import TenantContext
+from leave_assistant.application.tenancy.lookup import resolve_department
 from leave_assistant.domain.agent.proposals import ProposalKind
 from leave_assistant.domain.agent.streaming import PLACEHOLDER
 from leave_assistant.domain.agent.types import CitationRef
@@ -657,15 +658,13 @@ class ToolGateway:
         self, ctx: ToolContext, args: AvailabilityArgs, outcome: ToolOutcome
     ) -> dict[str, Any]:
         department_id: UUID | None = None
+        department_code: str | None = None
         if args.department:
             async with self._uow(TenantContext.for_principal(ctx.principal)) as uow:
-                department = next(
-                    (d for d in await uow.departments.list() if d.code.upper() == args.department.upper()),
-                    None,
-                )
+                department = resolve_department(args.department, await uow.departments.list())
             if department is None:
                 raise NotFoundError("department not found")
-            department_id = department.id
+            department_id, department_code = department.id, department.code
         rows = await self._team.availability(
             ctx.principal, start=args.from_date, end=args.to_date, department_id=department_id
         )
@@ -673,7 +672,7 @@ class ToolGateway:
             employees = await uow.employees.get_many([r.employee_id for r in rows])
         names = await self._people(ctx, outcome, [e for e in employees.values()])
         return {
-            "department": args.department.upper() if args.department else None,
+            "department": department_code,
             "from_date": args.from_date.isoformat(),
             "to_date": args.to_date.isoformat(),
             "count": len(rows),

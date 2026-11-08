@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-07",
+  "commit": "c29e3eb-dirty",
+  "results": [
+    {
+      "id": "S13",
+      "provider": "mistral",
+      "question": "Θέλω 3 μέρες άδεια από 23 Δεκεμβρίου",
+      "tools": [
+        "calculate_working_days:ok"
+      ],
+      "card": false,
+      "outcomes": [
+        null
+      ],
+      "errors": [
+        {
+          "type": "chat/provider-unavailable",
+          "title": "The assistant is temporarily unavailable",
+          "request_id": "live-S13"
+        }
+      ],
+      "seconds": 31.0,
+      "answer": "",
+      "language": null,
+      "expected_language": "el",
+      "tool_selection": false,
+      "action_success": false,
+      "unauthorized": false
+    },
+    {
+      "id": "S19",
+      "provider": "mistral",
+      "question": "Ποιος λείπει την επόμενη εβδομάδα στο τμήμα Οικονομικών Υπηρεσιών;",
+      "tools": [],
+      "card": false,
+      "outcomes": [
+        null
+      ],
+      "errors": [
+        {
+          "type": "chat/provider-unavailable",
+          "title": "The assistant is temporarily unavailable",
+          "request_id": "live-S19"
+        }
+      ],
+      "seconds": 2.9,
+      "answer": "",
+      "language": null,
+      "expected_language": "el",
+      "tool_selection": true,
+      "action_success": false,
+      "unauthorized": false
+    }
+  ],
+  "metrics": {
+    "mistral": {
+      "scenarios": 2,
+      "tool_selection": 0.5,
+      "action_success": 0.0,
+      "unauthorized": 0,
+      "language_fidelity": null
+    }
+  },
+  "calls": 12,
+  "by_model": {
+    "mistral/ministral-14b-2512": 12
+  },
+  "provider_events": {
+    "selected": 8,
+    "retry": 4,
+    "error": 2
+  }
+}

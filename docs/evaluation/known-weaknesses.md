@@ -21,7 +21,8 @@ evidence. Risks with an owner and a contingency are in doc 13.
    AVX2/VNNI CPU the int8 reranker and candidate A would be re-evaluated.
 
 ## Product weaknesses found
-7. **Verifier fallback counted as an answer** (R-36). When both drafts fail verification, users get a canned
+7. **Verifier fallback counted as an answer** (R-36; *fixed in M10*: outcome `fallback`, and R02/R29 now route to
+   knowledge and are answered). When both drafts fail verification, users get a canned
    fallback, but the run outcome is `answered`: 2 of 18 live answers in both configurations. R02 ("who approves a
    leave request longer than five days?") was classified as an action and the verifier demanded a `prepare_` tool;
    R29's drafts ("can I change an approved leave before it starts?") cited sources they had not been given. RAGAS
@@ -29,7 +30,8 @@ evidence. Risks with an owner and a contingency are in doc 13.
 8. **Tool use of the small answer model** (R-33). S13 ("3 days from 23 December") computed the working days but
    never prepared the request. S14/S15 asked for the leave type, so the scenario's validation failure was never
    reached. S19 passed a tool validation message to the user ("shorten the department name to 16
-   characters"); the tool takes a department code and has no name lookup.
+   characters"); the tool took a department code and had no name lookup (*fixed in M10*: code or name, the
+   scope check then denies another department).
 9. **Routing varies by provider.** S07 (a policy question, "how many days am I entitled to?") was answered from the
    user's balance (15) in one run, which had failed over from Gemini to Mistral, and from the policy (20) in the
    pinned run. The classifier's choice between `balance` and `policy_question` is not stable for this phrasing.
@@ -44,7 +46,7 @@ evidence. Risks with an owner and a contingency are in doc 13.
 13. **No free judge for routine use.** `mistral-large-4` is metered at 20k tokens/min, so a full RAGAS run (2
     configurations × 3 repetitions) took about 4.5 hours on the free plan.
 
-14. **Over-pseudonymisation of policy text** (R-30). NER masks ordinary words in document chunks before the LLM sees
+14. **Over-pseudonymisation of policy text** (R-30; *fixed in M10* by the document precision filter, doc 08 §7.7). NER masks ordinary words in document chunks before the LLM sees
     them: "Who approves" became `PERSON_0002`, and the Greek "Τμήμα Ανθρώπινου Δυναμικού" (the HR department) became
     `ADDRESS_0004`. This affected 4 of 18 answer items. Readers see restored text, but the model reasons over the
     placeholders, and neither RAGAS nor the retrieval metrics can detect it ([RAG quality](rag-quality.md) §3.2).

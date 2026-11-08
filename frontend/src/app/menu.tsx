@@ -16,6 +16,8 @@ import {
   SettingOutlined,
   TeamOutlined,
   UserOutlined,
+  ControlOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { Link } from 'react-router'
@@ -52,6 +54,8 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
       { key: '/admin/leave-catalog', icon: <SettingOutlined />, label: <Link to="/admin/leave-catalog">{t('nav.leaveCatalog')}</Link> },
       { key: '/admin/holidays', icon: <CalendarOutlined />, label: <Link to="/admin/holidays">{t('nav.holidays')}</Link> },
       { key: '/admin/approval-rules', icon: <FileDoneOutlined />, label: <Link to="/admin/approval-rules">{t('nav.approvalRules')}</Link> },
+      { key: '/admin/settings', icon: <ControlOutlined />, label: <Link to="/admin/settings">{t('nav.companySettings')}</Link> },
+      { key: '/admin/security-policy', icon: <SafetyOutlined />, label: <Link to="/admin/security-policy">{t('nav.securityPolicy')}</Link> },
     )
   }
   if (principal.hasRole('hr_admin', 'company_admin')) {
@@ -67,6 +71,7 @@ export function menuItemsFor(principal: Principal, t: (key: string) => string): 
     group('platform', t('nav.platform'), [
       { key: '/platform/tenants', icon: <BankOutlined />, label: <Link to="/platform/tenants">{t('nav.tenants')}</Link> },
       { key: '/platform/audit', icon: <AuditOutlined />, label: <Link to="/platform/audit">{t('nav.platformAudit')}</Link> },
+      { key: '/platform/settings', icon: <ControlOutlined />, label: <Link to="/platform/settings">{t('nav.platformSettings')}</Link> },
     ])
   }
   group('system', t('nav.system'), [

@@ -29,7 +29,10 @@
     "reviewQueue": "Review queue",
     "retention": "Retention",
     "assistant": "Assistant",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "companySettings": "Company settings",
+    "securityPolicy": "Security policy",
+    "platformSettings": "Platform settings"
   },
   "auth": {
     "signIn": "Sign in",
@@ -560,7 +563,8 @@
       "executed": "Done",
       "failed": "Not done",
       "rejected": "Cancelled",
-      "interrupted": "Waiting for confirmation"
+      "interrupted": "Waiting for confirmation",
+      "fallback": "Fallback answer"
     },
     "tools": {
       "get_my_balance": "Balance",
@@ -713,5 +717,40 @@
       "ignore": "Ignore",
       "delete-orphan": "Delete event"
     }
+  },
+  "settings": {
+    "companyTitle": "Company settings",
+    "securityTitle": "Security policy",
+    "platformTitle": "Platform settings",
+    "newCompanyDefaults": "Defaults for new companies",
+    "securityDefaults": "Security defaults and allowed ranges",
+    "defaultLocale": "Default language",
+    "timezone": "Timezone",
+    "timezoneHint": "IANA name, e.g. Europe/Athens",
+    "workWeek": "Working days",
+    "conversationRetentionDays": "Keep assistant conversations (days)",
+    "conversationRetentionHint": "Older conversations are deleted with their checkpoints.",
+    "proposalTtlMinutes": "Confirmation card lifetime (minutes)",
+    "proposalTtlHint": "After this, the card expires and the user asks again.",
+    "allowHrFallback": "HR may decide when no manager is available",
+    "allowHrFallbackHint": "Recorded as a fallback decision in the request history.",
+    "riskLowMax": "Low risk up to",
+    "riskLowMaxHint": "Documents at or below this score are published.",
+    "riskMediumMax": "Medium risk up to",
+    "riskMediumMaxHint": "Up to this score a reviewer decides; above it the document is quarantined.",
+    "userInputBlock": "Block chat messages from score",
+    "userInputBlockHint": "Prompt-injection screening of user messages.",
+    "llmJudge": "Second opinion by the LLM",
+    "llmJudgeHint": "Off by default: it costs provider quota.",
+    "maxUploadMb": "Maximum upload size (MB)",
+    "maxUploadLimit": "Highest upload size a company may set (MB)",
+    "allowedMime": "Allowed document types",
+    "allowedMimeHint": "MIME types, e.g. application/pdf",
+    "thresholdMin": "Lowest threshold a company may set",
+    "thresholdMax": "Highest threshold a company may set",
+    "thresholdRangeHint": "Company thresholds must lie within this range.",
+    "securityIntro": "Thresholds must lie within the range the platform allows; the server rejects values outside it.",
+    "saved": "Saved",
+    "exportCsv": "Export CSV"
   }
 }

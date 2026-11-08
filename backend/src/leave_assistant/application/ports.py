@@ -52,7 +52,7 @@ from leave_assistant.domain.leave.state_machine import RequestStatus
 from leave_assistant.domain.leave.types import ApprovalRule, LeavePolicy, LeaveType, PublicHoliday, StepRole
 from leave_assistant.domain.privacy.types import EntityType, Finding
 from leave_assistant.domain.retention.eligibility import DocumentClass, RetentionAction, ReviewStatus
-from leave_assistant.domain.tenancy import Department, Employee, Role, Tenant
+from leave_assistant.domain.tenancy import Department, Employee, Locale, Role, Tenant, TenantSettings
 
 
 class Clock(Protocol):
@@ -501,6 +501,21 @@ class SecurityPolicy:
     updated_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class PlatformSettings:
+    """`platform.settings` (M10, doc 07 §4.1): what a new company gets when its creation leaves a value out."""
+
+    default_locale: Locale = Locale.EN
+    timezone: str = "Europe/Athens"
+    tenant_settings: TenantSettings = field(default_factory=TenantSettings)
+    updated_by: str = "system"
+
+
+class PlatformSettingsRepository(Protocol):
+    async def get(self) -> PlatformSettings: ...
+    async def update(self, settings: PlatformSettings) -> None: ...
+
+
 class SecurityDefaultsRepository(Protocol):
     async def get(self) -> SecurityDefaults: ...
     async def update(self, defaults: SecurityDefaults) -> None: ...
@@ -797,6 +812,7 @@ class UnitOfWork(Protocol):
     index_generations: IndexGenerationRepository
     jobs: JobRepository
     pii_vault: VaultRepository
+    platform_settings: PlatformSettingsRepository
     security_defaults: SecurityDefaultsRepository
     security_policies: SecurityPolicyRepository
     injection_findings: InjectionFindingRepository

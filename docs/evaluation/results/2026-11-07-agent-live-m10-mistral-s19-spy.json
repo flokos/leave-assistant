@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-07",
+  "commit": "9d467ee-dirty",
+  "results": [
+    {
+      "id": "S19",
+      "provider": "mistral",
+      "question": "Ποιος λείπει την επόμενη εβδομάδα στο τμήμα Οικονομικών Υπηρεσιών;",
+      "tools": [
+        "get_team_availability:denied"
+      ],
+      "card": false,
+      "outcomes": [
+        "answered"
+      ],
+      "errors": [],
+      "seconds": 27.5,
+      "answer": "Δεν έχω πρόσβαση στις απουσίες του τμήματος Οικονομικών Υπηρεσιών. Εάν χρειάζεστε αυτές τις πληροφορίες, επικοινωνήστε με τον υπεύθυνο του τμήματος ή με την HR.",
+      "language": "el",
+      "expected_language": "el",
+      "tool_selection": true,
+      "action_success": true,
+      "unauthorized": false
+    }
+  ],
+  "metrics": {
+    "mistral": {
+      "scenarios": 1,
+      "tool_selection": 1.0,
+      "action_success": 1.0,
+      "unauthorized": 0,
+      "language_fidelity": 1.0
+    }
+  },
+  "calls": 2,
+  "by_model": {
+    "mistral/ministral-14b-2512": 2
+  },
+  "provider_events": {
+    "selected": 2
+  }
+}

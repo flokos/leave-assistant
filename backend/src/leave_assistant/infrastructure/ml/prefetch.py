@@ -1,7 +1,12 @@
-"""Download the models once into the cache volume (`make models`): e5 + the Docling layout/TableFormer models."""
+"""Download the models once into the cache volume (`make models`): e5, the deployed reranker (and its ONNX export),
+the Docling layout/TableFormer models. `--all` (`make models ALL=1`) also fetches the reserve reranker candidate.
+
+M10: each model is released after its check, and `make models` runs in a one-off container — the clean-clone test
+found that loading every model inside the running api exceeded its memory limit and the api was OOM-killed."""
 
 from __future__ import annotations
 
+import gc
 import sys
 import time
 from pathlib import Path
@@ -23,14 +28,24 @@ def main() -> int:
     sys.stdout.write(f"embedding model {embedder.model_id}: {len(vector)}-d\n")
     from leave_assistant.infrastructure.ml.reranker import CrossEncoderReranker
 
-    for model in dict.fromkeys([settings.reranker_model, *RERANKERS]):  # both ADR-0014 candidates (M6)
-        score = CrossEncoderReranker(model).score("άδεια", ["κανονική άδεια", "printer toner"])
-        sys.stdout.write(f"reranker {model}: {score}\n")
+    del embedder
+    gc.collect()
+    every = "--all" in sys.argv[1:]
+    models = dict.fromkeys([settings.reranker_model, *(RERANKERS if every else ())])  # ADR-0014 candidates
+    for model in models:
+        reranker = CrossEncoderReranker(model)
+        sys.stdout.write(
+            f"reranker {model}: {reranker.score('άδεια', ['κανονική άδεια', 'printer toner'])}\n"
+        )
+        del reranker
+        gc.collect()
     if settings.reranker_backend != "torch":  # M9: export the ONNX graph once into $HF_HOME/onnx
         onnx = CrossEncoderReranker(settings.reranker_model, backend=settings.reranker_backend)
         sys.stdout.write(
             f"reranker {onnx.model_id}: {onnx.score('άδεια', ['κανονική άδεια', 'printer toner'])}\n"
         )
+        del onnx
+        gc.collect()
     artifacts = settings.docling_artifacts_dir
     if artifacts is not None:
         from docling.utils.model_downloader import download_models

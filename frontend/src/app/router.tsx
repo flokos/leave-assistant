@@ -27,6 +27,9 @@ const RetentionPage = lazy(() => import('../features/retention/RetentionPage'))
 const CalendarPage = lazy(() => import('../features/calendar/CalendarPage'))
 const TenantsPage = lazy(() => import('../features/platform/TenantsPage'))
 const PlatformAuditPage = lazy(() => import('../features/platform/PlatformAuditPage'))
+const CompanySettingsPage = lazy(() => import('../features/settings/CompanySettingsPage'))
+const SecurityPolicyPage = lazy(() => import('../features/settings/SecurityPolicyPage'))
+const PlatformSettingsPage = lazy(() => import('../features/settings/PlatformSettingsPage'))
 
 function Home() {
   const principal = usePrincipal()
@@ -69,6 +72,8 @@ export function AppRouter() {
               <Route path="/admin/leave-catalog" element={<LeaveCatalogPage />} />
               <Route path="/admin/holidays" element={<HolidaysPage />} />
               <Route path="/admin/approval-rules" element={<ApprovalRulesPage />} />
+              <Route path="/admin/settings" element={<CompanySettingsPage />} />
+              <Route path="/admin/security-policy" element={<SecurityPolicyPage />} />
             </Route>
             <Route element={<RequireRole anyOf={['hr_admin', 'company_admin']} tenantOnly />}>
               <Route path="/admin/balances" element={<BalancesPage />} />
@@ -79,6 +84,7 @@ export function AppRouter() {
             <Route element={<RequireRole anyOf={['platform_admin']} />}>
               <Route path="/platform/tenants" element={<TenantsPage />} />
               <Route path="/platform/audit" element={<PlatformAuditPage />} />
+              <Route path="/platform/settings" element={<PlatformSettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

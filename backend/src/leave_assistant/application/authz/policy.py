@@ -43,11 +43,13 @@ class Action(StrEnum):
         "calendar.read_sync"  # M8: sync history (doc 09 §2.7: C, H; owners for their requests)
     )
     MANAGE_SECURITY_POLICY = "admin.manage_security_policy"
+    MANAGE_TENANT_SETTINGS = "admin.manage_settings"  # M10
     READ_AUDIT_TENANT = "audit.read_tenant"
     READ_RUN_HISTORY = "chat.read_run_history"
     CHAT = "chat.use"
     MANAGE_TENANTS = "platform.manage_tenants"
     MANAGE_SECURITY_DEFAULTS = "platform.manage_security_defaults"
+    MANAGE_PLATFORM_SETTINGS = "platform.manage_settings"  # M10
     READ_AUDIT_PLATFORM = "platform.read_audit"
     READ_TENANT_DATA = "platform.read_tenant_data"  # never granted (doc 08 §5.2 last rows)
     INTERNAL_CALL = "internal.call"
@@ -121,11 +123,13 @@ PERMISSIONS: Final[dict[Action, dict[Role, Scope]]] = {
     Action.CONNECT_PERSONAL_CALENDAR: _ALL_SELF,
     Action.READ_CALENDAR_SYNC: {E: Scope.SELF, M: Scope.SELF, H: Scope.TENANT, C: Scope.TENANT},
     Action.MANAGE_SECURITY_POLICY: {C: Scope.TENANT},
+    Action.MANAGE_TENANT_SETTINGS: {C: Scope.TENANT},
     Action.READ_AUDIT_TENANT: {H: Scope.TENANT, C: Scope.TENANT},
     Action.READ_RUN_HISTORY: {E: Scope.SELF, M: Scope.SELF, H: Scope.TENANT, C: Scope.TENANT},
     Action.CHAT: _ALL_TENANT,
     Action.MANAGE_TENANTS: {P: Scope.PLATFORM},
     Action.MANAGE_SECURITY_DEFAULTS: {P: Scope.PLATFORM},
+    Action.MANAGE_PLATFORM_SETTINGS: {P: Scope.PLATFORM},
     Action.READ_AUDIT_PLATFORM: {P: Scope.PLATFORM},
     Action.READ_TENANT_DATA: {},
     Action.INTERNAL_CALL: {A: Scope.AUTOMATION},

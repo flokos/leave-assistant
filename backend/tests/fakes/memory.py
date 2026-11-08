@@ -78,6 +78,8 @@ from leave_assistant.application.ports import (
     NotificationRepository,
     OAuthStateRepository,
     PendingInterruptRepository,
+    PlatformSettings,
+    PlatformSettingsRepository,
     ProposalRepository,
     ProviderEventRepository,
     ReconciliationItemRepository,
@@ -151,6 +153,7 @@ class MemoryStore:
     jobs: dict[UUID, Job] = field(default_factory=dict)
     pii_vault: dict[UUID, VaultEntry] = field(default_factory=dict)
     pii_counters: dict[tuple[UUID, str], int] = field(default_factory=dict)
+    platform_settings: PlatformSettings = field(default_factory=PlatformSettings)
     security_defaults: SecurityDefaults = field(default_factory=SecurityDefaults)
     security_policies: dict[UUID, SecurityPolicy] = field(default_factory=dict)
     injection_findings: list[InjectionFinding] = field(default_factory=list)
@@ -1164,6 +1167,17 @@ class _Vault:
         return len(self._rows())
 
 
+class _PlatformSettings:
+    def __init__(self, store: MemoryStore) -> None:
+        self._store = store
+
+    async def get(self) -> PlatformSettings:
+        return self._store.platform_settings
+
+    async def update(self, settings: PlatformSettings) -> None:
+        self._store.platform_settings = settings
+
+
 class _SecurityDefaults:
     def __init__(self, store: MemoryStore) -> None:
         self._store = store
@@ -1780,6 +1794,7 @@ class MemoryUnitOfWork:
     index_generations: IndexGenerationRepository
     jobs: JobRepository
     pii_vault: VaultRepository
+    platform_settings: PlatformSettingsRepository
     security_defaults: SecurityDefaultsRepository
     security_policies: SecurityPolicyRepository
     injection_findings: InjectionFindingRepository
@@ -1833,6 +1848,7 @@ class MemoryUnitOfWork:
         self.index_generations = _IndexGenerations(self._work, tenant)
         self.jobs = _Jobs(self._work)
         self.pii_vault = _Vault(self._work, tenant)
+        self.platform_settings = _PlatformSettings(self._work)
         self.security_defaults = _SecurityDefaults(self._work)
         self.security_policies = _SecurityPolicies(self._work, tenant)
         self.injection_findings = _InjectionFindings(self._work, tenant)

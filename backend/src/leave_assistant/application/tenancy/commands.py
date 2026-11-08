@@ -22,9 +22,9 @@ UNSET: Any = _Unset()
 class CreateTenant:
     slug: str
     name: str
-    default_locale: Locale
-    timezone: str
-    settings: dict[str, Any] | None = None
+    default_locale: Locale | None = None  # None → the platform settings (M10)
+    timezone: str | None = None
+    settings: dict[str, Any] | None = None  # merged over the platform's tenant settings
 
 
 @dataclass(frozen=True, slots=True)

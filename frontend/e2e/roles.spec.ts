@@ -5,8 +5,8 @@ const cases: { name: keyof typeof USERS; expectMenu: string[]; forbid: string[] 
   { name: 'employee', expectMenu: ['My leave', 'Notifications'], forbid: ['Approvals', 'Employees', 'Companies'] },
   { name: 'manager', expectMenu: ['My leave', 'Approvals', 'Team availability'], forbid: ['Employees', 'Companies'] },
   { name: 'hr', expectMenu: ['Approvals', 'Team requests', 'Balances', 'Audit log'], forbid: ['Employees', 'Companies'] },
-  { name: 'companyAdmin', expectMenu: ['Employees', 'Departments', 'Public holidays', 'Approval rules', 'Balances'], forbid: ['Approvals', 'Companies'] },
-  { name: 'platform', expectMenu: ['Companies', 'Platform audit'], forbid: ['My leave', 'Approvals', 'Employees'] },
+  { name: 'companyAdmin', expectMenu: ['Employees', 'Departments', 'Public holidays', 'Approval rules', 'Company settings', 'Security policy', 'Balances'], forbid: ['Approvals', 'Companies'] },
+  { name: 'platform', expectMenu: ['Companies', 'Platform audit', 'Platform settings'], forbid: ['My leave', 'Approvals', 'Employees'] },
 ]
 
 for (const c of cases) {

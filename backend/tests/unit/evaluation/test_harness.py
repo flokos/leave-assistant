@@ -123,3 +123,12 @@ def test_merged_contexts_keep_every_block_once_in_order() -> None:
     one = '<document id="1" title="T" section="A">\nalpha\n</document>'
     two = '<document id="1" title="T" section="B">\nbeta\n</document>'
     assert merged_contexts([one, one + "\n" + two]) == ["T — A: alpha", "T — B: beta"]
+
+
+def test_live_scenario_selection_keeps_the_fixed_order() -> None:
+    from leave_assistant.evaluation.agent_live import ORDER, selected
+
+    assert selected(None) == list(ORDER)
+    assert selected(frozenset({"S16", "S12"})) == ["S12", "S16"]  # S16 approves what S12 created
+    with pytest.raises(SystemExit, match="S99"):
+        selected(frozenset({"S99"}))

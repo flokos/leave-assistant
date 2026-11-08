@@ -74,6 +74,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tenant Audit Export
+         * @description M10: the filtered audit log as CSV; the export itself is audited (`audit.exported`).
+         */
+        get: operations["tenant_audit_export_api_v1_admin_audit_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/balances": {
         parameters: {
             query?: never;
@@ -471,6 +491,24 @@ export interface paths {
         get: operations["get_security_policy_api_v1_admin_security_policy_get"];
         /** Update Security Policy */
         put: operations["update_security_policy_api_v1_admin_security_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Company Settings */
+        get: operations["get_company_settings_api_v1_admin_settings_get"];
+        /** Update Company Settings */
+        put: operations["update_company_settings_api_v1_admin_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1564,6 +1602,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform Audit Export
+         * @description M10: the filtered audit log as CSV; the export itself is audited (`audit.exported`).
+         */
+        get: operations["platform_audit_export_api_v1_platform_audit_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/health": {
         parameters: {
             query?: never;
@@ -1592,6 +1650,24 @@ export interface paths {
         get: operations["get_security_defaults_api_v1_platform_security_defaults_get"];
         /** Update Security Defaults */
         put: operations["update_security_defaults_api_v1_platform_security_defaults_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Platform Settings */
+        get: operations["get_platform_settings_api_v1_platform_settings_get"];
+        /** Update Platform Settings */
+        put: operations["update_platform_settings_api_v1_platform_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2117,6 +2193,24 @@ export interface components {
             version_id: string;
             /** Version No */
             version_no: number;
+        };
+        /**
+         * CompanySettingsOut
+         * @description The company's own settings (M10, `GET /admin/settings`). `max_upload_mb` is governed by the security policy.
+         */
+        CompanySettingsOut: {
+            /**
+             * Default Locale
+             * @enum {string}
+             */
+            default_locale: "el" | "en";
+            /** Name */
+            name: string;
+            settings: components["schemas"]["TenantSettingsOut"];
+            /** Slug */
+            slug: string;
+            /** Timezone */
+            timezone: string;
         };
         /** ConnectionOut */
         ConnectionOut: {
@@ -3027,6 +3121,22 @@ export interface components {
             /** Year */
             year: number;
         };
+        /**
+         * PlatformSettingsOut
+         * @description `platform.settings` (M10): what a new company gets when its creation leaves a value out.
+         */
+        PlatformSettingsOut: {
+            /**
+             * Default Locale
+             * @enum {string}
+             */
+            default_locale: "el" | "en";
+            tenant_settings: components["schemas"]["TenantSettingsOut"];
+            /** Timezone */
+            timezone: string;
+            /** Updated By */
+            updated_by: string;
+        };
         /** PolicyCreate */
         PolicyCreate: {
             /**
@@ -3746,6 +3856,20 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * SettingsUpdate
+         * @description Partial update: only the given fields change; `settings` keys are merged into the current settings.
+         */
+        SettingsUpdate: {
+            /** Default Locale */
+            default_locale?: ("el" | "en") | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
+            /** Timezone */
+            timezone?: string | null;
+        };
         /** SimulateIn */
         SimulateIn: {
             /**
@@ -4009,14 +4133,13 @@ export interface components {
             /** Period Year */
             period_year: number;
         };
-        /** TenantCreate */
+        /**
+         * TenantCreate
+         * @description Values left out come from the platform settings (`GET /platform/settings`, M10).
+         */
         TenantCreate: {
-            /**
-             * Default Locale
-             * @default en
-             * @enum {string}
-             */
-            default_locale: "el" | "en";
+            /** Default Locale */
+            default_locale?: ("el" | "en") | null;
             /** Name */
             name: string;
             /** Settings */
@@ -4028,11 +4151,8 @@ export interface components {
              * @example aegean
              */
             slug: string;
-            /**
-             * Timezone
-             * @default Europe/Athens
-             */
-            timezone: string;
+            /** Timezone */
+            timezone?: string | null;
         };
         /** TenantOut */
         TenantOut: {
@@ -4558,6 +4678,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageOut_AuditEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tenant_audit_export_api_v1_admin_audit_export_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                action?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV, UTF-8 with BOM; at most 10,000 rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5693,6 +5846,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecurityPolicyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_company_settings_api_v1_admin_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanySettingsOut"];
+                };
+            };
+        };
+    };
+    update_company_settings_api_v1_admin_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanySettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -7908,6 +8114,39 @@ export interface operations {
             };
         };
     };
+    platform_audit_export_api_v1_platform_audit_export_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                action?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV, UTF-8 with BOM; at most 10,000 rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     platform_health_api_v1_platform_health_get: {
         parameters: {
             query?: never;
@@ -7970,6 +8209,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecurityDefaultsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_platform_settings_api_v1_platform_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSettingsOut"];
+                };
+            };
+        };
+    };
+    update_platform_settings_api_v1_platform_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSettingsOut"];
                 };
             };
             /** @description Validation Error */

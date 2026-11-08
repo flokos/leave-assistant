@@ -43,7 +43,7 @@ async def create_tenant(body: TenantCreate, principal: PlatformAdmin, services: 
         CreateTenant(
             slug=body.slug,
             name=body.name,
-            default_locale=Locale(body.default_locale),
+            default_locale=Locale(body.default_locale) if body.default_locale else None,
             timezone=body.timezone,
             settings=body.settings,
         ),

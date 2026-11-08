@@ -23,6 +23,7 @@ from leave_assistant.application.ports import (
     VaultCipher,
     VaultEntry,
 )
+from leave_assistant.application.privacy.filters import filter_document_findings
 from leave_assistant.domain.privacy.normalise import normalise_value
 from leave_assistant.domain.privacy.types import (
     EntityType,
@@ -69,8 +70,15 @@ class PseudonymisationService:
         return self._cipher.configured
 
     def detect(
-        self, text: str, *, language: str | None, known: Sequence[KnownEntity]
+        self,
+        text: str,
+        *,
+        language: str | None,
+        known: Sequence[KnownEntity],
+        document_terms: Sequence[str] | None = None,
     ) -> builtins.list[Finding]:
+        """`document_terms` switches on the document profile (M10, R-30): statistical PERSON/ADDRESS findings are kept
+        only when name- or address-shaped and not organisational terms (`filters.py`)."""
         # request numbers (LR-2026-000123) are business identifiers the user and the tools must see as they are;
         # Presidio's phone pattern otherwise takes their digits (found in M7)
         reserved = [(m.start(), m.end()) for m in REQUEST_NUMBER.finditer(text)]
@@ -80,12 +88,21 @@ class PseudonymisationService:
             if f.score >= self._threshold
             and not any(f.start < end and start < f.end for start, end in reserved)
         ]
+        if document_terms is not None:
+            findings = filter_document_findings(findings, document_terms)
         return merge_findings(findings)
 
     def detect_many(
-        self, texts: Sequence[str], *, language: str | None, known: Sequence[KnownEntity]
+        self,
+        texts: Sequence[str],
+        *,
+        language: str | None,
+        known: Sequence[KnownEntity],
+        document_terms: Sequence[str] | None = None,
     ) -> builtins.list[builtins.list[Finding]]:
-        return [self.detect(text, language=language, known=known) for text in texts]
+        return [
+            self.detect(text, language=language, known=known, document_terms=document_terms) for text in texts
+        ]
 
     async def apply(
         self,

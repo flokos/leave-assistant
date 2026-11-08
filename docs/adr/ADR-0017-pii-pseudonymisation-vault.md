@@ -51,3 +51,11 @@ predefined ones are `en`-only), the known-entity layer keyed by employee id, the
 tenant id as AAD), `LlmSafeText`, the re-identification library and fail-closed ingestion. Keys come from the
 environment (`VAULT_HMAC_KEY`, `VAULT_KEK`; `make env` generates local ones). Re-identification is wired into chat
 in M6/M7. See doc 08 §7.6 and worklog M5.
+
+## M10 amendment (2026-11-07): precision filter for documents
+Measured in M9 and M10, spaCy's statistical NER pseudonymised ordinary policy wording in document chunks (15 of 15
+statistical PERSON/ADDRESS findings in the seed policies were false positives). Document text is now detected with a
+document profile that keeps such findings only when they are name- or address-shaped and not organisational terms;
+the known-entity layer, the pattern recognisers, user messages and tool results are unchanged (doc 08 §7.7). The
+transformer-NER swap path (GLiNER/XLM-R) stays open but was not needed for the observed errors and would add a model to
+a full memory budget.

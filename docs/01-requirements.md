@@ -172,7 +172,7 @@ management as a concrete, bounded domain (brief §2, §3, §17).
 | FR-AGENT-05 | Graph state, conversation history and business records are stored separately. | P1 | §6.1 |
 | FR-AGENT-06 | Error recovery: bounded node retries for transient errors, provider failover, safe fallback messages, no partial business effects. | P1 | §4.2, §6 |
 | FR-AGENT-07 | Responses in the user's language (EL/EN) regardless of document language. | P1 | §11 |
-| FR-AGENT-08 | Provider abstraction with Gemini primary and Groq failover, timeouts, bounded retries, health tracking, selection logging, env configuration; no failover on invalid output, security or authorization errors. | P1 | §4.2 |
+| FR-AGENT-08 | Provider abstraction with Gemini primary and Groq failover (as built: Mistral, M6 — ADR-0010 amendment), timeouts, bounded retries, health tracking, selection logging, env configuration; no failover on invalid output, security or authorization errors. | P1 | §4.2 |
 
 ### 5.8 PII and content security (FR-PII, FR-SEC)
 | ID | Requirement | Pri | Source |
@@ -282,19 +282,20 @@ Supporting-document requirements are advisory (warning + HR review) until upload
 | NFR-REL-02 | Provider failover completes within the request timeout budget (≤ 25 s per LLM call, ≤ 2 failovers). | Fake provider tests. |
 | NFR-PERF-01 | Policy question end-to-end (excluding LLM latency) ≤ 3 s on the reference machine (4 cores, no GPU) with reranking of ≤ 20 candidates. | Measured in M9; recorded in evaluation docs. |
 | NFR-PERF-02 | Ingestion of a 30-page text PDF ≤ 3 min; scanned PDF ≤ 10 min on the reference machine. | Measured in M9. |
-| NFR-RES-01 | `core` profile fits in ≤ 6 GB RAM; full stack documented at ≥ 16 GB. | Container memory limits in Compose; measured in M10. |
+| NFR-RES-01 | `core` profile fits in ≤ 6 GB RAM; full stack documented at ≥ 16 GB. | Container memory limits in Compose; measured in M10. **M10: met** — staged `core` (embedded worker), sum of per-container peaks during the clean install with ingestion ≈ 4.6 GB (api 3.4 GB of 3.5 GB, Keycloak 0.85 GB, PostgreSQL 0.2 GB, SeaweedFS 0.1 GB); about 1.3 GB at rest (doc 02 §10.1b). |
 | NFR-MAINT-01 | Layered architecture with dependency rules enforced by import-linter; type checking (mypy strict for domain/application); ruff; ≥ 80 % line coverage for domain and application layers. | CI gates. |
 | NFR-TEST-01 | Full deterministic test suite runs without network access to LLM providers. | CI without API keys. |
 | NFR-OBS-01 | Every chat turn is traceable from HTTP request → graph run → tool calls → DB writes via one correlation ID. | Trace assertions in integration tests. |
 | NFR-I18N-01 | All user-facing strings (UI, notifications, assistant templates) exist in EL and EN. | i18n key completeness test. |
-| NFR-PORT-01 | Single `docker compose --profile core up` from a clean clone with only `.env` edited. | Documented and tested in M10. |
+| NFR-PORT-01 | Single `docker compose --profile core up` from a clean clone with only `.env` edited. | Documented and tested in M10. **M10: met after four fixes** found by the test (models downloaded inside the api, documents seeded before the models, a second worker during `make ingest`, inline comments read as values in `.env`); then clone → `make env` + two API keys → install → 16/16 end-to-end (worklog M10). |
 | NFR-LIC-01 | All runtime components under licences permitting self-hosted internal use; exceptions documented (spaCy Greek model). | doc 02 licence table. |
 
 ## 8. Constraints
 
 - C-01 Local-only Docker Compose; no mandatory cloud; external APIs limited to Gemini, Groq, Google Calendar (free tiers).
+  Amended M6: Mistral (free plan) is used in place of Groq, whose signup was blocked (user decision, ADR-0010).
 - C-02 Reference machine today: 4 cores / 7.1 GB RAM / no GPU (measured 2026-11-04).
-- C-03 Runtime LLMs: Gemini and Groq only. Claude is a development tool only.
+- C-03 Runtime LLMs: Gemini and Groq only (as built: Gemini and Mistral, see C-01). Claude is a development tool only.
 - C-04 Selected technologies (brief §4–§12) are the default; deviations go through ADRs and doc 14.
 - C-05 Documentation must never reference an employer, recruitment process or interview.
 

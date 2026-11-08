@@ -197,6 +197,9 @@ async def _answer_items(
             },
             "conversation_id": str(conversation.id),
             "error": error,
+            # the verifier's rejections per draft; since M10 an exhausted verifier is the outcome `fallback` (R-36)
+            "verifier_problems": details.get("grounding_problems") or [],
+            "verifier_exhausted": (done.get("outcome") or run_outcome) == "fallback",
         }
         samples.append(sample)
         sys.stdout.write(
@@ -207,7 +210,9 @@ async def _answer_items(
         await asyncio.sleep(pace)
 
 
-async def run(configs: list[LiveConfig], only: set[str] | None, providers: str) -> dict[str, Any]:
+async def run(
+    configs: list[LiveConfig], only: set[str] | None, providers: str, tag: str = ""
+) -> dict[str, Any]:
     items = [i for i in load() if i.ragas and (not only or i.id in only)]
     budget = CallBudget.from_env()
     pace = float(os.environ.get("EVAL_PACE_SECONDS", "6"))
@@ -215,13 +220,13 @@ async def run(configs: list[LiveConfig], only: set[str] | None, providers: str) 
     summary: dict[str, Any] = {"date": stamp(), "commit": git_commit(), "providers": providers, "configs": {}}
     for config in configs:
         samples = await run_config(config, items, budget, pace, providers)
-        path = RESULTS / f"{summary['date']}-answers-{config.key}.jsonl"
+        path = RESULTS / f"{summary['date']}-answers-{config.key}{tag}.jsonl"
         path.write_text("".join(json.dumps(s, ensure_ascii=False) + "\n" for s in samples), encoding="utf-8")
         summary["configs"][config.key] = {"samples": len(samples), "file": path.name, "tau": config.tau}
     summary["calls"] = budget.calls
     summary["by_model"] = budget.by_model
     summary["provider_events"] = budget.events
-    (RESULTS / f"{summary['date']}-answers.json").write_text(
+    (RESULTS / f"{summary['date']}-answers{tag}.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     return summary
@@ -238,9 +243,13 @@ def main(argv: list[str] | None = None) -> int:
         default="gemini,mistral",
         help="provider order (default: production's); one provider pins every answer to it, for comparable configs",
     )
+    parser.add_argument(
+        "--tag", default="", help="suffix of the result files, e.g. -gemini (M10 spot checks)"
+    )
     args = parser.parse_args(argv)
     configs = [LiveConfig.parse(c) for c in args.config]
-    summary = asyncio.run(run(configs, set(args.only.split(",")) if args.only else None, args.providers))
+    only = set(args.only.split(",")) if args.only else None
+    summary = asyncio.run(run(configs, only, args.providers, args.tag))
     sys.stdout.write(json.dumps({k: summary[k] for k in ("date", "calls", "by_model")}) + "\n")
     return 0
 

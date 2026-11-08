@@ -270,6 +270,23 @@ is the durable cross-user workflow; graph interrupts stay single-user and short-
 - Proposal expiry is the tenant setting `proposal_ttl_minutes` (default 15), not 30 minutes; the worker sweeps
   expired proposals every 5 minutes (`proposal.expire`).
 
+### 6.3 M10 amendments (2026-11-07, worklog M10)
+- **Outcome `fallback` (R-36).** When the grounding verifier rejects both drafts, or the plan loop reaches its
+  iteration cap, the answer is the deterministic rendering of the last useful tool result (or a template) and the run
+  outcome is `fallback`, no longer `answered`. Run metrics, the evaluation harness and RAGAS therefore never count it
+  as an answer; the UI tags it ("Fallback answer"). `edit_invalid` stays `failed`. Outcomes are now
+  `answered · insufficient_evidence · clarify · scope · blocked · error · interrupted · executed · rejected · failed ·
+  fallback`.
+- **Pre-router rule for policy questions.** After every action rule, a question that opens with who/can/may/is it
+  allowed/do I need/what happens (Greek: ποιος/ποια/ποιοι/μπορώ/μπορεί/επιτρέπεται/γίνεται/χρειάζεται/τι ισχύει)
+  routes to the knowledge subgraph without an LLM call — unless it carries concrete details (a digit, a request
+  number, a weekday, a month, "tomorrow", "next week"), which may make it an action request; then the classifier
+  decides as before. M9's R02 ("Who approves a leave request that is longer than five days?") and R29 ("Μπορώ να
+  αλλάξω μια εγκεκριμένη άδεια πριν ξεκινήσει;") had been classified as actions.
+- **`get_team_availability` accepts a department code or name** ("τμήμα Οικονομικών Υπηρεσιών" resolves to `FIN`):
+  code, exact folded name, then word stems (Greek case endings, English plurals); a unique match is required
+  (`application/tenancy/lookup.py`, doc 11 S19).
+
 ## 7. Checkpointing and persistence (ADR-0008)
 
 - `AsyncPostgresSaver` from `langgraph-checkpoint-postgres` with its **own** connection pool and DB role
@@ -334,7 +351,8 @@ stateDiagram-v2
 - Structured output: provider-native JSON schema mode where supported; otherwise JSON instructions + validation.
   Prompts avoid provider-specific features so a failover never changes behaviour (only latency/quality).
 - Prompt caching is not assumed (providers differ); budgets keep calls small instead.
-- Provider order comes from `LLM_PROVIDER_ORDER` (default `gemini,groq`, as the brief selects); switching to Groq-first
+- Provider order comes from `LLM_PROVIDER_ORDER` (default `gemini,groq`, as the brief selects; deployed as
+  `gemini,mistral,groq` since M6 — Mistral replaced Groq as the live second provider, ADR-0010 amendment); switching to Groq-first
   is configuration, not code (decided Q-04).
 
 ## 10. Error recovery and controlled retries

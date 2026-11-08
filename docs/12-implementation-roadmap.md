@@ -147,7 +147,7 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
   - The harness missed the `search_policies` tool's evidence.
   - langchain-mistralai's usage merge (a local patch in the evaluation project).
 
-### M10 — Hardening and documentation completion (M)
+### M10 — Hardening and documentation completion (M) — **done 2026-11-08** (worklog: `docs/development/worklog/M10.md`)
 - Carried over from M8 (user decision): the manual Google Calendar end-to-end checklist (doc 10 §2, worklog M8).
 - From M9: its own outcome for the verifier fallback (R-36); a live Gemini measurement when its quota allows (R-03);
   a department-name lookup for `get_team_availability` (S19); stop NER masking ordinary policy words in document
@@ -155,6 +155,14 @@ Goal: a reproducible skeleton that builds, lints and runs the core infrastructur
 - Platform admin UI completion, security policy UI, audit export, backup/restore script and test, resource limits
   and `WORKER_MODE=embedded` validation on the 7 GB machine, troubleshooting guide, final ADR sync, README.
 - Exit: clean-clone install test following only the docs; all suites green; documentation review against brief §13.
+- Delivered as planned except:
+  - The Google Calendar manual checklist was not run: it needs a Google OAuth client from the user (doc 10 §9).
+  - Gemini was spot-checked within one day's free quota, not evaluated in full (R-03).
+  - Platform configuration holds the defaults of new companies only; providers stay in the environment.
+- Found and fixed by the clean-clone test: `make models` inside the api (OOM), models downloaded after the seed,
+  a second worker during `make ingest` (OOM), comments read as values in `.env.example`; the restore check runs
+  before the start.
+- Also: one technology justification document for the whole stack (doc 15), linked from the README.
 
 ## 3. Task breakdown examples (first two milestones)
 

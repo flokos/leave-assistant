@@ -806,6 +806,44 @@
         "title": "CitationOut",
         "type": "object"
       },
+      "CompanySettingsOut": {
+        "additionalProperties": false,
+        "description": "The company's own settings (M10, `GET /admin/settings`). `max_upload_mb` is governed by the security policy.",
+        "properties": {
+          "default_locale": {
+            "enum": [
+              "el",
+              "en"
+            ],
+            "title": "Default Locale",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/TenantSettingsOut"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "default_locale",
+          "timezone",
+          "settings"
+        ],
+        "title": "CompanySettingsOut",
+        "type": "object"
+      },
       "ConnectionOut": {
         "properties": {
           "calendar": {
@@ -3354,6 +3392,39 @@
         "title": "PeriodOut",
         "type": "object"
       },
+      "PlatformSettingsOut": {
+        "additionalProperties": false,
+        "description": "`platform.settings` (M10): what a new company gets when its creation leaves a value out.",
+        "properties": {
+          "default_locale": {
+            "enum": [
+              "el",
+              "en"
+            ],
+            "title": "Default Locale",
+            "type": "string"
+          },
+          "tenant_settings": {
+            "$ref": "#/components/schemas/TenantSettingsOut"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "default_locale",
+          "timezone",
+          "tenant_settings",
+          "updated_by"
+        ],
+        "title": "PlatformSettingsOut",
+        "type": "object"
+      },
       "PolicyCreate": {
         "additionalProperties": false,
         "properties": {
@@ -5488,6 +5559,53 @@
         "title": "SendMessageIn",
         "type": "object"
       },
+      "SettingsUpdate": {
+        "additionalProperties": false,
+        "description": "Partial update: only the given fields change; `settings` keys are merged into the current settings.",
+        "properties": {
+          "default_locale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "el",
+                  "en"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Locale"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "title": "SettingsUpdate",
+        "type": "object"
+      },
       "SimulateIn": {
         "additionalProperties": false,
         "properties": {
@@ -6093,15 +6211,22 @@
       },
       "TenantCreate": {
         "additionalProperties": false,
+        "description": "Values left out come from the platform settings (`GET /platform/settings`, M10).",
         "properties": {
           "default_locale": {
-            "default": "en",
-            "enum": [
-              "el",
-              "en"
+            "anyOf": [
+              {
+                "enum": [
+                  "el",
+                  "en"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Default Locale",
-            "type": "string"
+            "title": "Default Locale"
           },
           "name": {
             "maxLength": 120,
@@ -6131,10 +6256,16 @@
             "type": "string"
           },
           "timezone": {
-            "default": "Europe/Athens",
-            "maxLength": 64,
-            "title": "Timezone",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
           }
         },
         "required": [
@@ -7345,6 +7476,87 @@
           }
         },
         "summary": "Tenant Audit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/audit/export": {
+      "get": {
+        "description": "M10: the filtered audit log as CSV; the export itself is audited (`audit.exported`).",
+        "operationId": "tenant_audit_export_api_v1_admin_audit_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV, UTF-8 with BOM; at most 10,000 rows"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Audit Export",
         "tags": [
           "admin"
         ]
@@ -9029,6 +9241,67 @@
           }
         },
         "summary": "Update Security Policy",
+        "tags": [
+          "admin"
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "get_company_settings_api_v1_admin_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanySettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Company Settings",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_company_settings_api_v1_admin_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanySettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Company Settings",
         "tags": [
           "admin"
         ],
@@ -12447,6 +12720,87 @@
         ]
       }
     },
+    "/api/v1/platform/audit/export": {
+      "get": {
+        "description": "M10: the filtered audit log as CSV; the export itself is audited (`audit.exported`).",
+        "operationId": "platform_audit_export_api_v1_platform_audit_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV, UTF-8 with BOM; at most 10,000 rows"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Platform Audit Export",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
     "/api/v1/platform/health": {
       "get": {
         "operationId": "platform_health_api_v1_platform_health_get",
@@ -12525,6 +12879,67 @@
           }
         },
         "summary": "Update Security Defaults",
+        "tags": [
+          "platform"
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/platform/settings": {
+      "get": {
+        "operationId": "get_platform_settings_api_v1_platform_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Platform Settings",
+        "tags": [
+          "platform"
+        ]
+      },
+      "put": {
+        "operationId": "update_platform_settings_api_v1_platform_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Platform Settings",
         "tags": [
           "platform"
         ],

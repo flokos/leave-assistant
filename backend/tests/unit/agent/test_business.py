@@ -554,6 +554,9 @@ async def test_invented_numbers_are_regenerated_then_replaced_by_the_tool_facts(
     assert "25" not in text and "27" not in text and "20" in text  # the deterministic fallback
     problems = store.agent_runs[-1].details["grounding_problems"]
     assert len(problems) == 2 and "25" in problems[0][0]
+    # M10 (R-36): the fallback has its own outcome, never `answered`
+    done = next(e for e in events if e.name == "done")
+    assert done.data["outcome"] == "fallback" and store.agent_runs[-1].outcome == "fallback"
 
 
 async def test_business_turns_keep_history_and_checkpoints_clean(

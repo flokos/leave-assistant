@@ -32,9 +32,11 @@ from leave_assistant.api.routers.admin import leave_catalog as admin_leave_catal
 from leave_assistant.api.routers.admin import ledger as admin_ledger
 from leave_assistant.api.routers.admin import retention as admin_retention
 from leave_assistant.api.routers.admin import security as admin_security
+from leave_assistant.api.routers.admin import settings as admin_settings
 from leave_assistant.api.routers.platform import audit as platform_audit
 from leave_assistant.api.routers.platform import health as platform_health
 from leave_assistant.api.routers.platform import security as platform_security
+from leave_assistant.api.routers.platform import settings as platform_settings
 from leave_assistant.api.routers.platform import tenants as platform_tenants
 from leave_assistant.application.container import Services
 from leave_assistant.application.health import ReadinessCheck
@@ -76,6 +78,8 @@ ROUTERS = (
     calendar.callback_router,
     internal.router,
     platform_health.router,
+    admin_settings.router,  # M10
+    platform_settings.router,  # M10
 )
 
 

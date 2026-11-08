@@ -92,7 +92,7 @@ def judge(item: Item, turns: list[Turn], state_ok: bool) -> dict[str, Any]:
 
 
 async def run_provider(
-    provider: str, items: dict[str, Item], budget: CallBudget, pace: float
+    provider: str, items: dict[str, Item], budget: CallBudget, pace: float, only: frozenset[str] | None = None
 ) -> list[dict[str, Any]]:
     settings = host_settings(
         llm_provider_order=provider, langfuse_enabled=os.environ.get("EVAL_TRACE", "1") != "0"
@@ -131,7 +131,7 @@ async def run_provider(
                 open_cards.append((principal, conversation.id, first.card))
             return turns, principal, conversation.id
 
-        for item_id in ORDER:
+        for item_id in selected(only):
             item = items[item_id]
             budget.check(6)
             question = str(item.question)
@@ -261,13 +261,20 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
-async def run(providers: list[str]) -> dict[str, Any]:
+def selected(only: frozenset[str] | None) -> list[str]:
+    """The scenarios in their fixed order (S16 approves what S12 created), restricted by `--only` (M10 spot checks)."""
+    if only is not None and (unknown := only - set(ORDER)):
+        raise SystemExit(f"unknown live scenarios: {sorted(unknown)}")
+    return [i for i in ORDER if only is None or i in only]
+
+
+async def run(providers: list[str], only: frozenset[str] | None = None, tag: str = "") -> dict[str, Any]:
     items = {i.id: i for i in load()}
     budget = CallBudget.from_env()
     pace = float(os.environ.get("EVAL_PACE_SECONDS", "6"))
     results: list[dict[str, Any]] = []
     for provider in providers:
-        results.extend(await run_provider(provider, items, budget, pace))
+        results.extend(await run_provider(provider, items, budget, pace, only))
     summary = {
         "date": stamp(),
         "commit": git_commit(),
@@ -278,7 +285,7 @@ async def run(providers: list[str]) -> dict[str, Any]:
         "provider_events": budget.events,
     }
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f"{summary['date']}-agent-live.json").write_text(
+    (RESULTS / f"{summary['date']}-agent-live{tag}.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8"
     )
     return summary
@@ -287,8 +294,11 @@ async def run(providers: list[str]) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="M9 live agent metrics")
     parser.add_argument("--providers", default="gemini,mistral")
+    parser.add_argument("--only", help="comma-separated scenario ids (default: all live scenarios)")
+    parser.add_argument("--tag", default="", help="suffix of the result file, e.g. -gemini (default: none)")
     args = parser.parse_args(argv)
-    summary = asyncio.run(run([p.strip() for p in args.providers.split(",") if p.strip()]))
+    only = frozenset(s.strip() for s in args.only.split(",") if s.strip()) if args.only else None
+    summary = asyncio.run(run([p.strip() for p in args.providers.split(",") if p.strip()], only, args.tag))
     sys.stdout.write(json.dumps(summary["metrics"]) + "\n")
     return 0
 

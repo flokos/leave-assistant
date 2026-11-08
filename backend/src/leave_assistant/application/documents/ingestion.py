@@ -39,6 +39,7 @@ from leave_assistant.application.ports import (
     UnitOfWork,
     UnitOfWorkFactory,
 )
+from leave_assistant.application.privacy.filters import organisational_terms
 from leave_assistant.application.privacy.service import PseudonymisationService
 from leave_assistant.application.security.policy import SecurityPolicyService
 from leave_assistant.application.security.scan import InjectionScanService, excerpt_hash
@@ -186,6 +187,7 @@ class IngestionPipeline:
             await uow.document_versions.update(version)
             policy = await self._policies.policy_for(uow, tenant_id)
             known = await self._known_entities(uow)
+            terms = await self._document_terms(uow)
             await uow.commit()
 
         parsed, structural = await self._parse(version)
@@ -209,7 +211,7 @@ class IngestionPipeline:
             thresholds=self._policies.thresholds(policy),
             structural_flags=structural,
         )
-        pii_findings = await self._detect_pii(contents, language, known)
+        pii_findings = await self._detect_pii(contents, language, known, terms)
         vectors = await asyncio.to_thread(self._embedder.embed_passages, [d.embed_text for d in drafts])
         key = extracted_key(tenant_id, document.id, version.version_no)
         await self._storage.put_bytes(
@@ -296,6 +298,7 @@ class IngestionPipeline:
         async with self._uow(context) as uow:
             version, document = await self._load(uow, version_id)
             known = await self._known_entities(uow)
+            terms = await self._document_terms(uow)
             policy = await self._policies.policy_for(uow, tenant_id)
         if version.extracted_object_key is None:
             raise IngestionError(
@@ -313,7 +316,7 @@ class IngestionPipeline:
             thresholds=self._policies.thresholds(policy),
             structural_flags=structural,
         )
-        pii_findings = await self._detect_pii(contents, version.language, known)
+        pii_findings = await self._detect_pii(contents, version.language, known, terms)
         vectors = await asyncio.to_thread(self._embedder.embed_passages, [d.embed_text for d in drafts])
         now = self._clock.now()
         async with self._uow(context) as uow:
@@ -486,8 +489,13 @@ class IngestionPipeline:
             for e in await uow.employees.list_active()
         ]
 
+    @staticmethod
+    async def _document_terms(uow: UnitOfWork) -> tuple[str, ...]:
+        """Organisational terms never pseudonymised in documents (M10, R-30): built-in HR terms + department names."""
+        return organisational_terms(d.name for d in await uow.departments.list())
+
     async def _detect_pii(
-        self, contents: list[str], language: str | None, known: list[KnownEntity]
+        self, contents: list[str], language: str | None, known: list[KnownEntity], terms: tuple[str, ...]
     ) -> list[list[Finding]]:
         """Fail closed (doc 08 §7.5): missing keys or an engine failure never yield an ACTIVE version."""
         if not self._privacy.configured:
@@ -496,7 +504,7 @@ class IngestionPipeline:
             )
         try:
             return await asyncio.to_thread(
-                self._privacy.detect_many, contents, language=language, known=known
+                self._privacy.detect_many, contents, language=language, known=known, document_terms=terms
             )
         except Exception as exc:  # noqa: BLE001 - the reason is recorded on the version, never swallowed
             raise IngestionError("pii_scan_failed", f"{type(exc).__name__}: {str(exc)[:300]}") from exc

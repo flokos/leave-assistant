@@ -38,9 +38,9 @@ describe('workspace menu per role (UX only — the API re-authorises every call)
   })
   it('company admin: administration pages, balances and audit but no approvals', () => {
     const keys = keysOf(principalWith(['employee', 'company_admin']))
-    expect(keys).toEqual(['/chat', '/leave', '/notifications', '/documents', '/calendar', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/balances', '/admin/review-queue', '/admin/retention', '/admin/audit', '/system'])
+    expect(keys).toEqual(['/chat', '/leave', '/notifications', '/documents', '/calendar', '/admin/employees', '/admin/departments', '/admin/leave-catalog', '/admin/holidays', '/admin/approval-rules', '/admin/settings', '/admin/security-policy', '/admin/balances', '/admin/review-queue', '/admin/retention', '/admin/audit', '/system'])
   })
-  it('platform admin: tenants and platform audit only', () => {
-    expect(keysOf(principalWith(['platform_admin'], { platform: true }))).toEqual(['/platform/tenants', '/platform/audit', '/system'])
+  it('platform admin: tenants, platform audit and platform settings only', () => {
+    expect(keysOf(principalWith(['platform_admin'], { platform: true }))).toEqual(['/platform/tenants', '/platform/audit', '/platform/settings', '/system'])
   })
 })
